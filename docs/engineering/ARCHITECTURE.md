@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-25，`main` @ `2afcb0c`（PR #33 合并后），Godot 4.7.2 导入零错误、**十七个测试套件 716 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main` @ `b504b4f`（PR #36/#40 合并后），Godot 4.7.2 导入零错误、**十七个测试套件 752 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -15,7 +15,7 @@
 ├── scripts/
 │   ├── main.gd                       # 极简入口脚本
 │   ├── actors/battle_actor.gd        # 战斗单位运行时数据与伤害结算
-│   ├── battle/                       # 战斗规则、状态与数据目录（22 个模块，见下）
+│   ├── battle/                       # 战斗规则、状态与数据目录（27 个模块，见下）
 │   └── ui/battle_view.gd             # 战斗界面：绘制、输入、技能栏、结算面板
 ├── data/
 │   ├── enemies/                      # 三种敌人的 .tres 属性档案（M1）
@@ -39,12 +39,12 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `battle_controller.gd` | 267 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
-| `battle_flow.gd` | 225 | 回合边界、遭遇构建、终止判定 | — |
+| `battle_controller.gd` | 307 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
+| `battle_flow.gd` | 232 | 回合边界、遭遇构建、终止判定 | — |
 | `intent_planner.gd` | 129 | 敌方意图生成 | — |
-| `intent_resolver.gd` | 188 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
-| `skill_executor.gd` | 163 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
-| `damage_pipeline.gd` | 75 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
+| `intent_resolver.gd` | 190 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
+| `skill_executor.gd` | 210 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
+| `damage_pipeline.gd` | 84 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
 | `summon_service.gd` | 98 | 猎人通灵 | — |
 
 #### 数据与规则件
@@ -100,25 +100,25 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `battle_actor.gd` | 188 | 单位身份、阵营、格位、整数血量、护盾、终极能量、承伤与阵亡状态 | 终段减伤在防御/抗性之后应用 |
+| `battle_actor.gd` | 205 | 单位身份、阵营、格位、整数血量、护盾、终极能量、承伤与阵亡状态 | 终段减伤在防御/抗性之后应用 |
 
 ### 表现层（`scripts/ui/`）
 
-表现层拆为六个文件，`battle_view.gd`（293 行）只做编排：保留遭遇生命周期、技能栏与玩家意图，绘制全部转发给下面的视图，原始输入转发给 `input_router`。
+表现层拆为六个文件，`battle_view.gd`（295 行）只做编排：保留遭遇生命周期、技能栏与玩家意图，绘制全部转发给下面的视图，原始输入转发给 `input_router`。
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `battle_view.gd` | 293 | 编排：关卡流程、技能栏构建、点击分发（敌人 / 友军 / 空地）、控制器信号 |
-| `board_view.gd` | 199 | 棋盘、障碍、单位与状态标记、意图预告、目标圈（`can_target()` 转发 `can_aim()`，`can_target_ally()` 管友军） |
+| `battle_view.gd` | 295 | 编排：关卡流程、技能栏构建、点击分发（敌人 / 友军 / 空地）、控制器信号 |
+| `board_view.gd` | 210 | 棋盘、障碍、单位与状态标记、意图预告、目标圈（`can_target()` 转发 `can_aim()`，`can_target_ally()` 管友军） |
 | `skill_bar_view.gd` | 185 | 五格技能栏、结束回合按钮、操作提示；`mode` 分 actor / ally / self，`skill_rect()` 是唯一的按钮几何，`is_affordable()` 是唯一的按钮可用判据 |
-| `theme_palette.gd` | 124 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
-| `hud_view.gd` | 103 | 标题、回合与资源读数、战术提示、敌方行动顺序 |
+| `theme_palette.gd` | 128 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
+| `hud_view.gd` | 158 | 标题、回合与资源读数、剑意与极意状态、战术提示、敌方行动顺序、队伍状态栏（含倒地标记） |
 | `settlement_view.gd` | 71 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |
 | `input_router.gd` | 66 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 
-输入约定：数字键 `1`–`5` 对应技能栏顺序；`Esc` 或右键取消目标选择；`Enter`/空格结束回合。自身技能按下即施放，目标技能需再点战场上的敌人确认。结算面板出现时，点击只响应「重开本关」与「下一关」。
+输入约定：数字键 `1`–`6` 按序对应技能栏（当前栏最多五格，第六键为扩展位）；`Esc` 或右键取消目标选择；`Enter`/空格结束回合。自身技能按下即施放，目标技能需再点战场上的敌人确认。结算面板出现时，点击只响应「重开本关」与「下一关」。
 
 ## 运行时数据流
 
@@ -171,4 +171,4 @@ UI 不计算任何结果：命中、伤害、死亡、意图取消、护盾吸�
 
 ## 验证状态
 
-见 `docs/engineering/PROJECT_STATUS.md` 与 `docs/engineering/BASELINE.md`：2026-11-25 在 Godot 4.7.2（Windows）完成导入、十七个测试套件（716 条断言）与主场景运行。Windows 人工交互手感、画面观感、Android 真机表现仍未验证。更早的 Linux 无头运行记录保留在 `docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md` 作为历史参考。
+见 `docs/engineering/PROJECT_STATUS.md` 与 `docs/engineering/BASELINE.md`（**当前套件数与断言总数以 BASELINE 的「断言总数」行为准，不在本页写死**，避免随基线演进腐化）：2026-11-26 在 Godot 4.7.2（Windows）完成导入、全套无头回归与主场景运行。Windows 人工交互手感、画面观感、Android 真机表现仍未验证。更早的 Linux 无头运行记录保留在 `docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md` 作为历史参考。

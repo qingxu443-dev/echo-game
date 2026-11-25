@@ -8,6 +8,7 @@ extends RefCounted
 
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 
 ## Title block. Drawn before the board so the battlefield never covers it.
@@ -79,9 +80,12 @@ static func _draw_wrapped(canvas: CanvasItem, font: Font, text: String, pos: Vec
 		y += float(size) + 6.0
 
 
+## Display name from data when the id is a playable character, so adding a
+## character does not require adding a branch to the HUD.
 static func actor_name(actor_id: String) -> String:
-	if actor_id == "sevrin":
-		return "瑟弗林"
+	var definition = CharacterCatalogScript.get_definition(actor_id)
+	if definition != null:
+		return definition.display_name_zh
 	if actor_id.begins_with("vanguard"):
 		return "先锋"
 	if actor_id.begins_with("marksman"):

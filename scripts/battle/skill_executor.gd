@@ -27,13 +27,18 @@ const JUDGMENT_MARK_DEFENSE_MULTIPLIER: float = 0.8
 
 static func absolute_guard(battle) -> bool:
 	## Ultimate: taunt eligible single-target attacks and counter once per enemy.
+	## The guardian is the commanded character, so the stance belongs to whoever
+	## can actually cast it rather than to one fixed id.
 	var actors = battle.actors
-	if battle.phase != battle.BattlePhase.PLAYER or not actors.has("sevrin"):
+	if battle.phase != battle.BattlePhase.PLAYER:
 		return false
-	var caster = actors["sevrin"]
+	var caster = battle.get_active_character()
+	if caster == null:
+		return false
+	var caster_id: String = caster.actor_id
 	if not caster.is_alive() or not battle.ap.can_spend(ABSOLUTE_GUARD_AP) or caster.ultimate_energy < ABSOLUTE_GUARD_ENERGY:
 		return false
-	if not battle.statuses.apply_status(&"absolute_guard", "sevrin", "sevrin", 1, 1, -1, &"player_phase_start", &"replace"):
+	if not battle.statuses.apply_status(&"absolute_guard", caster_id, caster_id, 1, 1, -1, &"player_phase_start", &"replace"):
 		return false
 	# Both spends are guarded above, but revert whichever one landed: spending AP
 	# and then failing on energy used to lose the AP silently.
@@ -44,10 +49,10 @@ static func absolute_guard(battle) -> bool:
 			caster.gain_ultimate_energy(ABSOLUTE_GUARD_ENERGY)
 		if spent_ap:
 			battle.ap.refund(ABSOLUTE_GUARD_AP)
-		battle.statuses.remove_status("sevrin", &"absolute_guard")
+		battle.statuses.remove_status(caster_id, &"absolute_guard")
 		return false
-	gain_active_energy(battle, "sevrin")
-	battle._emit_event("skill_resolved", "sevrin", "sevrin", "skill=absolute_guard ap=2 energy=5 radius=2 expires=next_player_phase_start")
+	gain_active_energy(battle, caster_id)
+	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=2 energy=5 radius=2 expires=next_player_phase_start")
 	return true
 
 
@@ -143,9 +148,12 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 	## V2 Judgment Mark: a DEF-scaled strike and a single replaceable mark.
 	## This is deliberately separate from the legacy judgment_mark status/API.
 	var actors = battle.actors
-	if battle.phase != battle.BattlePhase.PLAYER or not actors.has("sevrin") or not actors.has(target_actor_id):
+	if battle.phase != battle.BattlePhase.PLAYER or not actors.has(target_actor_id):
 		return false
-	var caster = actors["sevrin"]
+	var caster = battle.get_active_character()
+	if caster == null:
+		return false
+	var caster_id: String = caster.actor_id
 	var target = actors[target_actor_id]
 	if not caster.is_alive() or not target.is_alive() or target.team != "enemy":
 		return false
@@ -160,15 +168,15 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 		return false
 	for actor_id in actors.keys():
 		battle.statuses.remove_status(String(actor_id), &"oathkeeper_mark")
-	if not battle.statuses.apply_status(&"oathkeeper_mark", "sevrin", target_actor_id, 1, 1, -1, &"enemy_phase_end", &"replace"):
+	if not battle.statuses.apply_status(&"oathkeeper_mark", caster_id, target_actor_id, 1, 1, -1, &"enemy_phase_end", &"replace"):
 		battle.ap.refund(1)
 		return false
-	gain_active_energy(battle, "sevrin")
+	gain_active_energy(battle, caster_id)
 	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.defense, JUDGMENT_MARK_DEFENSE_MULTIPLIER)
-	battle._apply_damage(target_actor_id, raw_damage, "sevrin", "oathkeeper_judgment_mark", "physical")
+	battle._apply_damage(target_actor_id, raw_damage, caster_id, "oathkeeper_judgment_mark", "physical")
 	battle._emit_event(
 		"skill_resolved",
-		"sevrin",
+		caster_id,
 		target_actor_id,
 		"skill=oathkeeper_judgment_mark ap=1 raw=%d mark=oathkeeper_mark expires=enemy_phase_end" % raw_damage
 	)

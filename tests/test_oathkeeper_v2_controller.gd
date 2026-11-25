@@ -131,24 +131,24 @@ func _test_absolute_guard_taunt_counter_and_energy() -> void:
 	_check(battle.statuses.has_status("sevrin", &"absolute_guard"), "Absolute Guard status is active after casting")
 
 	var melee = IntentScript.new("taunt_test", "vanguard_00", "basic_melee", IntentScript.TargetMode.ACTOR_LOCKED, "ally_test", Vector2i(1, 2), [Vector2i(1, 2)], 100, 0)
-	battle._redirect_single_target_intent_to_sevrin(melee)
+	battle._redirect_single_target_intent_to_guardian(melee)
 	_check(melee.target_actor_id == "sevrin" and melee.target_cell == sevrin.cell, "Absolute Guard redirects a legal single-target melee intent")
 	enemy.cell = Vector2i(3, 1)
 	var charged = IntentScript.new("charged_test", "vanguard_00", "charged_strike", IntentScript.TargetMode.TILE_LOCKED, "", Vector2i(1, 2), [Vector2i(1, 2)], 100, 0)
-	battle._redirect_single_target_intent_to_sevrin(charged)
+	battle._redirect_single_target_intent_to_guardian(charged)
 	_check(charged.target_cell == sevrin.cell and charged.affected_cells == [sevrin.cell], "Absolute Guard redirects a legal two-cell charged strike to Sevrin")
 	battle.blocked_cells[Vector2i(2, 1)] = true
 	var blocked_charged = IntentScript.new("blocked_charged_test", "vanguard_00", "charged_strike", IntentScript.TargetMode.TILE_LOCKED, "", Vector2i(1, 2), [Vector2i(1, 2)], 100, 0)
-	battle._redirect_single_target_intent_to_sevrin(blocked_charged)
+	battle._redirect_single_target_intent_to_guardian(blocked_charged)
 	_check(blocked_charged.target_cell == Vector2i(1, 2), "Absolute Guard does not redirect a charged strike through blocked line of sight")
 	battle.blocked_cells.erase(Vector2i(2, 1))
 	var area_cells: Array[Vector2i] = [Vector2i(3, 1), Vector2i(3, 2)]
 	var area_intent = IntentScript.new("area_test", "vanguard_00", "ground_pulse", IntentScript.TargetMode.AREA_LOCKED, "", Vector2i(3, 1), area_cells, 100, 0)
-	battle._redirect_single_target_intent_to_sevrin(area_intent)
+	battle._redirect_single_target_intent_to_guardian(area_intent)
 	_check(area_intent.target_cell == Vector2i(3, 1) and area_intent.affected_cells == area_cells, "Absolute Guard never changes area attack geometry")
 	enemy.cell = Vector2i(4, 1)
 	var ranged = IntentScript.new("ranged_test", "vanguard_00", "aimed_shot", IntentScript.TargetMode.TILE_LOCKED, "", Vector2i(4, 1), [Vector2i(4, 1)], 100, 0)
-	battle._redirect_single_target_intent_to_sevrin(ranged)
+	battle._redirect_single_target_intent_to_guardian(ranged)
 	_check(ranged.target_cell == Vector2i(4, 1), "Absolute Guard does not redirect an attack outside its two-cell radius")
 
 	sevrin.shield = 500
@@ -209,11 +209,11 @@ func _test_absolute_guard_redirects_distant_melee() -> void:
 	var enemy = battle.get_actor("vanguard_00")
 	enemy.cell = Vector2i(3, 1)
 	var distant_melee = IntentScript.new("distant_melee_test", "vanguard_00", "basic_melee", IntentScript.TargetMode.ACTOR_LOCKED, "ally_test", Vector2i(1, 2), [Vector2i(1, 2)], 100, 0)
-	battle._redirect_single_target_intent_to_sevrin(distant_melee)
+	battle._redirect_single_target_intent_to_guardian(distant_melee)
 	_check(distant_melee.target_actor_id == "sevrin" and distant_melee.target_cell == Vector2i(1, 1), "a melee inside the taunt radius redirects even when Sevrin is not adjacent")
 	enemy.cell = Vector2i(4, 1)
 	var far_melee = IntentScript.new("far_melee_test", "vanguard_00", "basic_melee", IntentScript.TargetMode.ACTOR_LOCKED, "ally_test", Vector2i(1, 2), [Vector2i(1, 2)], 100, 0)
-	battle._redirect_single_target_intent_to_sevrin(far_melee)
+	battle._redirect_single_target_intent_to_guardian(far_melee)
 	_check(far_melee.target_actor_id == "ally_test", "a melee beyond the taunt radius keeps its original target")
 	battle.queue_free()
 

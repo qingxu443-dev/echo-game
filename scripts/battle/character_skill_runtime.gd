@@ -73,6 +73,9 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 		if caster != null:
 			target_actor_id = caster.actor_id
 
+	# The executors resolve the caster as the commanded character themselves, so
+	# there is one rule in one place rather than a parameter every call has to
+	# remember to pass correctly.
 	match String(skill.executor_id):
 		"oathkeeper_judgment_mark":
 			return SkillExecutorScript.judgment_mark_v2(battle, target_actor_id)

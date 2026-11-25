@@ -78,6 +78,17 @@ wc -l scripts/**/*.gd
 
 槽位见 `CharacterDefinition.SLOT_ORDER`：普通攻击、被动、主动一、主动二、终极。技能栏由当前角色的槽位生成，`Tab` 切换角色。
 
+**执行层不认角色名**：施法者一律取 `active_character_id`，没有任何执行器假定某一个角色。机制则按「状态在谁身上」或「谁带这个被动」解析：
+
+| 机制 | 归属依据 | 而不是 |
+|---|---|---|
+| 誓盾庇护 / 裁决印记 / 绝对守护的施法者 | `controller.active_character_id` | 固定瑟弗林 |
+| 移动 | `controller.active_character_id` | 固定瑟弗林 |
+| 不屈誓约累积 | `has_passive(actor_id, &"oath_vow")` | 硬编码目标 id |
+| 绝对守护的嘲讽与反击 | `get_absolute_guardian()`，即持有 `absolute_guard` 状态者 | 硬编码瑟弗林 |
+
+所以「谁在守」由状态决定，「谁的誓约」由被动决定，与角色 id 无关。
+
 **通灵不是角色技能**：它属于玩家，任何角色都能使用，技能栏在角色槽位之后追加。技能 id 形如 `summon:yu_bubble`，运行时按前缀分派，因此新增一个通灵不需要改代码——只加一个 `.tres`。
 
 ### 单位（`scripts/actors/`）

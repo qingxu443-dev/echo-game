@@ -43,16 +43,21 @@ static func apply(
 	## counts as a hit, even when a shield fully absorbs it. Guard bookkeeping and
 	## Oath Vow follow this one rule. The settlement tallies below intentionally
 	## stay health-based so they report real attrition.
-	if was_hit and is_public_intent and target_actor_id == "sevrin" and actors.has(source_actor_id) and actors[source_actor_id].team == "enemy":
-		if statuses.has_status("sevrin", &"absolute_guard") and not resolving_intent_id.is_empty():
+	# Oath Vow belongs to the passive, not to a character id: whoever carries the
+	# passive accumulates when a telegraphed enemy action lands on them. Guard
+	# bookkeeping follows the status, so a guardian other than the prototype's
+	# works the same way.
+	if was_hit and is_public_intent and actors.has(source_actor_id) and actors[source_actor_id].team == "enemy":
+		if statuses.has_status(target_actor_id, &"absolute_guard") and not resolving_intent_id.is_empty():
 			battle.absolute_guard_hit_intents[resolving_intent_id] = true
-		var intent_key: String = resolving_intent_id if not resolving_intent_id.is_empty() else "%d:%s:%s" % [battle.turn_number, source_actor_id, action_id]
-		if not battle.oath_vow_triggered_intents.has(intent_key):
-			battle.oath_vow_triggered_intents[intent_key] = true
-			var current_vow_stacks: int = battle.get_oath_vow_stacks("sevrin")
-			if current_vow_stacks < 3:
-				statuses.apply_status(&"oath_vow", source_actor_id, "sevrin", 1, 3, -1, &"", &"add")
-				battle._emit_event("status_applied", source_actor_id, "sevrin", "status=oath_vow stacks=%d" % battle.get_oath_vow_stacks("sevrin"))
+		if battle.has_passive(target_actor_id, &"oath_vow"):
+			var intent_key: String = resolving_intent_id if not resolving_intent_id.is_empty() else "%d:%s:%s" % [battle.turn_number, source_actor_id, action_id]
+			if not battle.oath_vow_triggered_intents.has(intent_key):
+				battle.oath_vow_triggered_intents[intent_key] = true
+				var current_vow_stacks: int = battle.get_oath_vow_stacks(target_actor_id)
+				if current_vow_stacks < 3:
+					statuses.apply_status(&"oath_vow", source_actor_id, target_actor_id, 1, 3, -1, &"", &"add")
+					battle._emit_event("status_applied", source_actor_id, target_actor_id, "status=oath_vow stacks=%d" % battle.get_oath_vow_stacks(target_actor_id))
 
 	if applied > 0:
 		if target.team == "enemy":

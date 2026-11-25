@@ -18,6 +18,7 @@ const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 
 func _run() -> void:
 	_test_characters_come_from_data()
+	_test_sevrin_normal_attack()
 	_test_party_spawns_from_the_level_sheet()
 	_test_switching_is_free_and_party_wide()
 	_test_pierce_blossom_applies_the_mark_without_follow_up()
@@ -48,6 +49,30 @@ func _test_characters_come_from_data() -> void:
 	_check(skills.size() == 5, "Sakura brings five slots")
 	var active := SkillRegistryScript.active_skills_for_character("sakura")
 	_check(active.size() == 4, "the passive is not a button")
+
+
+## §15: every character has a normal attack. Sevrin's takes the shared executor.
+func _test_sevrin_normal_attack() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin"]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], ids, [])
+	var enemy = battle.get_actor("vanguard_00")
+	var health_before: int = enemy.health
+	var ap_before: int = battle.ap.current
+
+	_check(battle.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves on an adjacent enemy")
+	# 2000 ATK x 1.0 against 700 defense: floor(2000 * 1000 / 1700) = 1176
+	_check(health_before - enemy.health == 1176, "the normal attack deals full attack through defense")
+	_check(battle.ap.current == ap_before - 1, "the normal attack costs one AP")
+	battle.queue_free()
+
+	var far = ControllerScript.new()
+	root.add_child(far)
+	far.start_encounter(Vector2i(1, 1), [Vector2i(3, 1)])
+	_check(not far.request_skill(&"oathblade", "vanguard_00"), "the normal attack refuses a non-adjacent target")
+	_check(far.ap.current == far.ap.maximum, "a refused normal attack spends nothing")
+	far.queue_free()
 
 
 func _test_party_spawns_from_the_level_sheet() -> void:

@@ -44,10 +44,13 @@ const ULTIMATE_FINISHER_FULL_BONUS: float = 0.20
 
 ## Single entry point for "the active character uses this skill on this target".
 static func request(battle, skill_id: StringName, target_actor_id: String) -> bool:
-	# The hunter summon is a player-side support action rather than a character
-	# skill, so it is not in any sheet or catalog. It takes this one branch.
-	if skill_id == &"hunter_summon":
-		return SummonServiceScript.request(battle, target_actor_id)
+	# Summons are player-side support actions rather than character skills, so they
+	# live in their own catalog. The bar names them "summon:<id>" so one entry point
+	# can serve every summon without a branch per summon.
+	var summon_prefix := "summon:"
+	if String(skill_id).begins_with(summon_prefix):
+		var summon_id := StringName(String(skill_id).substr(summon_prefix.length()))
+		return SummonServiceScript.request(battle, summon_id, target_actor_id)
 
 	var skill := SkillRegistryScript.get_skill(skill_id)
 	if skill == null or skill.is_passive:
@@ -67,6 +70,8 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 			return SkillExecutorScript.oath_shield(battle, target_actor_id)
 		"absolute_guard":
 			return SkillExecutorScript.absolute_guard(battle)
+		"basic_attack":
+			return _basic_attack(battle, skill, target_actor_id)
 		"sakura_pierce_blossom":
 			return _pierce_blossom(battle, skill, target_actor_id)
 		"sakura_flowing_wind":
@@ -76,6 +81,27 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 		"sakura_endless_fragrance":
 			return _endless_fragrance(battle, skill)
 	return false
+
+
+## Shared normal attack: adjacent single target, damage only. Characters with an
+## extra rider (Sakura's mark) use their own executor instead.
+static func _basic_attack(battle, skill, target_actor_id: String) -> bool:
+	var caster = battle.get_active_character()
+	if not _can_cast(battle, caster, skill):
+		return false
+	var target = battle.actors.get(target_actor_id)
+	if target == null or target.team != "enemy" or not target.is_alive():
+		return false
+	if GridRulesScript.manhattan_distance(caster.cell, target.cell) != 1:
+		return false
+	if not battle.ap.spend(skill.ap_cost):
+		return false
+
+	_apply_segments(battle, caster, skill, [target], String(skill.skill_id))
+	gain_intent_from_action(battle, caster)
+	battle._emit_event("attack_resolved", caster.actor_id, target_actor_id, "%s ap=1" % String(skill.skill_id))
+	battle._check_battle_end()
+	return true
 
 
 # --- Sakura ------------------------------------------------------------------

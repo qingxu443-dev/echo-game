@@ -1,63 +1,80 @@
 class_name SummonService
 extends RefCounted
 
-## The hunter summon: a free support strike on a cooldown.
+## Player-side summons: a support strike on a cooldown.
 ##
-## The hunter is not a battlefield unit. It appears next to the chosen enemy,
+## A summon is not a battlefield unit. It appears next to the chosen enemy,
 ## strikes once and is gone, so it never occupies a cell, never appears in the
 ## intent order and can never be targeted. That falls out of the design rather
-## than being enforced: enemy intent generation only ever locks onto "sevrin".
+## than being enforced: enemy intents only ever lock onto a party member.
 ##
-## Numbers stay on the controller (HUNTER_SUMMON_ATTACK and friends) so callers
-## and tests keep reading them from one place.
+## Everything numeric comes from SummonDefinition; this file only knows the rules
+## - who may be aimed at, where the summon appears, and the cooldown clock.
 
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
+const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
+const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 
 
-## Remaining turns until the hunter can be summoned again. 0 means ready.
-static func cooldown_remaining(battle) -> int:
-	if battle.summon_last_used_turn < 0:
+## Remaining turns before this summon is ready again. 0 means ready.
+static func cooldown_remaining(battle, summon_id: StringName = SummonCatalogScript.DEFAULT_ID) -> int:
+	var definition := SummonCatalogScript.get_definition(summon_id)
+	if definition == null:
 		return 0
-	return maxi(0, battle.HUNTER_SUMMON_COOLDOWN_TURNS - (battle.turn_number - battle.summon_last_used_turn))
+	var last_used: int = int(battle.summon_last_used_turn.get(String(summon_id), -1))
+	if last_used < 0:
+		return 0
+	return maxi(0, definition.cooldown_turns - (battle.turn_number - last_used))
 
 
-static func can_summon(battle, target_actor_id: String = "") -> bool:
-	var actors = battle.actors
-	if battle.phase != battle.BattlePhase.PLAYER or not actors.has("sevrin"):
+static func can_summon(battle, summon_id: StringName, target_actor_id: String = "") -> bool:
+	var definition := SummonCatalogScript.get_definition(summon_id)
+	if definition == null:
 		return false
-	if not actors["sevrin"].is_alive() or cooldown_remaining(battle) > 0:
+	if battle.phase != battle.BattlePhase.PLAYER:
+		return false
+	var summoner = battle.get_active_character()
+	if summoner == null or not summoner.is_alive():
+		return false
+	if cooldown_remaining(battle, summon_id) > 0:
+		return false
+	if not battle.ap.can_spend(definition.ap_cost):
 		return false
 	if target_actor_id.is_empty():
 		return true
-	if not actors.has(target_actor_id):
-		return false
-	var target = actors[target_actor_id]
-	if not target.is_alive() or target.team != "enemy":
+
+	var target = battle.actors.get(target_actor_id)
+	if target == null or not target.is_alive() or target.team != "enemy":
 		return false
 	return not is_cell_missing(find_hunter_cell(battle, target))
 
 
-## The hunter strikes once and leaves. No AP is spent, no unit is created and
-## nothing is added to the intent order.
-static func request(battle, target_actor_id: String) -> bool:
-	if not can_summon(battle, target_actor_id):
+## The summon strikes once and leaves. Appearance is presentation only: no unit
+## is created, nothing enters the intent order, and AP is charged per the data.
+static func request(battle, summon_id: StringName, target_actor_id: String) -> bool:
+	var definition := SummonCatalogScript.get_definition(summon_id)
+	if definition == null or not can_summon(battle, summon_id, target_actor_id):
 		return false
+
 	var target = battle.actors[target_actor_id]
-	var hunter_cell: Vector2i = find_hunter_cell(battle, target)
-	if is_cell_missing(hunter_cell):
+	var summon_cell: Vector2i = find_hunter_cell(battle, target)
+	if is_cell_missing(summon_cell):
 		return false
-	var damage: int = CombatMathScript.calculate_raw_damage(battle.HUNTER_SUMMON_ATTACK, battle.HUNTER_SUMMON_MULTIPLIER)
-	battle.summon_last_used_turn = battle.turn_number
+	if definition.ap_cost > 0 and not battle.ap.spend(definition.ap_cost):
+		return false
+
+	var damage: int = CombatMathScript.calculate_raw_damage(definition.attack, definition.damage_multiplier)
+	battle.summon_last_used_turn[String(summon_id)] = battle.turn_number
 	battle._emit_event(
 		"hunter_summoned",
-		"hunter",
+		String(summon_id),
 		target_actor_id,
-		"cell=%s target=%s cooldown=%d" % [str(hunter_cell), target_actor_id, battle.HUNTER_SUMMON_COOLDOWN_TURNS]
+		"cell=%s target=%s cooldown=%d" % [str(summon_cell), target_actor_id, definition.cooldown_turns]
 	)
-	battle._apply_damage(target_actor_id, damage, "hunter", "hunter_summon", "physical")
-	SkillExecutor.gain_active_energy(battle, "sevrin")
-	battle._emit_event("skill_resolved", "hunter", target_actor_id, "skill=hunter_summon raw=%d cell=%s" % [damage, str(hunter_cell)])
+	battle._apply_damage(target_actor_id, damage, String(summon_id), String(summon_id), "physical")
+	SkillExecutorScript.gain_active_energy(battle, battle.active_character_id)
+	battle._emit_event("skill_resolved", String(summon_id), target_actor_id, "skill=%s raw=%d cell=%s" % [String(summon_id), damage, str(summon_cell)])
 	battle._check_battle_end()
 	return true
 

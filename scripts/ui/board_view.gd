@@ -9,6 +9,7 @@ extends RefCounted
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
+const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 
 
 static func draw(canvas: CanvasItem, controller, selected_skill: int, skill_bar: Array) -> void:
@@ -124,8 +125,8 @@ static func can_target(controller, skill_bar: Array, skill_id: String, actor_id:
 		return false
 	if skill_id == "oathkeeper_judgment_mark":
 		return GridRulesScript.has_clear_line_of_sight(player.cell, actor.cell, controller.blocked_cells, controller.get_occupied_cells())
-	if skill_id == "hunter_summon":
-		return controller.can_summon(actor_id)
+	if skill_id.begins_with("summon:"):
+		return SummonServiceScript.can_summon(controller, StringName(skill_id.substr(7)), actor_id)
 	return false
 
 

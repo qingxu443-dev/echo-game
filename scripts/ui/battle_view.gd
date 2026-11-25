@@ -23,13 +23,6 @@ const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 ## Built in _ready() from the V2 catalog.
 var skill_bar: Array = []
 
-## Presentation-only summon roster. Future summons can be added here without changing
-## the existing hunter_summon execution path. Selection currently affects the displayed icon/name only.
-const SUMMON_OPTIONS := [
-	{"id": "yu_bubble", "name": "余泡泡", "icon": preload("res://assets/ui/summons/yu_bubble.webp")},
-]
-var selected_summon_option: int = 0
-
 var controller: BattleController
 var levels: Array[EncounterDefinition] = []
 var current_level: int = 0
@@ -76,7 +69,7 @@ func _draw() -> void:
 	HudViewScript.draw_header(self, _current_level(), current_level, levels.size())
 	BoardViewScript.draw(self, controller, selected_skill, skill_bar)
 	HudViewScript.draw_status(self, controller, status_message)
-	SkillBarViewScript.draw(self, controller, skill_bar, selected_skill, SUMMON_OPTIONS, selected_summon_option)
+	SkillBarViewScript.draw(self, controller, skill_bar, selected_skill)
 	if controller.phase == ControllerScript.BattlePhase.FINISHED:
 		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level())
 

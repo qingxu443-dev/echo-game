@@ -92,7 +92,7 @@ static func start_encounter(
 	battle.event_sequence = 0
 	battle.turn_number = 0
 	battle.battle_result = ""
-	battle.summon_last_used_turn = -1
+	battle.summon_last_used_turn.clear()
 	battle.damage_dealt = 0
 	battle.damage_taken = 0
 	battle.enemies_defeated = 0

@@ -66,9 +66,13 @@
 | `character_definition.gd` | 角色面板、五槽位技能 id、职业资源声明 | 纯数据；`skill_ids` 按槽位顺序 |
 | `character_catalog.gd` | `data/characters/*.tres` 的显式名册 | 不用目录扫描，出战名单可评审 |
 | `skill_registry.gd` | 跨角色技能解析（id → 定义） | 角色只写 skill id，不关心来自哪个目录 |
-| `character_skill_runtime.gd` | 按 `executor_id` 分派技能；樱的剑意 / 残香 / 回锋 | 数值来自数据，机制才写代码 |
+| `character_skill_runtime.gd` | 按 `executor_id` 分派技能；樱的剑意 / 残香 / 回锋；通用普攻 | 数值来自数据，机制才写代码 |
+| `summon_definition.gd` / `summon_catalog.gd` | 通灵数据（`data/summons/*.tres`）与名册 | 通灵属于玩家，不属于角色面板 |
+| `summon_service.gd` | 通灵的可用性、现身格与冷却 | 数值全部来自 `SummonDefinition` |
 
 槽位见 `CharacterDefinition.SLOT_ORDER`：普通攻击、被动、主动一、主动二、终极。技能栏由当前角色的槽位生成，`Tab` 切换角色。
+
+**通灵不是角色技能**：它属于玩家，任何角色都能使用，技能栏在角色槽位之后追加。技能 id 形如 `summon:yu_bubble`，运行时按前缀分派，因此新增一个通灵不需要改代码——只加一个 `.tres`。
 
 ### 单位（`scripts/actors/`）
 

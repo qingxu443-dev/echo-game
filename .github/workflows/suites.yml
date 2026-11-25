@@ -1,0 +1,82 @@
+name: suites
+
+# Every push to main and every pull request runs the same headless suite the
+# project already relies on. The declared assertion count is read from
+# docs/engineering/BASELINE.md rather than repeated here, so the baseline has one
+# maintenance point.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: suites-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  headless-suites:
+    name: headless suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GODOT_VERSION: "4.7.2"
+      GODOT_BIN: /opt/godot/godot
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # Godot's Linux build is dynamically linked against X11 and ALSA even in
+      # headless mode. The asound package was renamed on 24.04, so try both.
+      - name: Install runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfontconfig1 libx11-6 libxcursor1 libxinerama1 libxrandr2 libxi6 \
+            libgl1 unzip curl
+          sudo apt-get install -y --no-install-recommends libasound2t64 \
+            || sudo apt-get install -y --no-install-recommends libasound2 \
+            || true
+
+      - name: Cache the engine
+        id: engine
+        uses: actions/cache@v4
+        with:
+          path: /opt/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download the engine
+        if: steps.engine.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p /opt/godot
+          curl -fsSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          install -m 755 "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      # Generating the .godot cache first is what the project's own onboarding
+      # note asks for; without it the suites that read .tres files report
+      # "crashed or failed to parse".
+      - name: Import project
+        run: |
+          "$GODOT_BIN" --headless --path . --import
+
+      - name: Run suites
+        run: |
+          set -euo pipefail
+          EXPECTED=$(grep -oP '\| 断言总数 \| \*\*\K[0-9]+' docs/engineering/BASELINE.md || true)
+          if [ -z "${EXPECTED:-}" ]; then
+            echo "::error::could not read 断言总数 from docs/engineering/BASELINE.md"
+            exit 1
+          fi
+          echo "BASELINE.md declares at least $EXPECTED assertions"
+          # Invoked through bash so the run does not depend on the executable bit
+          # surviving a checkout on any platform.
+          GODOT="$GODOT_BIN" EXPECTED_ASSERTIONS="$EXPECTED" bash ./tests/run_all.sh

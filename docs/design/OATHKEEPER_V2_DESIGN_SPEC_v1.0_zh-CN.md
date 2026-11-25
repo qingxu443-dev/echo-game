@@ -4,7 +4,7 @@
 - 适用版本：ECHO Prototype 0.1 / Oathkeeper v2
 - 角色：守誓者·瑟弗林（Sevrin）
 - 维护原则：本文件记录已确认规则；未确认的全局规则不得由实现细节反向推定为设计定案
-- 旧版技能设计：见 `docs/sevrin_skill_kit_zh-CN.md`，该文件已标记为历史版本，不再作为 Oathkeeper v2 的设计依据
+- 旧版技能设计：见 `docs/archive/sevrin_skill_kit_zh-CN.md`，该文件已标记为历史版本，不再作为 Oathkeeper v2 的设计依据
 
 ---
 

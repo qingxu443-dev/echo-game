@@ -15,7 +15,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 2D 回�
 | **开发与验证平台** | Windows 10/11（64 位），目标分辨率 `1280 × 720`（横屏） |
 | **移动端方向** | Android 横屏（本阶段优先完成 Windows 桌面验证，暂未验证 Android 导出） |
 | **技能组版本** | **守誓者 V2**（裁决印记 / 誓盾庇护 / 绝对守护 + 被动「不屈誓约」） |
-| **自动化验证** | 2026-11-25 完成 Godot 4.7.2 导入、16 个测试套件及主场景无头运行（**623 条断言，0 失败**，基线见 `docs/engineering/BASELINE.md`） |
+| **自动化验证** | 2026-11-25 完成 Godot 4.7.2 导入、13 个测试套件及主场景无头运行（**483 条断言，0 失败**，基线见 `docs/engineering/BASELINE.md`）；每次推送到 main 或开 PR 时由 GitHub Actions 复跑（`.github/workflows/suites.yml`） |
 | **待人工验证** | Windows 桌面交互与画面表现、Android 导出与真机表现 |
 
 ---
@@ -132,7 +132,7 @@ suites=16 assertions=623 failures=0 broken=0
 ```
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。
-* 当前基线为 **16 个套件、623 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
+* 当前基线为 **13 个套件、483 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
 * 任何代码改动均应重跑测试并以零失败为合并前提；无头测试不能替代 `F5` 主场景的交互与画面人工检查。
 
 ---
@@ -149,14 +149,16 @@ suites=16 assertions=623 failures=0 broken=0
 
 ## 文档导航
 
+`docs/` 分 `design/`（设计规范）、`engineering/`（工程基准）、`archive/`（只读历史）三层，判断标准与阅读顺序见 [`docs/README.md`](docs/README.md)。
+
 | 分组 | 文档 | 说明 |
 |---|---|---|
-| **世界观与美术** | [`ECHO_WORLD_OVERVIEW_1.0`](docs/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md)、[`ECHO_OPENING_PROLOGUE_1.0`](docs/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md)、[`ECHO_VISUAL_ART_DIRECTION_1.1`](docs/ECHO_VISUAL_ART_DIRECTION_1.1_zh-CN.md) | 氛围、叙事与美术参考，**不产出世界规则** |
-| **机制与法则** | [`ECHO_SYSTEM_LAWS_v1.0`](docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md)（Draft）、[`CORE_COMBAT_RULES_v0.1`](docs/design/CORE_COMBAT_RULES_v0.1.md)、[`BATTLE_EVENT_TIMELINE_v0.1`](docs/design/BATTLE_EVENT_TIMELINE_v0.1.md)、[`ENEMY_AI_AND_TELEGRAPH_v0.1`](docs/design/ENEMY_AI_AND_TELEGRAPH_v0.1.md) | 世界法则与机制解释；冲突时以系统法则为准 |
-| **角色与技能** | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](docs/design/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md)、[`skill_design_principles`](docs/skill_design_principles_zh-CN.md)、[`sevrin_skill_kit`](docs/sevrin_skill_kit_zh-CN.md)（历史版本） | 当前技能结构以 V2 规范为准 |
-| **数值与状态** | [`combat_stats`](docs/combat_stats_zh-CN.md)、[`battle_status_system`](docs/battle_status_system_zh-CN.md) | 伤害公式、抗性与状态系统 |
-| **工程** | [`ARCHITECTURE`](docs/ARCHITECTURE.md)、[`PROJECT_STATUS`](docs/PROJECT_STATUS.md)、[`DECISIONS_AND_OPEN_QUESTIONS`](docs/DECISIONS_AND_OPEN_QUESTIONS.md)、[`FRAMEWORK_PROPOSAL_v1.0`](docs/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)、[`engineering/BASELINE`](docs/engineering/BASELINE.md) | 模块边界、进度、待决事项、重构方案与测试基线 |
-| **验证** | [`GODOT_ENGINE_VALIDATION`](docs/GODOT_ENGINE_VALIDATION_zh-CN.md)（历史）、[`TESTER_WINDOWS_0.1`](docs/TESTER_WINDOWS_0.1.md)、[`godot_validation_checklist`](docs/godot_validation_checklist_zh-CN.md) | 引擎验证记录与人工验证指引 |
+| **世界观与美术** | [`ECHO_WORLD_OVERVIEW_1.0`](docs/design/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md)、[`ECHO_OPENING_PROLOGUE_1.0`](docs/design/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md)、[`ECHO_VISUAL_ART_DIRECTION_1.1`](docs/design/ECHO_VISUAL_ART_DIRECTION_1.1_zh-CN.md) | 氛围、叙事与美术参考，**不产出世界规则** |
+| **机制与法则** | [`ECHO_SYSTEM_LAWS_v1.0`](docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md)（Draft）、[`CORE_COMBAT_RULES_v0.1`](docs/design/CORE_COMBAT_RULES_v0.1_zh-CN.md)、[`BATTLE_EVENT_TIMELINE_v0.1`](docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md)、[`ENEMY_AI_AND_TELEGRAPH_v0.1`](docs/design/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md) | 世界法则与机制解释；冲突时以系统法则为准 |
+| **角色与技能** | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](docs/design/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md)、[`skill_design_principles`](docs/design/skill_design_principles_zh-CN.md)、[`sevrin_skill_kit`](docs/archive/sevrin_skill_kit_zh-CN.md)（历史版本） | 当前技能结构以 V2 规范为准 |
+| **数值与状态** | [`combat_stats`](docs/design/combat_stats_zh-CN.md)、[`battle_status_system`](docs/design/battle_status_system_zh-CN.md) | 伤害公式、抗性与状态系统 |
+| **工程** | [`ARCHITECTURE`](docs/engineering/ARCHITECTURE.md)、[`PROJECT_STATUS`](docs/engineering/PROJECT_STATUS.md)、[`DECISIONS_AND_OPEN_QUESTIONS`](docs/engineering/DECISIONS_AND_OPEN_QUESTIONS.md)、[`FRAMEWORK_PROPOSAL_v1.0`](docs/engineering/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)、[`engineering/BASELINE`](docs/engineering/BASELINE.md) | 模块边界、进度、待决事项、重构方案与测试基线 |
+| **验证** | [`GODOT_ENGINE_VALIDATION`](docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md)（历史）、[`TESTER_WINDOWS_0.1`](docs/engineering/TESTER_WINDOWS_0.1.md)、[`godot_validation_checklist`](docs/engineering/godot_validation_checklist_zh-CN.md) | 引擎验证记录与人工验证指引 |
 
 ## 仓库结构
 

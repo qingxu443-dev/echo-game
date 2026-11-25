@@ -55,7 +55,6 @@ static func start_encounter(
 	battle.ap.maximum = battle.player_ap
 	battle.actors.clear()
 	battle.statuses.clear_all()
-	battle.area_effects.clear_all()
 	battle.oath_shield_expiry_turn.clear()
 	battle.oath_vow_triggered_intents.clear()
 	battle.absolute_guard_hit_intents.clear()
@@ -112,9 +111,6 @@ static func expire_oath_shields_for_current_turn(battle) -> void:
 
 
 static func begin_player_turn(battle) -> void:
-	var expired_area_effects: int = battle.area_effects.expire_boundary(&"player_phase_start")
-	if expired_area_effects > 0:
-		battle._emit_event("area_effects_expired", "", "", "boundary=player_phase_start count=%d" % expired_area_effects)
 	var expired_statuses: int = battle.statuses.expire_all_boundary(&"player_phase_start")
 	if expired_statuses > 0:
 		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_start count=%d" % expired_statuses)
@@ -157,9 +153,6 @@ static func finish_battle(battle, result: String) -> void:
 		if intent.state == BattleIntentScript.IntentState.ACTIVE:
 			intent.cancel("battle_finished")
 	var removed_statuses: int = battle.statuses.clear_all()
-	var removed_area_effects: int = battle.area_effects.clear_all()
-	if removed_area_effects > 0:
-		battle._emit_event("area_effects_cleared", "", "", "reason=battle_finished count=%d" % removed_area_effects)
 	if removed_statuses > 0:
 		battle._emit_event("statuses_cleared", "", "", "reason=battle_finished count=%d" % removed_statuses)
 	battle.battle_finished.emit(result)

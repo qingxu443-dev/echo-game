@@ -3,6 +3,7 @@
 #
 #   ./tests/run_all.sh
 #   GODOT=/path/to/godot ./tests/run_all.sh
+#   EXPECTED_ASSERTIONS=483 ./tests/run_all.sh   # fail if fewer assertions ran
 #
 # Exit code is 0 only when every suite reported failures=0 and none crashed.
 
@@ -58,6 +59,16 @@ echo "-----"
 echo "suites=$suites assertions=$total failures=$failures broken=$broken"
 
 if [ "$failures" -ne 0 ] || [ "$broken" -ne 0 ]; then
+	exit 1
+fi
+
+# Guard against silent coverage loss. A suite that aborts part-way (a call to a
+# removed method, for instance) still exits 0 and still reports failures=0 - the
+# only evidence is that fewer assertions ran. Compare against the declared
+# baseline with EXPECTED_ASSERTIONS to catch that.
+if [ -n "${EXPECTED_ASSERTIONS:-}" ] && [ "$total" -lt "$EXPECTED_ASSERTIONS" ]; then
+	echo "coverage dropped: $total assertions ran, baseline declares at least $EXPECTED_ASSERTIONS"
+	echo "If the drop is intended, update docs/engineering/BASELINE.md and record why."
 	exit 1
 fi
 exit 0

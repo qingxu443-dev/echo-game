@@ -14,11 +14,11 @@ func _run() -> void:
 
 	var enemy = battle.get_actor("vanguard_00")
 	var enemy_health_before: int = enemy.health
-	_check(battle.request_player_attack("vanguard_00"), "player attack resolves")
+	_check(battle.request_oathkeeper_judgment_mark("vanguard_00"), "player skill resolves")
 	var dealt: int = enemy_health_before - enemy.health
-	_check(dealt > 0, "player attack removed health from the enemy")
+	_check(dealt > 0, "player skill removed health from the enemy")
 	_check(battle.damage_dealt == dealt, "damage dealt matches the health actually removed")
-	_check(battle.damage_taken == 0, "player attack does not count as damage taken")
+	_check(battle.damage_taken == 0, "player skill does not count as damage taken")
 
 	var player = battle.get_actor("sevrin")
 	var player_health_before: int = player.health
@@ -30,7 +30,7 @@ func _run() -> void:
 	# Kill the enemy and confirm the defeat tally only counts real kills.
 	var guard := 0
 	while enemy.is_alive() and guard < 20:
-		if not battle.request_player_attack("vanguard_00"):
+		if not battle.request_oathkeeper_judgment_mark("vanguard_00"):
 			battle.end_player_turn()
 		guard += 1
 	_check(not enemy.is_alive(), "enemy can be defeated in this scenario")
@@ -41,7 +41,7 @@ func _run() -> void:
 	var fresh = ControllerScript.new()
 	root.add_child(fresh)
 	fresh.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)])
-	fresh.request_player_attack("vanguard_00")
+	fresh.request_oathkeeper_judgment_mark("vanguard_00")
 	_check(fresh.damage_dealt > 0, "second encounter records damage")
 	fresh.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)])
 	_check(fresh.damage_dealt == 0 and fresh.damage_taken == 0 and fresh.enemies_defeated == 0, "restarting an encounter resets the tallies")

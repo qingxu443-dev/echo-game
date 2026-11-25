@@ -21,7 +21,6 @@ signal battle_finished(result: String)
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const APBudgetScript = preload("res://scripts/battle/ap_budget.gd")
 const StatusCollectionScript = preload("res://scripts/battle/battle_status_collection.gd")
-const AreaEffectCollectionScript = preload("res://scripts/battle/battle_area_effect_collection.gd")
 const BattleFlowScript = preload("res://scripts/battle/battle_flow.gd")
 const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
@@ -60,7 +59,6 @@ var enemies_defeated: int = 0
 ## Turn number the hunter summon was last used on. -1 means "not yet used".
 var summon_last_used_turn: int = -1
 var statuses: BattleStatusCollection = StatusCollectionScript.new()
-var area_effects: BattleAreaEffectCollection = AreaEffectCollectionScript.new()
 ## actor_id -> player turn number after which the oath shield expires.
 var oath_shield_expiry_turn: Dictionary = {}
 ## Enemy intent IDs already counted by Oath Vow; prevents multi-hit actions stacking repeatedly.
@@ -144,30 +142,6 @@ func request_oath_shield(target_actor_id: String) -> bool:
 
 func request_oathkeeper_judgment_mark(target_actor_id: String) -> bool:
 	return SkillExecutorScript.judgment_mark_v2(self, target_actor_id)
-
-
-func request_player_attack(target_actor_id: String, damage_multiplier: float = 1.0) -> bool:
-	return SkillExecutorScript.player_attack(self, target_actor_id, damage_multiplier)
-
-
-func request_oathguard_stance(caster_actor_id: String = "sevrin") -> bool:
-	return SkillExecutorScript.oathguard_stance(self, caster_actor_id)
-
-
-func request_echo_counter(caster_actor_id: String = "sevrin") -> bool:
-	return SkillExecutorScript.echo_counter(self, caster_actor_id)
-
-
-func request_watchwall() -> bool:
-	return SkillExecutorScript.watchwall(self)
-
-
-func request_judgment_mark(target_actor_id: String) -> bool:
-	return SkillExecutorScript.judgment_mark(self, target_actor_id)
-
-
-func request_oath_severance(target_actor_id: String) -> bool:
-	return SkillExecutorScript.oath_severance(self, target_actor_id)
 
 
 # --- hunter summon -----------------------------------------------------------

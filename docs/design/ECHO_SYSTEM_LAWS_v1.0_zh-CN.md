@@ -92,7 +92,7 @@
 
 > **在系统底层，抗性 = 对回声冲击的衰减系数。**
 
-**机制对应**（数值口径见 `docs/combat_stats_zh-CN.md`）
+**机制对应**（数值口径见 `docs/design/combat_stats_zh-CN.md`）
 
 ```
 透过率 = K / (K + R)
@@ -143,12 +143,12 @@
 
 | 文档 | 关系 | 说明 |
 |---|---|---|
-| `docs/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md` | **并行，负责氛围** | 按 §1.1 接口条款，不产出世界规则 |
-| `docs/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md` | 并行，负责开场演出 | 同上 |
-| `docs/combat_stats_zh-CN.md` | **继承，不改数值** | 本文档只补法则三的命名与解释 |
+| `docs/design/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md` | **并行，负责氛围** | 按 §1.1 接口条款，不产出世界规则 |
+| `docs/design/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md` | 并行，负责开场演出 | 同上 |
+| `docs/design/combat_stats_zh-CN.md` | **继承，不改数值** | 本文档只补法则三的命名与解释 |
 | `docs/design/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md` | **继承，不改规则** | 本文档只补法则一的世界解释 |
 | `docs/design/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md` | **继承，不改技能** | 技能结构以该规范为准 |
-| `docs/DECISIONS_AND_OPEN_QUESTIONS.md` | 建议增补 | 「绝不 retarget」等条目可从「已确认规则」降为「法则一的推论」——它不再需要被批准，它是被推导出来的 |
+| `docs/engineering/DECISIONS_AND_OPEN_QUESTIONS.md` | 建议增补 | 「绝不 retarget」等条目可从「已确认规则」降为「法则一的推论」——它不再需要被批准，它是被推导出来的 |
 
 ---
 

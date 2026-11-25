@@ -22,7 +22,6 @@ const BASIC_MELEE_MULTIPLIER: float = 0.8
 const AIMED_SHOT_MULTIPLIER: float = 1.0
 const GROUND_PULSE_MULTIPLIER: float = 0.7
 
-const MARKABLE_ACTIONS: Array[String] = ["basic_melee", "aimed_shot", "charged_strike", "ground_pulse"]
 
 
 static func plan(battle) -> Array:
@@ -39,9 +38,6 @@ static func plan(battle) -> Array:
 			continue
 		var intent = _marksman_intent(battle, enemy, target, occupied) if enemy.archetype == "marksman" else (_area_controller_intent(battle, enemy, target) if enemy.archetype == "area_controller" else _vanguard_intent(battle, enemy, target, occupied))
 		if intent != null:
-			if battle.statuses.has_status(enemy.actor_id, &"judgment_mark") and intent.action_id in MARKABLE_ACTIONS:
-				intent.judgment_marked = true
-				battle._emit_event("intent_judgment_marked", enemy.actor_id, intent.target_actor_id, "intent=%s action=%s" % [intent.intent_id, intent.action_id])
 			generated.append(intent)
 
 	generated.sort_custom(func(a, b):

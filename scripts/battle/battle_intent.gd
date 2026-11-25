@@ -15,7 +15,6 @@ var target_cell: Vector2i
 var affected_cells: Array[Vector2i]
 var damage: int
 var damage_type: String = "physical"
-var judgment_marked: bool = false
 var execution_priority: int
 var state: IntentState = IntentState.ACTIVE
 var cancel_reason: String = ""

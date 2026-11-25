@@ -15,7 +15,6 @@ const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 
 const ABSOLUTE_GUARD_MARKED_MULTIPLIER: float = 0.7
 const ABSOLUTE_GUARD_PLAIN_MULTIPLIER: float = 0.5
-const JUDGMENT_MARKED_DAMAGE_SCALE: float = 0.75
 
 
 static func resolve_phase(battle) -> void:
@@ -53,12 +52,6 @@ static func resolve_phase(battle) -> void:
 			break
 
 	if battle.phase != battle.BattlePhase.FINISHED:
-		var expired_deferred_marks: int = statuses.expire_all_boundary(&"enemy_phase_end_next")
-		if expired_deferred_marks > 0:
-			battle._emit_event("statuses_expired", "", "", "boundary=enemy_phase_end_next count=%d" % expired_deferred_marks)
-		var deferred_marks: int = statuses.defer_status_boundary(&"judgment_mark", &"enemy_phase_end", &"enemy_phase_end_next")
-		if deferred_marks > 0:
-			battle._emit_event("statuses_deferred", "", "", "status=judgment_mark count=%d" % deferred_marks)
 		var expired_statuses: int = statuses.expire_all_boundary(&"enemy_phase_end")
 		if expired_statuses > 0:
 			battle._emit_event("statuses_expired", "", "", "boundary=enemy_phase_end count=%d" % expired_statuses)
@@ -122,9 +115,7 @@ static func _actor_locked_attack(battle, intent) -> void:
 	if not actors.has(intent.target_actor_id) or not actors[intent.target_actor_id].is_alive():
 		intent.cancel("actor_target_defeated")
 		return
-	var damage: int = _judgment_adjusted_damage(intent)
-	battle._apply_damage(intent.target_actor_id, damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
-	_resolve_judgment_mark(battle, intent, false)
+	battle._apply_damage(intent.target_actor_id, intent.damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
 	intent.mark_resolved()
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, intent.target_actor_id, intent.action_id)
 
@@ -148,9 +139,7 @@ static func _tile_locked_attack(battle, intent) -> void:
 	if not GridRulesScript.has_clear_orthogonal_line(source.cell, intent.target_cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id)):
 		intent.cancel("marked_cell_line_blocked")
 		return
-	var damage: int = _judgment_adjusted_damage(intent)
-	battle._apply_damage(target_id, damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
-	_resolve_judgment_mark(battle, intent, intent.action_id == "charged_strike")
+	battle._apply_damage(target_id, intent.damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
 	intent.mark_resolved()
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, target_id, intent.action_id)
 
@@ -167,7 +156,6 @@ static func _area_attack(battle, intent) -> void:
 	if not hit_any:
 		intent.cancel("marked_area_empty")
 		return
-	_resolve_judgment_mark(battle, intent, true)
 	intent.mark_resolved()
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", intent.action_id)
 
@@ -194,23 +182,3 @@ static func _pursuit(battle, intent) -> void:
 	source.cell = cursor
 	intent.mark_resolved()
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", "pursuit")
-
-
-static func _judgment_adjusted_damage(intent) -> int:
-	if intent.judgment_marked and (intent.action_id == "basic_melee" or intent.action_id == "aimed_shot"):
-		return floori(float(intent.damage) * JUDGMENT_MARKED_DAMAGE_SCALE)
-	return intent.damage
-
-
-static func _resolve_judgment_mark(battle, intent, apply_exposed: bool) -> void:
-	var actors = battle.actors
-	var statuses = battle.statuses
-	if not intent.judgment_marked:
-		return
-	statuses.remove_status(intent.source_actor_id, &"judgment_mark")
-	if apply_exposed and actors.has(intent.source_actor_id) and actors[intent.source_actor_id].is_alive():
-		statuses.apply_status(&"exposed", "sevrin", intent.source_actor_id, 1, 1, -1, &"player_phase_end")
-		battle._emit_event("status_applied", "sevrin", intent.source_actor_id, "status=exposed defense=-200 magic_resistance=-200")
-	else:
-		battle._emit_event("status_consumed", "sevrin", intent.source_actor_id, "status=judgment_mark")
-	battle._emit_event("judgment_mark_resolved", intent.source_actor_id, "", "intent=%s exposed=%s" % [intent.intent_id, str(apply_exposed)])

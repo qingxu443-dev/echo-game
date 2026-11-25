@@ -353,11 +353,13 @@ func _test_a_wall_stops_the_lane() -> void:
 ## target with the caster, so the second shield was only reachable by calling the
 ## API by hand. Sevrin and Sakura now stand next to each other.
 func _test_oath_shield_reaches_a_party_member() -> void:
-	# The ring reads max_range from the catalogue; the executor checks its own
-	# constant. If those two ever disagree the ally ring lies, which is the exact
-	# bug the last two commits were about.
+	# Range now has one source: the executor reads the skill definition, so there
+	# is no constant left to compare it against. The assertions below are the real
+	# check - a legal cast succeeds and an out-of-range one is refused - and they
+	# fail if the executor ever goes back to a hardcoded number that disagrees
+	# with the catalogue.
 	var definition = SkillRegistryScript.get_skill(&"oath_shield")
-	_check(definition.max_range == SkillExecutorScript.OATH_SHIELD_RANGE, "the catalogue range and the executor constant still agree")
+	_check(definition.max_range == 2, "the catalogue still declares a two-cell reach")
 
 	var battle = ControllerScript.new()
 	root.add_child(battle)

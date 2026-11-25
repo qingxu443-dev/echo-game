@@ -28,7 +28,6 @@ const DAMAGE_MAGICAL: StringName = &"magical"
 ## conflating them made dispatch guess.
 @export var executor_id: StringName = &""
 @export var duration_player_phases: int = 0
-@export var requires_judgment_mark: bool = false
 @export var is_passive: bool = false
 ## Design plan §15: which of the five slots this skill occupies.
 @export var slot: StringName = &""

@@ -125,10 +125,10 @@ godot --headless --path . --script res://tests/test_core_rules.gd
 正常汇总输出示例（仅当所有套件 `failures=0` 且无崩溃时退出码为 `0`）：
 
 ```text
-test_battle_controller                 162 ok
+test_battle_controller                 115 ok
 ...
 -----
-suites=16 assertions=623 failures=0 broken=0
+suites=13 assertions=483 failures=0 broken=0
 ```
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。

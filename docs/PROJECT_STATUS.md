@@ -160,7 +160,7 @@ Prototype 0.1 的目标内容：
 
 - 环境：Godot 4.7.2 Standard，Windows 10/11 x86_64。
 - 项目导入：通过，零解析错误。
-- 测试套件：16 个，共 654 条断言（运行时 PASS 口径，逐套件分表见 `docs/engineering/BASELINE.md`），
+- 测试套件：16 个，共 654 条断言（运行时 PASS 口径，逐套件分表见 `docs/engineering/BASELINE.md`），0 失败。
 - 主场景：可启动并正常渲染，截图见仓库外的验证记录。
 - 关卡：三关 `.tres` 配置通过数据校验，每关首回合的预告类型与教学设计一致。
 

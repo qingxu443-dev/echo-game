@@ -121,4 +121,4 @@ UI 不计算任何结果：命中、伤害、死亡、意图取消、护盾吸�
 
 ## 验证状态
 
-见 `docs/PROJECT_STATUS.md` 与 `docs/engineering/BASELINE.md`：2026-11-25 在 Godot 4.7.2（Windows）完成导入、十六个测试套件（649 条断言，含审计修复批新增 26 条）与主场景运行。Windows 人工交互手感、画面观感、Android 真机表现仍未验证。更早的 Linux 无头运行记录保留在 `docs/GODOT_ENGINE_VALIDATION_zh-CN.md` 作为历史参考。
+见 `docs/PROJECT_STATUS.md` 与 `docs/engineering/BASELINE.md`：2026-11-25 在 Godot 4.7.2（Windows）完成导入、十六个测试套件（654 条断言，含审计修复批新增 26 条与 PR #18 的 5 条）与主场景运行。Windows 人工交互手感、画面观感、Android 真机表现仍未验证。更早的 Linux 无头运行记录保留在 `docs/GODOT_ENGINE_VALIDATION_zh-CN.md` 作为历史参考。

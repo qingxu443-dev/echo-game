@@ -30,10 +30,16 @@ static func draw(canvas: CanvasItem, controller, level, has_next: bool) -> void:
 	_row(canvas, font, 380.0, "承受伤害", "%d" % controller.damage_taken)
 	_row(canvas, font, 408.0, "击败敌人", "%d" % controller.enemies_defeated)
 
-	var sevrin = controller.get_actor("sevrin")
-	var health_label := "—"
-	if sevrin != null:
-		health_label = "%d / %d" % [sevrin.health, sevrin.max_health]
+	# The whole party, not one named character: with two members on the field,
+	# Sevrin's bar alone reads 0/12000 after a win he did not survive, which looks
+	# like a loss on a victory screen.
+	var total_health := 0
+	var total_max := 0
+	for actor in controller.actors.values():
+		if actor.team == "player":
+			total_health += actor.health
+			total_max += actor.max_health
+	var health_label := "—" if total_max == 0 else "%d / %d" % [total_health, total_max]
 	_row(canvas, font, 436.0, "剩余生命", health_label)
 
 	_button(canvas, font, P.RESTART_BTN, "重开本关")

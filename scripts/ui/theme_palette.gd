@@ -36,8 +36,16 @@ const PLAYER_BODY := Color("#a8a08b")
 const PLAYER_OUTLINE := Color("#e7d7ae")
 const ENEMY_BODY := Color("#873f3b")
 const ENEMY_OUTLINE := Color("#d58b78")
+## §12: a downed body keeps its cell, so the token stays on the board - dimmed,
+## not removed, because an empty cell that refuses movement reads as a bug.
+const PLAYER_BODY_DOWNED := Color("#3c3b35")
+const PLAYER_OUTLINE_DOWNED := Color("#6d6a5f")
+const DOWNED_MARK := Color("#a39e8f")
 
 const RING_SHIELD := Color("#7fb8d8")
+## Which party member the player is commanding. Two identical tokens otherwise
+## leave no way to tell who a move or skill will come from.
+const RING_ACTIVE := Color("#e4d2aa")
 const RING_GUARD := Color("#e0b25c")
 const RING_MARK := Color("#c98be0")
 const RING_MELEE := Color("#e3a35d")

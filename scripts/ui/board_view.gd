@@ -35,6 +35,9 @@ static func _draw_grid(canvas: CanvasItem, controller) -> void:
 static func _draw_actors(canvas: CanvasItem, controller) -> void:
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]
+		if actor.is_downed:
+			_draw_downed_actor(canvas, actor)
+			continue
 		if not actor.is_alive():
 			continue
 		var center := P.cell_center(actor.cell)
@@ -46,7 +49,22 @@ static func _draw_actors(canvas: CanvasItem, controller) -> void:
 		if glyph.is_empty():
 			glyph = "锋" if actor.team == "enemy" else "守"
 		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, 7.0), glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.TEXT_ON_DARK)
+		# The commanded member gets an outer ring: same token, but the player can
+		# see whose move and whose AP a click will spend.
+		if actor.team == "player" and actor_id == controller.active_character_id:
+			canvas.draw_arc(center, 30.0, 0.0, TAU, 48, P.RING_ACTIVE, 2.0)
 		_draw_actor_badges(canvas, controller, actor_id, actor, center)
+
+
+## A downed party member: same footprint, drained palette, and a label, so the
+## cell being impassable is explained rather than looking like a glitch.
+static func _draw_downed_actor(canvas: CanvasItem, actor) -> void:
+	var center := P.cell_center(actor.cell)
+	canvas.draw_circle(center, 22.0, P.PLAYER_BODY_DOWNED)
+	canvas.draw_arc(center, 22.0, 0.0, TAU, 48, P.PLAYER_OUTLINE_DOWNED, 2.0)
+	var glyph: String = actor.glyph if not actor.glyph.is_empty() else "守"
+	canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, 7.0), glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.TEXT_DISABLED)
+	canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, 30.0), "倒", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.DOWNED_MARK)
 
 
 ## V2 status markers: shield/guard on Sevrin and the isolated mark on enemies.
@@ -99,7 +117,7 @@ static func _draw_telegraphs(canvas: CanvasItem, controller) -> void:
 
 ## Whether the selected skill may legally target this enemy right now.
 ##
-## The single source of truth for both the highlight and the cast: hunter_summon
+## The single source of truth for both the highlight and the cast: the summon
 ## needs a free cell beside the target as well as a ready cooldown, so a ring
 ## derived from distance alone used to promise a cast the controller refused.
 static func can_target(controller, skill_bar: Array, skill_id: String, actor_id: String) -> bool:

@@ -196,7 +196,7 @@ func _handle_tap(position: Vector2) -> void:
 	# which is how Oath Shield's revival reach gets a tap surface.
 	for actor_id in controller.actors:
 		var member = controller.actors[actor_id]
-		if member.team == "player" and (member.is_alive() or member.is_downed) and member.cell == cell:
+		if member.team == "player" and (member.is_alive() or member.is_downed()) and member.cell == cell:
 			if selected_skill >= 0:
 				var chosen: Dictionary = skill_bar[selected_skill]
 				if str(chosen["mode"]) == "ally":

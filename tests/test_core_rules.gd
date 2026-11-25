@@ -41,7 +41,7 @@ func _run() -> void:
 
 	var actor = BattleActorScript.new("test_enemy", "enemy", Vector2i(3, 3), 3)
 	_check(actor.apply_damage(2) == 2 and actor.health == 1 and actor.is_alive(), "damage reduces health deterministically")
-	_check(actor.apply_damage(5) == 1 and actor.health == 0 and actor.is_defeated, "lethal damage clamps health to zero and defeats actor")
+	_check(actor.apply_damage(5) == 1 and actor.health == 0 and actor.is_defeated(), "lethal damage clamps health to zero and defeats actor")
 	_check(actor.apply_damage(1) == 0, "defeated actor cannot take additional damage")
 
 	_check(CombatMathScript.calculate_raw_damage(2000, 1.5) == 3000, "skill multiplier scales attack power")

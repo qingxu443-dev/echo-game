@@ -134,7 +134,7 @@ func _check_lethal_strike_ends_the_battle() -> void:
 	var enemy = battle.get_actor("vanguard_00")
 	enemy.health = 300
 	_check(battle.request_hunter_summon("vanguard_00"), "the summon lands on a nearly dead enemy")
-	_check(enemy.health == 0 and enemy.is_defeated, "a lethal summon strike defeats the enemy")
+	_check(enemy.health == 0 and enemy.is_defeated(), "a lethal summon strike defeats the enemy")
 	_check(battle.battle_result == "victory", "defeating the last enemy reports victory")
 	_check(battle.phase == ControllerScript.BattlePhase.FINISHED, "the battle ends after the summon")
 	_check(not battle.can_summon(), "the summon is unavailable once the battle ended")

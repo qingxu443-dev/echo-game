@@ -271,20 +271,20 @@ func _test_oath_shield_revives_through_the_view() -> void:
 	_check(sakura != null, "the opening lesson deploys Sakura beside Sevrin")
 
 	controller._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
-	_check(sakura.is_downed, "Sakura is down on the field")
+	_check(sakura.is_downed(), "Sakura is down on the field")
 	var bar: Array = view.get("skill_bar")
 	_check(BoardViewScript.can_target_ally(controller, bar, "oath_shield", "sakura"), "the downed member carries the green ally ring")
 
 	_tap_skill_by_id(view, "oath_shield")
 	_tap_cell(view, sakura.cell)
-	_check(sakura.is_alive() and not sakura.is_downed, "tapping a downed member with Oath Shield selected revives them")
+	_check(sakura.is_alive() and not sakura.is_downed(), "tapping a downed member with Oath Shield selected revives them")
 	_check(controller.get_actor("sevrin").shield > 0, "the caster keeps the self half of the shield")
 	_check(controller.ap.current == controller.ap.maximum - 1, "the revival cast spends one AP through the view")
 
 	# Down her again: the once-per-encounter rule must show on the ring, not
 	# only after a refused tap.
 	controller._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
-	_check(sakura.is_downed, "the revived member can go down again")
+	_check(sakura.is_downed(), "the revived member can go down again")
 	_check(not BoardViewScript.can_target_ally(controller, bar, "oath_shield", "sakura"), "a body already revived this encounter carries no ring")
 
 	view.queue_free()

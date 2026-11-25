@@ -15,7 +15,7 @@ const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
 ## the skill bar display.
 const SKILL_HINTS := {
 	&"oathkeeper_judgment_mark": "1–4 格 · DEF×0.8 · 施加标记",
-	&"oath_shield": "自身 + 两格内友军 · 护盾",
+	&"oath_shield": "自身 + 两格内友军 · 护盾/救起倒地",
 	&"absolute_guard": "2 AP + 5 能量 · 嘲讽反击",
 	&"summon:yu_bubble": "任意敌人 · 现身一击",
 	&"oathblade": "相邻 · 100% ATK",

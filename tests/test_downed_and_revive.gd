@@ -19,6 +19,8 @@ func _run() -> void:
 	_test_defeat_requires_the_whole_party_down()
 	_test_defeat_without_sevrin()
 	_test_command_hands_over_to_a_standing_member()
+	_test_oath_shield_revives_a_downed_member()
+	_test_revival_is_once_per_member_per_encounter()
 	_test_enemies_are_not_downed()
 	_report()
 
@@ -153,4 +155,58 @@ func _test_enemies_are_not_downed() -> void:
 
 	_check(enemy.is_defeated, "a lethal hit removes an enemy")
 	_check(not enemy.is_downed, "enemies have no downed state")
+	battle.queue_free()
+
+
+## §12 named "a specific skill" as the revival path; Oath Shield is it. The
+## design plan leaves the restored health and the revival count to the skill:
+## both are defined here as the shield's own DEF-scaled value, and once per
+## member per encounter.
+func _test_oath_shield_revives_a_downed_member() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	var ally_cells: Array[Vector2i] = [Vector2i(1, 2)]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(5, 1)], [], [], ids, ally_cells)
+	var sakura = battle.get_actor("sakura")
+	var cell: Vector2i = sakura.cell
+	battle._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
+	_check(sakura.is_downed, "Sakura is down before the revival")
+
+	_check(battle.request_oath_shield("sakura"), "Oath Shield revives the downed member")
+	_check(sakura.is_alive() and not sakura.is_downed, "the revived member is standing again")
+	# Sevrin DEF 650, no vow stacks: floor(650 * 0.3) = 195 as shield and health.
+	_check(sakura.health == 195, "revival restores shield-strength health")
+	_check(sakura.cell == cell, "revival returns the member to its own cell")
+	_check(sakura.shield == 195, "the revived member also carries the shield")
+	_check(battle.ap.current == 4, "the revival cast spends one AP from the shared pool")
+
+	battle.set_active_character("sakura")
+	_check(battle.request_player_move([Vector2i(2, 2)]), "the revived member can act again")
+	battle.queue_free()
+
+
+func _test_revival_is_once_per_member_per_encounter() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	var ally_cells: Array[Vector2i] = [Vector2i(1, 2)]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(5, 1)], [], [], ids, ally_cells)
+	var sakura = battle.get_actor("sakura")
+
+	battle._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
+	_check(battle.request_oath_shield("sakura"), "the first revival resolves")
+	battle._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
+	_check(sakura.is_downed, "the revived member can go down again")
+	_check(not battle.request_oath_shield("sakura"), "a second revival of the same member this encounter is refused")
+	_check(battle.ap.current == 4, "the refused re-revival spends nothing")
+
+	var distant = ControllerScript.new()
+	root.add_child(distant)
+	var far_cells: Array[Vector2i] = [Vector2i(6, 1)]
+	distant.start_encounter(Vector2i(1, 1), [Vector2i(3, 5)], [], [], ids, far_cells)
+	distant._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
+	_check(distant.get_actor("sakura").is_downed, "the distant member is down")
+	_check(not distant.request_oath_shield("sakura"), "a downed member beyond two cells cannot be reached")
+	distant.queue_free()
 	battle.queue_free()

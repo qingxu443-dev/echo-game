@@ -58,6 +58,9 @@ var summon_last_used_turn: Dictionary = {}
 var statuses: BattleStatusCollection = StatusCollectionScript.new()
 ## actor_id -> player turn number after which the oath shield expires.
 var oath_shield_expiry_turn: Dictionary = {}
+## Party members already revived by Oath Shield this encounter (§12: the
+## revival count is defined by the skill, once per member per encounter).
+var oath_shield_revived: Dictionary = {}
 ## Enemy intent IDs already counted by Oath Vow; prevents multi-hit actions stacking repeatedly.
 var oath_vow_triggered_intents: Dictionary = {}
 ## Intent IDs whose public attack action successfully hit Sevrin during Absolute Guard.

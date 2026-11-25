@@ -70,6 +70,13 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 	## The caster comes from the active character, not from a fixed id: this was
 	## the last skill that read actors["sevrin"] for both the caster and the
 	## shield list, which is why a party member could never be shielded.
+	##
+	## §12 promised that "a specific skill can revive" a downed member; this is
+	## that skill. A downed ally within range is a legal target: revival restores
+	## health equal to the shield's raw value (one source, DEF-scaled), returns
+	## the member to its own cell and then shields it like any living target.
+	## Per §12 the count is the skill's to define: once per member per
+	## encounter, so a body cannot be resurrected in a loop.
 	var actors = battle.actors
 	if battle.phase != battle.BattlePhase.PLAYER or not actors.has(target_actor_id):
 		return false
@@ -77,7 +84,10 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 	if caster == null:
 		return false
 	var target = actors[target_actor_id]
-	if not caster.is_alive() or not target.is_alive() or target.team != "player":
+	var reviving: bool = target.is_downed
+	if not caster.is_alive() or target.team != "player" or not (target.is_alive() or reviving):
+		return false
+	if reviving and battle.oath_shield_revived.has(target_actor_id):
 		return false
 	if GridRulesScript.manhattan_distance(caster.cell, target.cell) > OATH_SHIELD_RANGE:
 		return false
@@ -91,6 +101,10 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 		shielded_ids.append(target_actor_id)
 	if not battle.ap.spend(OATH_SHIELD_AP):
 		return false
+	if reviving:
+		target.revive(raw_shield)
+		battle.oath_shield_revived[target_actor_id] = true
+		battle._emit_event("member_revived", caster_id, target_actor_id, "skill=oath_shield restored=%d" % raw_shield)
 	for shielded_id in shielded_ids:
 		var shielded = actors[shielded_id]
 		var previous_shield: int = shielded.shield

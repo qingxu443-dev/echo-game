@@ -1,13 +1,15 @@
 class_name APBudget
 extends RefCounted
 
-## Small deterministic AP ledger. Call spend only after action confirmation.
+## Deterministic AP ledger. One instance is the whole party's pool, so every
+## character draws from the same numbers. Call spend only after the action is
+## confirmed.
 
 var maximum: int
 var current: int
 
 
-func _init(ap_maximum: int = 3) -> void:
+func _init(ap_maximum: int = 5) -> void:
 	maximum = maxi(0, ap_maximum)
 	current = maximum
 

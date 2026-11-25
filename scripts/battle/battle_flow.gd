@@ -24,7 +24,7 @@ static func start_encounter(
 	obstacles: Array[Vector2i] = [],
 	enemy_archetypes: Array[String] = []
 ) -> bool:
-	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.player_ap <= 0:
+	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
 		return false
 	if not GridRulesScript.is_inside_bounds(player_cell, battle.grid_size):
 		return false
@@ -52,7 +52,7 @@ static func start_encounter(
 			return false
 		candidate_enemy_cells[cell] = true
 
-	battle.ap.maximum = battle.player_ap
+	battle.ap.maximum = battle.team_ap
 	battle.actors.clear()
 	battle.statuses.clear_all()
 	battle.oath_shield_expiry_turn.clear()

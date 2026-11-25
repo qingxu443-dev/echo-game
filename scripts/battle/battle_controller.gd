@@ -42,7 +42,10 @@ const PLAYER_MOVE_MAX_STEPS: int = 2
 enum BattlePhase { PLAYER, ENEMY, FINISHED }
 
 @export var grid_size: Vector2i = Vector2i(8, 8)
-@export var player_ap: int = 3
+## Team-wide AP pool (design plan §4): five points shared by the whole party per
+## player turn, not five per character. One ledger, drawn down by whichever
+## character acts. Unspent points are discarded at end of turn.
+@export var team_ap: int = 5
 
 var phase: BattlePhase = BattlePhase.FINISHED
 var ap: APBudget
@@ -70,7 +73,7 @@ var absolute_guard_countered_enemies: Dictionary = {}
 
 
 func _ready() -> void:
-	ap = APBudgetScript.new(player_ap)
+	ap = APBudgetScript.new(team_ap)
 
 
 # --- encounter ---------------------------------------------------------------

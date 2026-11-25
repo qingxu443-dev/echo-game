@@ -25,7 +25,7 @@ func _test_oath_vow_passive_and_shield_application() -> void:
 
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Vow begins with zero stacks")
 	_check(battle.request_oath_shield("ally_test"), "Oath Shield can target a nearby allied test unit")
-	_check(battle.ap.current == 2, "Oath Shield spends exactly one AP")
+	_check(battle.ap.current == battle.ap.maximum - 1, "Oath Shield spends exactly one AP")
 	_check(battle.get_actor("sevrin").shield == 195, "Sevrin receives the DEF-scaled base shield")
 	_check(battle.get_actor("ally_test").shield == 150, "ally shield independently respects 15 percent max-health cap")
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Shield works with zero Oath Vow stacks")
@@ -85,7 +85,7 @@ func _test_v2_judgment_mark_rejects_invalid_targets() -> void:
 	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(7, 7)]), "v2 Judgment Mark validation encounter starts")
 	_check(not battle.request_oathkeeper_judgment_mark("missing"), "v2 Judgment Mark rejects unknown targets")
 	_check(not battle.request_oathkeeper_judgment_mark("sevrin"), "v2 Judgment Mark rejects self targeting")
-	_check(battle.ap.current == 3, "invalid v2 Judgment Mark targets do not spend AP")
+	_check(battle.ap.current == battle.ap.maximum, "invalid v2 Judgment Mark targets do not spend AP")
 	battle.queue_free()
 
 
@@ -99,7 +99,7 @@ func _test_oath_shield_validation_and_duration() -> void:
 	_check(not battle.request_oath_shield("missing_actor"), "Oath Shield rejects unknown targets")
 	_check(not battle.request_oath_shield("vanguard_00"), "Oath Shield rejects enemy targets")
 	_check(not battle.request_oath_shield("ally_far"), "Oath Shield rejects allies beyond two Manhattan cells")
-	_check(battle.ap.current == 3, "invalid Oath Shield targets do not spend AP")
+	_check(battle.ap.current == battle.ap.maximum, "invalid Oath Shield targets do not spend AP")
 	_check(battle.request_oath_shield("ally_near"), "Oath Shield accepts an ally exactly two cells away")
 	var initial_shield: int = battle.get_actor("sevrin").shield
 	_check(initial_shield == 195, "initial self shield matches base formula")
@@ -123,11 +123,11 @@ func _test_absolute_guard_taunt_counter_and_energy() -> void:
 	_check(sevrin.ultimate_energy == 1, "each player turn start grants one ultimate energy")
 	sevrin.ultimate_energy = 4
 	_check(not battle.request_absolute_guard(), "Absolute Guard rejects activation below five energy")
-	_check(sevrin.ultimate_energy == 4 and battle.ap.current == 3, "failed Absolute Guard activation preserves energy and AP")
+	_check(sevrin.ultimate_energy == 4 and battle.ap.current == battle.ap.maximum, "failed Absolute Guard activation preserves energy and AP")
 	sevrin.ultimate_energy = 5
 	battle.actors["ally_test"] = ActorScript.new("ally_test", "player", Vector2i(1, 2), 1000, "support", 300, 100, 100)
 	_check(battle.request_absolute_guard(), "Absolute Guard can be activated at five energy")
-	_check(sevrin.ultimate_energy == 1 and battle.ap.current == 1, "Absolute Guard spends five energy, gains the once-per-turn active-action point, and spends two AP")
+	_check(sevrin.ultimate_energy == 1 and battle.ap.current == battle.ap.maximum - 2, "Absolute Guard spends five energy, gains the once-per-turn active-action point, and spends two AP")
 	_check(battle.statuses.has_status("sevrin", &"absolute_guard"), "Absolute Guard status is active after casting")
 
 	var melee = IntentScript.new("taunt_test", "vanguard_00", "basic_melee", IntentScript.TargetMode.ACTOR_LOCKED, "ally_test", Vector2i(1, 2), [Vector2i(1, 2)], 100, 0)

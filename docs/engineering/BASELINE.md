@@ -8,11 +8,11 @@
 | 项目 | 值 |
 |---|---|
 | 分支 | `main` |
-| 提交 | `83f840f`（main，缺陷修复合并后） |
+| 提交 | `83f840f`（main，PR #18 合并后）+ 审计修复分支 `fix/audit-p0-p1` |
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 16 |
-| 断言总数 | **628** |
+| 断言总数 | **654** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -21,11 +21,11 @@
 | 套件 | 断言 | 归属 |
 |---|---:|---|
 | `test_battle_controller.gd` | 162 | 控制器场景 |
-| `test_oathkeeper_v2_controller.gd` | 75 | V2 技能控制器 |
-| `test_turn_bookkeeping.gd` | 49 | 回合账本 |
+| `test_oathkeeper_v2_controller.gd` | 87 | V2 技能控制器 |
+| `test_turn_bookkeeping.gd` | 52 | 回合账本 |
 | `test_battle_area_effects.gd` | 43 | 区域效果 |
 | `test_hunter_summon.gd` | 39 | 猎人通灵 |
-| `test_battle_echo_counter.gd` | 38 | 回响反击（v1 遗留） |
+| `test_battle_echo_counter.gd` | 49 | 回响反击（v1 遗留） |
 | `test_level_catalog.gd` | 30 | 关卡数据 |
 | `test_battle_status.gd` | 25 | 状态容器 |
 | `test_diagonal_line_of_sight.gd` | 24 | 视线规则 |
@@ -36,7 +36,7 @@
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 12 | V2 技能目录 |
 | `test_enemy_catalog.gd` | 41 | 敌人数据目录（M1 新增） |
-| **合计** | **628** | |
+| **合计** | **654** | |
 
 ## 变更记录
 
@@ -48,7 +48,8 @@
 | 2026-11-25 | M2：控制器拆为门面 + 6 个子系统，936 → 230 行；测试文件零改动 | 623 → 623（不变） |
 | 2026-11-25 | 文档补全：系统法则实现状态对照、决策待办、README 文档导航 | 623 → 623（不变） |
 | 2026-11-25 | 修复通灵目标提示与绝对守护 AP 退还；补 5 条提示一致性断言 | 623 → 628（+5） |
-| 2026-11-25 | M3：界面拆为 6 个视图 + 调色板，570 → 257 行；像素级零差异 | 628 → 628（不变） |
+| 2026-11-25 | 审计修复批：`damage_pipeline` 命中判据统一为 `was_hit`；`intent_resolver` 近战嘲讽半径与 actor 锁定追踪语义对齐；新增绝对守护真实敌方阶段端到端测试（+8）、护盾全吸收语义测试（+11）、近战距离重定向测试（+4）、AP 退款账本测试（+3） | 628 → 654（+26） |
+| 2026-11-25 | M3：界面拆为 6 个视图 + 调色板，625 → 编排层；像素级零差异 | 654 → 654（不变） |
 
 ## 如何复现
 

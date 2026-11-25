@@ -77,7 +77,6 @@ const VIEW_SIZE := Vector2(1280.0, 720.0)
 
 const CELL_SIZE: float = 64.0
 const BOARD_ORIGIN := Vector2(384.0, 72.0)
-const BOARD_SIZE := 8
 
 const LEFT_COLUMN_X: float = 48.0
 
@@ -110,5 +109,5 @@ static func cell_at(position: Vector2) -> Vector2i:
 	return Vector2i(floori(grid_position.x), floori(grid_position.y))
 
 
-static func is_inside_board(cell: Vector2i) -> bool:
-	return cell.x >= 0 and cell.y >= 0 and cell.x < BOARD_SIZE and cell.y < BOARD_SIZE
+static func is_inside_board(cell: Vector2i, grid_size: Vector2i) -> bool:
+	return cell.x >= 0 and cell.y >= 0 and cell.x < grid_size.x and cell.y < grid_size.y

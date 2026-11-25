@@ -10,6 +10,7 @@ func _run() -> void:
 	_test_non_intent_damage_does_not_grant_echo()
 	_test_evaded_intent_does_not_trigger_counter()
 	_test_lethal_counter_preserves_resolved_intent()
+	_test_fully_absorbed_hit_triggers_defensive_responses()
 	_report()
 
 
@@ -88,5 +89,30 @@ func _test_lethal_counter_preserves_resolved_intent() -> void:
 	_check(battle.get_actor("marksman_00").is_defeated, "counter can defeat its attacker")
 	_check(shot_intent.state == IntentScript.IntentState.RESOLVED, "an intent that landed before a lethal counter remains resolved")
 	_check(battle.phase == ControllerScript.BattlePhase.FINISHED and battle.battle_result == "victory", "defeating the final attacker ends the encounter in victory")
+	battle.queue_free()
+
+
+## Unified hit semantics: a public enemy hit that a shield fully absorbs still
+## counts as a hit. The defensive stance is consumed, Echo is granted and the
+## prepared counter fires -- exactly like any other landed attack.
+func _test_fully_absorbed_hit_triggers_defensive_responses() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var marksman_types: Array[String] = ["marksman"]
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(5, 1)], [], marksman_types), "fully absorbed hit encounter starts")
+	var sevrin = battle.get_actor("sevrin")
+	var marksman = battle.get_actor("marksman_00")
+	_check(battle.request_oathguard_stance(), "Oathguard stance is prepared")
+	_check(battle.request_echo_counter(), "Echo Counter is prepared")
+	sevrin.shield = 500
+	var health_before: int = sevrin.health
+	_check(battle.end_player_turn(), "the aimed shot resolves against the shielded defender")
+	_check(sevrin.health == health_before, "the fully absorbed hit removes no health")
+	_check(sevrin.shield == 500 - 472, "the shield absorbs the entire post-reduction damage")
+	_check(not battle.statuses.has_status("sevrin", &"oathguard"), "a fully absorbed hit still consumes the defensive stance")
+	_check(battle.statuses.has_status("sevrin", &"echo"), "a fully absorbed public hit still grants Echo")
+	_check(not battle.statuses.has_status("sevrin", &"echo_counter"), "a fully absorbed public hit still triggers the prepared counter")
+	_check(marksman.health == 815, "the counter strikes the attacker at the standard 0.8 multiplier")
+	_check(battle.damage_taken == 0, "the settlement tally ignores shield-absorbed damage")
 	battle.queue_free()
 

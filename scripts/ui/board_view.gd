@@ -19,8 +19,8 @@ static func draw(canvas: CanvasItem, controller, selected_skill: int, skill_bar:
 
 
 static func _draw_grid(canvas: CanvasItem, controller) -> void:
-	for y in range(P.BOARD_SIZE):
-		for x in range(P.BOARD_SIZE):
+	for y in range(controller.grid_size.y):
+		for x in range(controller.grid_size.x):
 			var cell := Vector2i(x, y)
 			var rect := P.cell_rect(cell)
 			var fill := P.BOARD_LIGHT if (x + y) % 2 == 0 else P.BOARD_DARK
@@ -99,21 +99,31 @@ static func _draw_telegraphs(canvas: CanvasItem, controller) -> void:
 ## The single source of truth for both the highlight and the cast: hunter_summon
 ## needs a free cell beside the target as well as a ready cooldown, so a ring
 ## derived from distance alone used to promise a cast the controller refused.
-static func can_target(controller, skill_id: String, actor_id: String) -> bool:
+static func can_target(controller, skill_bar: Array, skill_id: String, actor_id: String) -> bool:
 	var player = controller.get_actor("sevrin")
 	if player == null:
 		return false
 	var actor = controller.get_actor(actor_id)
 	if actor == null or actor.team != "enemy" or not actor.is_alive():
 		return false
-	match skill_id:
-		"oathkeeper_judgment_mark":
-			var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
-			if distance < 1 or distance > 4:
-				return false
-			return GridRulesScript.has_clear_line_of_sight(player.cell, actor.cell, controller.blocked_cells, controller.get_occupied_cells())
-		"hunter_summon":
-			return controller.can_summon(actor_id)
+
+	# Ranges come from the skill bar, which is built from the V2 catalog: the
+	# hint and the cast read the same numbers instead of repeating them.
+	var skill: Dictionary = {}
+	for entry in skill_bar:
+		if str(entry["id"]) == skill_id:
+			skill = entry
+			break
+	if skill.is_empty():
+		return false
+
+	var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
+	if distance < int(skill["min_range"]) or distance > int(skill["max_range"]):
+		return false
+	if skill_id == "oathkeeper_judgment_mark":
+		return GridRulesScript.has_clear_line_of_sight(player.cell, actor.cell, controller.blocked_cells, controller.get_occupied_cells())
+	if skill_id == "hunter_summon":
+		return controller.can_summon(actor_id)
 	return false
 
 
@@ -126,6 +136,6 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 	if skill["mode"] != "actor":
 		return
 	for actor_id in controller.actors:
-		if not can_target(controller, str(skill["id"]), str(actor_id)):
+		if not can_target(controller, skill_bar, str(skill["id"]), str(actor_id)):
 			continue
 		canvas.draw_arc(P.cell_center(controller.actors[actor_id].cell), 31.0, 0.0, TAU, 48, P.RING_TARGET, 2.0)

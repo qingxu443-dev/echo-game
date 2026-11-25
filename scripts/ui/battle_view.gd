@@ -2,12 +2,14 @@ extends Node2D
 
 ## Battle screen orchestrator.
 ##
-## Owns the encounter lifecycle and the player's intent, and forwards rendering
-## to the views and raw input to the router. It draws nothing itself beyond the
-## backdrop: everything visible lives in board_view / hud_view / skill_bar_view /
-## settlement_view, and every colour and coordinate lives in theme_palette.
+## Owns the encounter lifecycle, the skill bar and the player's intent; forwards
+## rendering to the views and raw input to the router. It draws nothing itself
+## beyond the backdrop: everything visible lives in board_view / hud_view /
+## skill_bar_view / settlement_view, and every colour and coordinate lives in
+## theme_palette.
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
+const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const LevelCatalogScript = preload("res://scripts/battle/level_catalog.gd")
 const Palette = preload("res://scripts/ui/theme_palette.gd")
 const BoardViewScript = preload("res://scripts/ui/board_view.gd")
@@ -18,12 +20,8 @@ const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
 ## Number keys 1–4 mirror the visible order; no default attack is selected.
-const SKILL_BAR := [
-	{"id": "oathkeeper_judgment_mark", "name": "裁决印记", "hint": "1–4 格 · DEF×0.8 · 施加标记", "cost": 1, "mode": "actor"},
-	{"id": "oath_shield", "name": "誓盾庇护", "hint": "自身 + 两格内友军 · 护盾", "cost": 1, "mode": "self"},
-	{"id": "absolute_guard", "name": "绝对守护", "hint": "2 AP + 5 能量 · 嘲讽反击", "cost": 2, "mode": "self"},
-	{"id": "hunter_summon", "name": "猎人通灵", "hint": "任意敌人 · 现身一击 · 冷却 2 回合", "cost": 0, "mode": "actor"},
-]
+## Built in _ready() from the V2 catalog.
+var skill_bar: Array = []
 
 ## Presentation-only summon roster. Future summons can be added here without changing
 ## the existing hunter_summon execution path. Selection currently affects the displayed icon/name only.
@@ -45,6 +43,7 @@ func _ready() -> void:
 	add_child(controller)
 	controller.battle_event.connect(_on_battle_event)
 	controller.battle_finished.connect(_on_battle_finished)
+	skill_bar = SkillBarViewScript.build_entries(controller)
 	_start_level(0)
 
 
@@ -74,9 +73,9 @@ func _has_next_level() -> bool:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, Palette.VIEW_SIZE), Palette.BG, true)
 	HudViewScript.draw_header(self, _current_level(), current_level, levels.size())
-	BoardViewScript.draw(self, controller, selected_skill, SKILL_BAR)
+	BoardViewScript.draw(self, controller, selected_skill, skill_bar)
 	HudViewScript.draw_status(self, controller, status_message)
-	SkillBarViewScript.draw(self, controller, SKILL_BAR, selected_skill, SUMMON_OPTIONS, selected_summon_option)
+	SkillBarViewScript.draw(self, controller, skill_bar, selected_skill, SUMMON_OPTIONS, selected_summon_option)
 	if controller.phase == ControllerScript.BattlePhase.FINISHED:
 		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level())
 
@@ -84,7 +83,22 @@ func _draw() -> void:
 ## Kept on the view because the integration suite asks it directly; the rule
 ## itself lives in BoardView so the ring and the cast share one predicate.
 func _can_target_actor(skill_id: String, actor_id: String) -> bool:
-	return BoardViewScript.can_target(controller, skill_id, actor_id)
+	return BoardViewScript.can_target(controller, skill_bar, skill_id, actor_id)
+
+
+## Layout delegators. The integration suite taps through the view's own geometry
+## helpers rather than hard-coded coordinates, so these must stay reachable even
+## though the geometry itself lives in SkillBarView and the palette.
+func _skill_rect(index: int) -> Rect2:
+	return SkillBarViewScript.skill_rect(index)
+
+
+func _cell_rect(cell: Vector2i) -> Rect2:
+	return Palette.cell_rect(cell)
+
+
+func _cell_center(cell: Vector2i) -> Vector2:
+	return Palette.cell_center(cell)
 
 
 # --- input -------------------------------------------------------------------
@@ -125,7 +139,7 @@ func _handle_tap(position: Vector2) -> void:
 	if controller.phase != ControllerScript.BattlePhase.PLAYER:
 		return
 
-	for index in range(SKILL_BAR.size()):
+	for index in range(skill_bar.size()):
 		if SkillBarViewScript.skill_rect(index).has_point(position):
 			_on_skill_pressed(index)
 			return
@@ -135,7 +149,7 @@ func _handle_tap(position: Vector2) -> void:
 		return
 
 	var cell := Palette.cell_at(position)
-	if not Palette.is_inside_board(cell):
+	if not Palette.is_inside_board(cell, controller.grid_size):
 		return
 
 	for actor_id in controller.actors:
@@ -145,7 +159,7 @@ func _handle_tap(position: Vector2) -> void:
 				_use_skill_on(actor_id)
 			return
 
-	var path := _path_to_cell(controller.get_actor("sevrin").cell, cell)
+	var path := _path_to_cell(cell)
 	if path.is_empty():
 		status_message = "该位置无法到达，或超出两格移动范围。"
 	elif controller.request_player_move(path):
@@ -167,9 +181,9 @@ func _handle_settlement_tap(position: Vector2) -> void:
 # --- player actions ----------------------------------------------------------
 
 func _on_skill_pressed(index: int) -> void:
-	if index < 0 or index >= SKILL_BAR.size():
+	if index < 0 or index >= skill_bar.size():
 		return
-	var skill: Dictionary = SKILL_BAR[index]
+	var skill: Dictionary = skill_bar[index]
 	if skill["mode"] == "self":
 		selected_skill = -1
 		var cast_ok := false
@@ -190,7 +204,7 @@ func _on_skill_pressed(index: int) -> void:
 
 
 func _use_skill_on(actor_id: String) -> void:
-	var skill: Dictionary = SKILL_BAR[selected_skill]
+	var skill: Dictionary = skill_bar[selected_skill]
 	var cast_ok := false
 	match skill["id"]:
 		"oathkeeper_judgment_mark":
@@ -217,33 +231,20 @@ func _use_skill_on(actor_id: String) -> void:
 	queue_redraw()
 
 
-func _path_to_cell(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
-	var queue: Array[Vector2i] = [start]
-	var came_from := {start: start}
-	var directions: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
-	var occupied: Dictionary = controller.get_occupied_cells("sevrin")
-	while not queue.is_empty():
-		var current: Vector2i = queue.pop_front()
-		if current == goal:
-			break
-		for direction in directions:
-			var next: Vector2i = current + direction
-			if not Palette.is_inside_board(next):
-				continue
-			if controller.blocked_cells.has(next) or occupied.has(next) or came_from.has(next):
-				continue
-			came_from[next] = current
-			queue.append(next)
-	if not came_from.has(goal) or goal == start:
+## Candidate path only. The controller re-validates it through is_path_legal
+## before committing the move, so this stays a hint rather than a decision.
+func _path_to_cell(goal: Vector2i) -> Array[Vector2i]:
+	var player = controller.get_actor("sevrin")
+	if player == null:
 		return []
-	var reversed_path: Array[Vector2i] = []
-	var cursor: Vector2i = goal
-	while cursor != start:
-		reversed_path.push_front(cursor)
-		cursor = came_from[cursor]
-	if reversed_path.size() > 2:
-		return []
-	return reversed_path
+	return GridRulesScript.find_path(
+		player.cell,
+		goal,
+		controller.grid_size,
+		controller.blocked_cells,
+		controller.get_occupied_cells("sevrin"),
+		controller.PLAYER_MOVE_MAX_STEPS
+	)
 
 
 # --- controller signals ------------------------------------------------------

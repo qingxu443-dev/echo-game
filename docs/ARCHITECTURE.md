@@ -1,8 +1,8 @@
 # ECHO — 当前架构
 
-本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`）。历史演进过程请查阅 git 记录。
+本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-25，`main` @ `36c14a4`，Godot 4.7.2 导入零错误、十五个测试套件 582 条断言 0 失败。
+最后核对：2026-11-25，`main` @ `83f840f` + 审计修复分支 `fix/audit-p0-p1`，Godot 4.7.2 导入零错误、十六个测试套件 654 条断言 0 失败。
 
 ## 目录结构
 
@@ -13,33 +13,50 @@
 ├── scripts/
 │   ├── main.gd                       # 极简入口脚本
 │   ├── actors/battle_actor.gd        # 战斗单位运行时数据与伤害结算
-│   ├── battle/                       # 战斗规则、状态与关卡数据（14 个模块，见下）
+│   ├── battle/                       # 战斗规则、状态与数据目录（22 个模块，见下）
 │   └── ui/battle_view.gd             # 战斗界面：绘制、输入、技能栏、结算面板
+├── data/
+│   ├── enemies/                      # 三种敌人的 .tres 属性档案（M1）
+│   └── levels/                       # 三关 .tres 关卡配置（M1）
 ├── assets/ui/summons/                # 猎人通灵的表现层图标
-├── tests/                            # 15 个 SceneTree 无头测试
-└── docs/                             # 设计规范、状态记录与验证清单
+├── tests/                            # 16 个无头套件 + framework/test_case.gd 公共基类 + run_all 一键回归
+└── docs/                             # 设计规范、状态记录、工程基线与验证清单
 ```
 
 ## 模块清单
 
 ### 战斗规则（`scripts/battle/`）
 
+#### 控制器门面与子系统（M2 拆分）
+
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `battle_controller.gd` | 936 | 战斗权威状态：回合边界、AP 动作、意图生成与执行、伤害/死亡、状态与区域结算、护盾与终极能量、猎人通灵、终止判定、结算统计、有序事件流 | **唯一的权威状态持有者**；UI 只读取，不自行计算 |
-| `grid_rules.gd` | 95 | 纯网格校验、路径、曼哈顿距离；正交视线与玩家侧直线视线 | 无状态，不持有战斗数据 |
-| `ap_budget.gd` | 31 | 确定性 AP 账本：重置、消耗、回合结束清零 | 仅在动作确认后扣除 |
+| `battle_controller.gd` | 234 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
+| `battle_flow.gd` | 166 | 回合边界、遭遇构建、终止判定 | — |
+| `intent_planner.gd` | 133 | 敌方意图生成 | — |
+| `intent_resolver.gd` | 216 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
+| `skill_executor.gd` | 306 | 玩家技能校验与结算；AP 退款走账本 | — |
+| `damage_pipeline.gd` | 116 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
+| `summon_service.gd` | 81 | 猎人通灵 | — |
+
+#### 数据与规则件
+
+| 模块 | 行数 | 职责 | 关键约束 |
+|---|---|---|---|
+| `grid_rules.gd` | 137 | 纯网格校验、路径合法性、候选寻路（`find_path`，仅供 UI 提示）、曼哈顿距离；正交视线与玩家侧直线视线 | 无状态，不持有战斗数据；寻路产物须由 controller 复验 |
+| `ap_budget.gd` | 40 | 确定性 AP 账本：重置、消耗、退款、回合结束清零 | 仅在动作确认后扣除；退款走 `refund()`，不绕过账本 |
 | `combat_math.gd` | 17 | 共享伤害公式，防御采用递减收益 | 物理走防御、法术走法抗 |
-| `battle_intent.gd` | 60 | 敌方意图快照，支持 actor / tile / area 三种锁定模式与 active→resolved/canceled 单向生命周期 | **预告展示与敌方执行使用同一份快照** |
+| `battle_intent.gd` | 60 | 敌方意图快照，actor / tile / area 三种锁定模式与 active→resolved/canceled 单向生命周期 | **预告展示与敌方执行使用同一份快照** |
 | `battle_status.gd` | 44 | 单个状态实例：触发次数（-1 为无限）、到期边界、叠层策略 | — |
 | `battle_status_collection.gd` | 186 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 裁决印记可延后一个敌方阶段 |
-| `battle_area_effect.gd` | 67 | 区域效果实例（中心、覆盖格、持续时间） | — |
+| `battle_area_effect.gd` | 67 | 区域效果实例 | — |
 | `battle_area_effect_collection.gd` | 63 | 区域效果集合，同 ID 覆盖 | 守望壁垒按队伍而非固定 ID 判定 |
-| `skill_definition.gd` | 47 | 技能的纯数据规格（Resource），含被动标记与新目标模式 | 不含执行逻辑 |
-| `oathkeeper_v2_skill_catalog.gd` | 40 | **当前生效**的守誓者 V2 技能数据：裁决印记、誓盾庇护、绝对守护 + 被动不屈誓约 | 数值仍为待实战验证的原型基线 |
-| `oathkeeper_skill_catalog.gd` | 44 | v1 旧技能数据，仅供历史追溯与兼容性测试 | **不再接入技能栏**，见 `docs/sevrin_skill_kit_zh-CN.md` 的历史提示 |
-| `encounter_definition.gd` | 52 | 单关数据（ID、名称、战术提示、玩家起点、敌人格与兵种、障碍）与布阵自洽校验 | 只描述配置，不持有运行时状态 |
-| `level_catalog.gd` | 69 | 三关固定配置：蓄力、射线、混编 | 不使用随机布阵 |
+| `skill_definition.gd` | 47 | 技能纯数据规格（Resource） | 不含执行逻辑 |
+| `oathkeeper_v2_skill_catalog.gd` | 40 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
+| `oathkeeper_skill_catalog.gd` | 44 | v1 旧技能数据，仅供历史追溯与兼容性测试 | **不再接入技能栏** |
+| `enemy_definition.gd` / `enemy_catalog.gd` | 23 / 34 | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres` |
+| `encounter_definition.gd` | 52 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
+| `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
 
 ### 单位（`scripts/actors/`）
 
@@ -49,7 +66,7 @@
 
 ### 表现层（`scripts/ui/`）
 
-`battle_view.gd`（562 行）是 `Node2D`，负责：绘制 8×8 棋盘、障碍格、单位、意图预告与执行顺序、AP/血量/护盾/终极能量/守誓层数、状态标记、区域效果、结算面板；处理鼠标/触摸/键盘输入；维护四格技能栏。
+`battle_view.gd`（606 行）是 `Node2D`，负责：绘制棋盘（尺寸读 `controller.grid_size`）、障碍格、单位、意图预告与执行顺序、AP/血量/护盾/终极能量/守誓层数、状态标记、区域效果、结算面板；处理鼠标/触摸/键盘输入；维护四格技能栏。技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 
 输入约定：数字键 `1`–`4` 对应技能栏顺序；`Esc` 或右键取消目标选择；`Enter`/空格结束回合。自身技能按下即施放，目标技能需再点战场上的敌人确认。结算面板出现时，点击只响应「重开本关」与「下一关」。
 
@@ -58,15 +75,16 @@
 ```
 main.tscn (Node2D + battle_view.gd)
    │
-   ├─ 读取 ──> LevelCatalog         三关固定配置
+   ├─ 读取 ──> LevelCatalog(.tres)    三关固定配置
    │
-   ├─ 创建并持有 ──> BattleController（权威状态）
-   │                    ├─ GridRules        路径、范围与视线校验
+   ├─ 创建并持有 ──> BattleController（门面 + 权威状态）
+   │                    ├─ BattleFlow       回合边界 / 遭遇 / 终止
+   │                    ├─ IntentPlanner    敌方意图生成
+   │                    ├─ IntentResolver  敌方意图执行
+   │                    ├─ SkillExecutor    玩家技能
+   │                    ├─ SummonService    猎人通灵
+   │                    ├─ DamagePipeline   伤害与命中反应
    │                    ├─ APBudget         AP 账本
-   │                    ├─ BattleActor[]    单位、血量、护盾、终极能量
-   │                    ├─ BattleIntent[]   已捕获的敌方意图
-   │                    ├─ BattleStatusCollection
-   │                    ├─ BattleAreaEffectCollection
    │                    └─ signals: battle_event / battle_finished
    │
    └─ 每帧读取 controller 状态并绘制 ──> 屏幕
@@ -74,7 +92,7 @@ main.tscn (Node2D + battle_view.gd)
         └─ 输入事件 ──> controller.request_* 方法 ──> 状态变更 ──> queue_redraw()
 ```
 
-UI 不计算任何结果：命中、伤害、死亡、意图取消、护盾吸收全部由 `BattleController` 判定并发事件。
+UI 不计算任何结果：命中、伤害、死亡、意图取消、护盾吸收全部由 controller 及其子系统判定并发事件。
 
 ## 关卡与结算流程
 
@@ -103,4 +121,4 @@ UI 不计算任何结果：命中、伤害、死亡、意图取消、护盾吸�
 
 ## 验证状态
 
-见 `docs/PROJECT_STATUS.md` 的「验证记录」小节：2026-11-25 在 Godot 4.7.2（Windows）完成导入、十五个测试套件与主场景运行。Windows 人工交互手感、画面观感、Android 真机表现仍未验证。更早的 Linux 无头运行记录保留在 `docs/GODOT_ENGINE_VALIDATION_zh-CN.md` 作为历史参考。
+见 `docs/PROJECT_STATUS.md` 与 `docs/engineering/BASELINE.md`：2026-11-25 在 Godot 4.7.2（Windows）完成导入、十六个测试套件（654 条断言，含审计修复批新增 26 条与 PR #18 的 5 条）与主场景运行。Windows 人工交互手感、画面观感、Android 真机表现仍未验证。更早的 Linux 无头运行记录保留在 `docs/GODOT_ENGINE_VALIDATION_zh-CN.md` 作为历史参考。

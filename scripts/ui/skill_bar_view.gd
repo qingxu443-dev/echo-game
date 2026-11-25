@@ -5,6 +5,71 @@ extends RefCounted
 ## hints. Also owns skill_rect(), so hit testing and drawing share one geometry.
 
 const P = preload("res://scripts/ui/theme_palette.gd")
+const SkillDefinitionScript = preload("res://scripts/battle/skill_definition.gd")
+const OathkeeperV2CatalogScript = preload("res://scripts/battle/oathkeeper_v2_skill_catalog.gd")
+
+## Short HUD hint lines. Rule-relevant numbers (AP cost, target ranges) are
+## intentionally NOT written here: the entries are built from the V2 skill
+## catalog, the single source of truth, so a catalog change can never desync
+## the skill bar display.
+const SKILL_HINTS := {
+	&"oathkeeper_judgment_mark": "1–4 格 · DEF×0.8 · 施加标记",
+	&"oath_shield": "自身 + 两格内友军 · 护盾",
+	&"absolute_guard": "2 AP + 5 能量 · 嘲讽反击",
+	&"hunter_summon": "任意敌人 · 现身一击 · 冷却 2 回合",
+}
+## Display name for bar entries that are not part of the V2 catalog.
+const SKILL_FALLBACK_NAMES := {
+	&"hunter_summon": "猎人通灵",
+}
+
+
+## The bar's rule numbers (AP cost, target ranges) come from the V2 catalog.
+## The hunter summon stays presentation data here because it is a free action
+## whose cooldown bookkeeping is owned by the controller.
+static func build_entries(controller) -> Array:
+	var entries: Array = []
+	for skill in OathkeeperV2CatalogScript.create_prototype_skills():
+		entries.append(_entry(
+			skill.skill_id,
+			skill.display_name_zh,
+			String(SKILL_HINTS.get(skill.skill_id, skill.description_zh)),
+			skill.ap_cost,
+			"actor" if skill.target_mode == SkillDefinitionScript.TARGET_ACTOR else "self",
+			skill.min_range,
+			skill.max_range
+		))
+	var hunter_reach: int = controller.grid_size.x + controller.grid_size.y
+	entries.append(_entry(
+		&"hunter_summon",
+		String(SKILL_FALLBACK_NAMES[&"hunter_summon"]),
+		String(SKILL_HINTS[&"hunter_summon"]),
+		0,
+		"actor",
+		1,
+		hunter_reach
+	))
+	return entries
+
+
+static func _entry(
+	skill_id: StringName,
+	display_name: String,
+	hint: String,
+	ap_cost: int,
+	mode: String,
+	min_range: int,
+	max_range: int
+) -> Dictionary:
+	return {
+		"id": String(skill_id),
+		"name": display_name,
+		"hint": hint,
+		"cost": ap_cost,
+		"mode": mode,
+		"min_range": min_range,
+		"max_range": max_range,
+	}
 
 
 static func skill_rect(index: int) -> Rect2:

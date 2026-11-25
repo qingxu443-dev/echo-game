@@ -54,12 +54,12 @@ func _run() -> void:
 	_check(marksman_battle.start_encounter(Vector2i(1, 1), [Vector2i(5, 1)], [], marksman_types), "marksman encounter starts with explicit archetype")
 	var shot_intent = marksman_battle.intents[0]
 	_check(marksman_battle.get_actor("marksman_00").archetype == "marksman", "enemy archetype is stored on actor")
-	_check(marksman_battle.get_actor("marksman_00").max_health == 2000, "marksman uses provisional four health")
+	_check(marksman_battle.get_actor("marksman_00").max_health == 2000, "marksman baseline health is 2000")
 	_check(shot_intent.action_id == "aimed_shot", "aligned target in range produces aimed shot")
 	_check(shot_intent.target_mode == IntentScript.TargetMode.TILE_LOCKED, "aimed shot captures tile lock")
 	_check(shot_intent.target_cell == Vector2i(1, 1) and shot_intent.damage == 1200, "aimed shot captures marked cell and damage")
 	_check(marksman_battle.end_player_turn(), "aimed shot resolves during enemy phase")
-	_check(marksman_battle.get_actor("sevrin").health == 11273, "aimed shot deals captured two damage")
+	_check(marksman_battle.get_actor("sevrin").health == 11273, "aimed shot deals 727 mitigated damage")
 	_check(shot_intent.state == IntentScript.IntentState.RESOLVED, "aimed shot intent resolves")
 	marksman_battle.queue_free()
 
@@ -203,7 +203,7 @@ func _run() -> void:
 	var area_types: Array[String] = ["area_controller"]
 	_check(area_battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 1)], [], area_types), "area controller encounter starts")
 	var area_intent = area_battle.intents[0]
-	_check(area_battle.get_actor("area_controller_00").max_health == 2600, "area controller uses provisional five health")
+	_check(area_battle.get_actor("area_controller_00").max_health == 2600, "area controller baseline health is 2600")
 	_check(area_intent.action_id == "ground_pulse", "area controller selects ground pulse in range")
 	_check(area_intent.target_mode == IntentScript.TargetMode.AREA_LOCKED, "ground pulse captures area lock")
 	_check(area_intent.affected_cells.size() == 5 and area_intent.affected_cells.has(Vector2i(1, 1)), "ground pulse captures fixed orthogonal cross footprint")

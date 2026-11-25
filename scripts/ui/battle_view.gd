@@ -191,10 +191,11 @@ func _handle_tap(position: Vector2) -> void:
 
 	# A party member shares the board but is not a destination, so tapping one
 	# used to fall through to the path finder and answer "cannot reach". With an
-	# ally skill selected it is a target instead.
+	# ally skill selected it is a target instead - including a downed member,
+	# which is how Oath Shield's revival reach gets a tap surface.
 	for actor_id in controller.actors:
 		var member = controller.actors[actor_id]
-		if member.team == "player" and member.is_alive() and member.cell == cell:
+		if member.team == "player" and (member.is_alive() or member.is_downed()) and member.cell == cell:
 			if selected_skill >= 0:
 				var chosen: Dictionary = skill_bar[selected_skill]
 				if str(chosen["mode"]) == "ally":

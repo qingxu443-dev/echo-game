@@ -81,6 +81,7 @@ static func start_encounter(
 	battle.actors.clear()
 	battle.statuses.clear_all()
 	battle.oath_shield_expiry_turn.clear()
+	battle.oath_shield_revived.clear()
 	battle.resource_gain_turn.clear()
 	battle.resource_gain_count.clear()
 	battle.echo_return_gain_turn.clear()

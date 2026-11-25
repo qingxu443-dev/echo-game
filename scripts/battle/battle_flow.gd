@@ -115,7 +115,9 @@ static func start_encounter(
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
 		var enemy_id := "%s_%02d" % [archetype, index]
 		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
-		battle.actors[enemy_id] = BattleActorScript.new(enemy_id, "enemy", cell, profile.health, archetype, profile.attack, profile.defense, profile.magic_resistance)
+		var enemy_unit = BattleActorScript.new(enemy_id, "enemy", cell, profile.health, archetype, profile.attack, profile.defense, profile.magic_resistance)
+		enemy_unit.glyph = profile.glyph
+		battle.actors[enemy_id] = enemy_unit
 
 	battle.phase = battle.BattlePhase.PLAYER
 	begin_player_turn(battle)

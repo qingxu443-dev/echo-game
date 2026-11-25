@@ -6,6 +6,7 @@
 script = ExtResource("1_def")
 archetype_id = &"area_controller"
 display_name_zh = "区域术士"
+glyph = "术"
 health = 2600
 attack = 1100
 defense = 450

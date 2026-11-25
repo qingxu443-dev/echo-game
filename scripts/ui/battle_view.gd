@@ -177,6 +177,30 @@ func _draw_telegraphs() -> void:
 
 
 ## Highlights the enemies the selected skill could legally hit right now.
+## Whether the selected skill may legally target this enemy right now.
+##
+## Kept separate from _draw_target_hints so the highlight and the cast cannot
+## drift apart. hunter_summon needs a free cell beside the target as well as a
+## ready cooldown, so a ring drawn from distance alone used to promise a cast
+## that the controller would then refuse.
+func _can_target_actor(skill_id: String, actor_id: String) -> bool:
+	var player = controller.get_actor("sevrin")
+	if player == null:
+		return false
+	var actor = controller.get_actor(actor_id)
+	if actor == null or actor.team != "enemy" or not actor.is_alive():
+		return false
+	match skill_id:
+		"oathkeeper_judgment_mark":
+			var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
+			if distance < 1 or distance > 4:
+				return false
+			return GridRulesScript.has_clear_line_of_sight(player.cell, actor.cell, controller.blocked_cells, controller.get_occupied_cells())
+		"hunter_summon":
+			return controller.can_summon(actor_id)
+	return false
+
+
 func _draw_target_hints() -> void:
 	if controller.phase != ControllerScript.BattlePhase.PLAYER:
 		return
@@ -185,26 +209,10 @@ func _draw_target_hints() -> void:
 	var skill: Dictionary = SKILL_BAR[selected_skill]
 	if skill["mode"] != "actor":
 		return
-	var player = controller.get_actor("sevrin")
-	if player == null:
-		return
-	var range_min: int = 1
-	var range_max: int = 1
-	match skill["id"]:
-		"oathkeeper_judgment_mark":
-			range_max = 4
-		"hunter_summon":
-			range_max = 99
 	for actor_id in controller.actors:
-		var actor = controller.actors[actor_id]
-		if actor.team != "enemy" or not actor.is_alive():
+		if not _can_target_actor(str(skill["id"]), str(actor_id)):
 			continue
-		var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
-		if distance < range_min or distance > range_max:
-			continue
-		if skill["id"] == "oathkeeper_judgment_mark" and not GridRulesScript.has_clear_line_of_sight(player.cell, actor.cell, controller.blocked_cells, controller.get_occupied_cells()):
-			continue
-		draw_arc(_cell_center(actor.cell), 31.0, 0.0, TAU, 48, Color(0.95, 0.85, 0.55, 0.55), 2.0)
+		draw_arc(_cell_center(controller.actors[actor_id].cell), 31.0, 0.0, TAU, 48, Color(0.95, 0.85, 0.55, 0.55), 2.0)
 
 
 func _draw_hud() -> void:

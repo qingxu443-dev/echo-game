@@ -12,7 +12,7 @@
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 16 |
-| 断言总数 | **623** |
+| 断言总数 | **628** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -32,11 +32,11 @@
 | `test_skill_definitions.gd` | 20 | 技能数据（v1） |
 | `test_oathkeeper_v2_actor.gd` | 19 | 护盾与能量 |
 | `test_core_rules.gd` | 18 | 网格/AP/伤害 |
-| `test_battle_view_skills.gd` | 15 | UI 到控制器集成 |
+| `test_battle_view_skills.gd` | 20 | UI 到控制器集成（含目标提示一致性） |
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 12 | V2 技能目录 |
 | `test_enemy_catalog.gd` | 41 | 敌人数据目录（M1 新增） |
-| **合计** | **623** | |
+| **合计** | **628** | |
 
 ## 变更记录
 
@@ -46,6 +46,7 @@
 | 2026-11-25 | M1：敌人属性外置为 `.tres`，新增 `test_enemy_catalog` | 582 → 623（+41） |
 | 2026-11-25 | M1：关卡外置为 `.tres`，`level_catalog.gd` 69 → 29 行 | 623 → 623（不变） |
 | 2026-11-25 | M2：控制器拆为门面 + 6 个子系统，936 → 230 行；测试文件零改动 | 623 → 623（不变） |
+| 2026-11-25 | 修复通灵目标提示与绝对守护 AP 退还；补 5 条提示一致性断言 | 623 → 628（+5） |
 
 ## 如何复现
 

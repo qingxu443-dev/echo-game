@@ -12,7 +12,7 @@
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 17 |
-| 断言总数 | **594** |
+| 断言总数 | **602** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -32,12 +32,12 @@
 | `test_level_catalog.gd` | 30 | 关卡数据 |
 | `test_battle_status.gd` | 25 | 状态容器 |
 | `test_diagonal_line_of_sight.gd` | 20 | 视线规则 |
-| `test_battle_view_skills.gd` | 20 | UI 到控制器集成（含目标提示一致性） |
+| `test_battle_view_skills.gd` | 28 | UI 到控制器集成（目标提示一致性、普攻黄圈、快捷键覆盖） |
 | `test_oathkeeper_v2_actor.gd` | 19 | 护盾与能量 |
 | `test_core_rules.gd` | 18 | 网格 / AP / 伤害 |
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 14 | 瑟弗林技能目录（含普攻） |
-| **合计** | **594** | |
+| **合计** | **602** | |
 
 ## 持续集成
 
@@ -67,6 +67,7 @@
 | 2026-11-25 | 0.3 落地④：角色框架（数据驱动角色位、槽位、执行器注册）与樱接入；新增 `test_character_framework` | 538 → 575（+37） |
 | 2026-11-25 | 落英格形定为面前横 3 × 纵 2 矩形，改用 `shape_width` / `shape_depth` 数据字段 | 575 → 580（+5） |
 | 2026-11-25 | 补回瑟弗林普攻（誓刃，§15）；通灵改为数据驱动（`data/summons/` + `summon:<id>` 分派） | 580 → 594（+14） |
+| 2026-11-25 | 修复普攻与樱技能不显示目标黄圈、第 5 项通灵缺快捷键 | 594 → 602（+8） |
 
 ## 如何复现
 

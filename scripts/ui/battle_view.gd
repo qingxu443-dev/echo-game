@@ -53,8 +53,9 @@ func _start_level(index: int) -> void:
 	current_level = index
 	var level: EncounterDefinition = levels[index]
 	selected_skill = -1
-	controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes)
+	controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells)
 	status_message = level.tactical_hint_zh
+	skill_bar = SkillBarViewScript.build_entries(controller)
 	queue_redraw()
 
 
@@ -114,6 +115,8 @@ func _input(event: InputEvent) -> void:
 			_cancel_target_selection()
 		InputRouterScript.ACTION_END_TURN:
 			_end_player_turn()
+		InputRouterScript.ACTION_SWITCH:
+			_switch_character()
 
 
 func _end_player_turn() -> void:
@@ -121,6 +124,23 @@ func _end_player_turn() -> void:
 		return
 	controller.end_player_turn()
 	status_message = "敌方已行动，新回合开始。"
+	queue_redraw()
+
+
+## Cycles command to the next living party member. Free: the AP pool is shared,
+## so switching is a decision about who spends it, not a resource of its own.
+func _switch_character() -> void:
+	var roster: Array[String] = controller.get_switchable_characters()
+	if roster.size() <= 1:
+		status_message = "队伍中只有一名可行动角色。"
+		queue_redraw()
+		return
+	var current_index: int = roster.find(controller.active_character_id)
+	var next_id: String = roster[(current_index + 1) % roster.size()]
+	if controller.set_active_character(next_id):
+		selected_skill = -1
+		skill_bar = SkillBarViewScript.build_entries(controller)
+		status_message = "已切换到 %s。" % next_id
 	queue_redraw()
 
 
@@ -186,12 +206,9 @@ func _on_skill_pressed(index: int) -> void:
 	var skill: Dictionary = skill_bar[index]
 	if skill["mode"] == "self":
 		selected_skill = -1
-		var cast_ok := false
-		match skill["id"]:
-			"oath_shield":
-				cast_ok = controller.request_oath_shield("sevrin")
-			"absolute_guard":
-				cast_ok = controller.request_absolute_guard()
+		# One entry point for every character: the runtime resolves the caster
+		# from the active character and dispatches on the skill's effect id.
+		var cast_ok: bool = controller.request_skill(StringName(str(skill["id"])))
 		if cast_ok:
 			status_message = "「%s」已生效。" % str(skill["name"])
 		else:
@@ -205,36 +222,17 @@ func _on_skill_pressed(index: int) -> void:
 
 func _use_skill_on(actor_id: String) -> void:
 	var skill: Dictionary = skill_bar[selected_skill]
-	var cast_ok := false
-	match skill["id"]:
-		"oathkeeper_judgment_mark":
-			cast_ok = controller.request_oathkeeper_judgment_mark(actor_id)
-		"hunter_summon":
-			cast_ok = controller.request_hunter_summon(actor_id)
-		_:
-			status_message = "该技能需要点击自身，不需要选择目标。"
-			queue_redraw()
-			return
-
-	if cast_ok:
-		match skill["id"]:
-			"oathkeeper_judgment_mark":
-				status_message = "裁决印记已施加，造成伤害并标记目标。"
-			"hunter_summon":
-				status_message = "猎人现身一击命中，未消耗行动点。"
+	if controller.request_skill(StringName(str(skill["id"])), actor_id):
+		status_message = "「%s」已生效。" % str(skill["name"])
 	else:
-		match skill["id"]:
-			"oathkeeper_judgment_mark":
-				status_message = "裁决印记失败：目标需在 1–4 格内且视线无遮挡。"
-			"hunter_summon":
-				status_message = "猎人通灵失败：冷却未结束，或目标四周没有空位。"
+		status_message = "「%s」未能施放：检查行动点、射程、视线与资源。" % str(skill["name"])
 	queue_redraw()
 
 
 ## Candidate path only. The controller re-validates it through is_path_legal
 ## before committing the move, so this stays a hint rather than a decision.
 func _path_to_cell(goal: Vector2i) -> Array[Vector2i]:
-	var player = controller.get_actor("sevrin")
+	var player = controller.get_active_character()
 	if player == null:
 		return []
 	return GridRulesScript.find_path(
@@ -242,7 +240,7 @@ func _path_to_cell(goal: Vector2i) -> Array[Vector2i]:
 		goal,
 		controller.grid_size,
 		controller.blocked_cells,
-		controller.get_occupied_cells("sevrin"),
+		controller.get_occupied_cells(controller.active_character_id),
 		controller.PLAYER_MOVE_MAX_STEPS
 	)
 

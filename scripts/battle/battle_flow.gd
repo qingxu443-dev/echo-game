@@ -13,6 +13,7 @@ const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 
 ## Validates the whole setup before touching live state: a rejected call must
@@ -22,7 +23,9 @@ static func start_encounter(
 	player_cell: Vector2i,
 	enemy_cells: Array[Vector2i],
 	obstacles: Array[Vector2i] = [],
-	enemy_archetypes: Array[String] = []
+	enemy_archetypes: Array[String] = [],
+	character_ids: Array[String] = [],
+	ally_cells: Array[Vector2i] = []
 ) -> bool:
 	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
 		return false
@@ -36,17 +39,39 @@ static func start_encounter(
 		if not EnemyCatalogScript.has_definition(archetype):
 			return false
 
+	# Deployed characters come from data. character_ids[0] takes player_cell and
+	# every later one takes ally_cells[i - 1], so a roster and its cells must
+	# agree in length before anything is spawned.
+	var roster: Array[String] = []
+	roster.append_array(character_ids)
+	if roster.is_empty():
+		roster.append(CharacterCatalogScript.default_id())
+	if roster.size() != ally_cells.size() + 1:
+		return false
+	for character_id in roster:
+		if not CharacterCatalogScript.has_definition(character_id):
+			return false
+
+	var spawn_cells: Array[Vector2i] = [player_cell]
+	spawn_cells.append_array(ally_cells)
+	var seen_cells: Dictionary = {}
+	for cell in spawn_cells:
+		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size) or seen_cells.has(cell):
+			return false
+		seen_cells[cell] = true
+
 	var candidate_blockers: Dictionary = {}
 	for cell in obstacles:
 		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
 			return false
 		candidate_blockers[cell] = true
-	if candidate_blockers.has(player_cell):
-		return false
+	for cell in spawn_cells:
+		if candidate_blockers.has(cell):
+			return false
 
 	var candidate_enemy_cells: Dictionary = {}
 	for cell in enemy_cells:
-		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size) or cell == player_cell:
+		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size) or seen_cells.has(cell):
 			return false
 		if candidate_blockers.has(cell) or candidate_enemy_cells.has(cell):
 			return false
@@ -56,6 +81,9 @@ static func start_encounter(
 	battle.actors.clear()
 	battle.statuses.clear_all()
 	battle.oath_shield_expiry_turn.clear()
+	battle.resource_gain_turn.clear()
+	battle.resource_gain_count.clear()
+	battle.echo_return_gain_turn.clear()
 	battle.oath_vow_triggered_intents.clear()
 	battle.absolute_guard_hit_intents.clear()
 	battle.absolute_guard_countered_enemies.clear()
@@ -69,7 +97,19 @@ static func start_encounter(
 	battle.damage_taken = 0
 	battle.enemies_defeated = 0
 
-	battle.actors["sevrin"] = BattleActorScript.new("sevrin", "player", player_cell, 12000, "oathkeeper", 2000, 650, 500)
+	for index in range(roster.size()):
+		var character_id: String = roster[index]
+		var sheet: CharacterDefinition = CharacterCatalogScript.get_definition(character_id)
+		var unit = BattleActorScript.new(character_id, "player", spawn_cells[index], sheet.max_health, String(sheet.character_id), sheet.attack, sheet.defense, sheet.magic_resistance)
+		unit.character_id = sheet.character_id
+		unit.glyph = sheet.glyph
+		unit.display_name_zh = sheet.display_name_zh
+		unit.resource_id = sheet.resource_id
+		unit.resource_name_zh = sheet.resource_name_zh
+		unit.resource_max = sheet.resource_max
+		unit.resource_current = 0
+		battle.actors[character_id] = unit
+	battle.active_character_id = roster[0]
 	for index in range(enemy_cells.size()):
 		var cell: Vector2i = enemy_cells[index]
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
@@ -124,6 +164,11 @@ static func begin_player_turn(battle) -> void:
 		player_actor.gain_ultimate_energy(1)
 		if player_actor.ultimate_energy != energy_before:
 			battle._emit_event("ultimate_energy_gained", String(actor_id), String(actor_id), "source=player_turn_start energy=%d" % player_actor.ultimate_energy)
+	# §19: one stack at turn start, outside the per-turn action budget.
+	for actor_id in battle.actors:
+		var member = battle.actors[actor_id]
+		if member.team == "player" and member.is_alive() and member.has_resource():
+			member.gain_resource(1)
 	battle.ap.reset()
 	battle.phase = battle.BattlePhase.PLAYER
 	battle.intents = IntentPlannerScript.plan(battle)

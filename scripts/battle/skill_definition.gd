@@ -23,9 +23,25 @@ const DAMAGE_MAGICAL: StringName = &"magical"
 @export var damage_type: StringName = DAMAGE_NONE
 @export var damage_multiplier: float = 0.0
 @export var effect_id: StringName = &""
+## Which runtime branch resolves this skill. Kept separate from effect_id, which
+## names the status the skill applies - the two are not the same thing and
+## conflating them made dispatch guess.
+@export var executor_id: StringName = &""
 @export var duration_player_phases: int = 0
 @export var requires_judgment_mark: bool = false
 @export var is_passive: bool = false
+## Design plan §15: which of the five slots this skill occupies.
+@export var slot: StringName = &""
+## Plan §26: an action may consist of several independently calculated segments.
+@export var hits: int = 1
+## Per-segment multipliers. Empty means damage_multiplier is split evenly across
+## hits, which is what most skills want; a finisher-heavy skill lists them.
+@export var hit_multipliers: Array[float] = []
+## Area shape for multi-target skills. "single" is the default.
+const SHAPE_SINGLE: StringName = &"single"
+const SHAPE_CROSS: StringName = &"cross"
+const SHAPE_FAN: StringName = &"fan"
+@export var shape: StringName = SHAPE_SINGLE
 
 
 func is_valid() -> bool:
@@ -36,6 +52,15 @@ func is_valid() -> bool:
 	if target_mode != TARGET_SELF and target_mode != TARGET_SELF_AND_ALLY and target_mode != TARGET_ACTOR and target_mode != TARGET_CELL and target_mode != TARGET_AREA:
 		return false
 	if damage_multiplier < 0.0 or duration_player_phases < 0:
+		return false
+	if hits <= 0:
+		return false
+	if not hit_multipliers.is_empty() and hit_multipliers.size() != hits:
+		return false
+	for hit_multiplier in hit_multipliers:
+		if hit_multiplier < 0.0:
+			return false
+	if shape != SHAPE_SINGLE and shape != SHAPE_CROSS and shape != SHAPE_FAN:
 		return false
 	if damage_multiplier > 0.0:
 		if damage_type != DAMAGE_PHYSICAL and damage_type != DAMAGE_MAGICAL:

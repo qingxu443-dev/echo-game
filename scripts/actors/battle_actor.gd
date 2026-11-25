@@ -24,6 +24,17 @@ var shield: int = 0
 var ultimate_energy: int = 0
 ## Prevents more than one successful-action energy gain per player turn.
 var active_energy_gain_turn: int = -1
+## Character sheet this unit was spawned from. Empty for enemies.
+var character_id: StringName = &""
+## Board token glyph, so the view does not have to know every character.
+var glyph: String = ""
+## Display name from the character sheet, for the HUD.
+var display_name_zh: String = ""
+## Class resource (design plan §19: 剑意). Empty id means the unit has none.
+var resource_id: StringName = &""
+var resource_name_zh: String = ""
+var resource_current: int = 0
+var resource_max: int = 0
 
 
 func _init(
@@ -133,6 +144,30 @@ func apply_damage_with_result(
 
 func is_alive() -> bool:
 	return not is_defeated and health > 0
+
+
+## Class resource track (design plan §19: 剑意). Capped, never negative, and a
+## no-op for units without one, so callers do not have to ask first.
+func gain_resource(amount: int) -> int:
+	if resource_max <= 0 or amount <= 0:
+		return resource_current
+	resource_current = clampi(resource_current + amount, 0, resource_max)
+	return resource_current
+
+
+func spend_resource(amount: int) -> bool:
+	if amount < 0 or resource_current < amount:
+		return false
+	resource_current -= amount
+	return true
+
+
+func has_resource() -> bool:
+	return resource_id != &"" and resource_max > 0
+
+
+func is_resource_full() -> bool:
+	return resource_max > 0 and resource_current >= resource_max
 
 
 ## Whether this unit still occupies its cell. A downed body does: §12 says the

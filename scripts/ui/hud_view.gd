@@ -24,15 +24,25 @@ static func draw_status(canvas: CanvasItem, controller, status_message: String) 
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 145), "回合  %02d" % controller.turn_number, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.TEXT_STRONG)
 	canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 180), "行动点  %d / %d" % [controller.ap.current, controller.ap.maximum], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.GOLD_LIGHT)
-	canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 235), "瑟弗林", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, P.TEXT)
+	var active = controller.get_active_character()
+	var active_name: String = "—"
+	if active != null:
+		active_name = String(active.display_name_zh)
+		if active_name.is_empty():
+			active_name = String(active.actor_id)
+		active_name = "%s　%s" % [String(active.glyph), active_name]
+	canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 235), active_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, P.TEXT)
 
-	var sevrin = controller.get_actor("sevrin")
+	var sevrin = active
 	if sevrin != null:
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 263), "生命  %d / %d" % [sevrin.health, sevrin.max_health], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, P.TEXT_BODY)
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 290), "攻击 %d  防御 %d" % [sevrin.attack, sevrin.defense], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.TEXT_BODY)
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 313), "魔抗 %d" % sevrin.magic_resistance, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.TEXT_BODY)
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 336), "护盾 %d  终极能量 %d / %d" % [sevrin.shield, sevrin.ultimate_energy, P.ULTIMATE_ENERGY_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.CYAN)
-		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 359), "被动：不屈誓约 · 守誓 %d / %d" % [controller.get_oath_vow_stacks(), P.OATH_VOW_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.GOLD_LIGHT)
+		if sevrin.has_resource():
+			canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 359), "%s %d / %d%s" % [String(sevrin.resource_name_zh), sevrin.resource_current, sevrin.resource_max, "　极意" if sevrin.is_resource_full() else ""], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.GOLD_LIGHT)
+		else:
+			canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 359), "被动：不屈誓约 · 守誓 %d / %d" % [controller.get_oath_vow_stacks(), P.OATH_VOW_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.GOLD_LIGHT)
 
 	_draw_wrapped(canvas, font, status_message, Vector2(P.LEFT_COLUMN_X, 382), 320.0, 15, P.TEXT_MUTED, 2)
 

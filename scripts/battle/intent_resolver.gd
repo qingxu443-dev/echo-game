@@ -52,6 +52,10 @@ static func resolve_phase(battle) -> void:
 			break
 
 	if battle.phase != battle.BattlePhase.FINISHED:
+		# §20: marks that last a number of enemy turns tick here.
+		var timed_out: int = statuses.tick_enemy_phase()
+		if timed_out > 0:
+			battle._emit_event("statuses_expired", "", "", "reason=enemy_turns count=%d" % timed_out)
 		var expired_statuses: int = statuses.expire_all_boundary(&"enemy_phase_end")
 		if expired_statuses > 0:
 			battle._emit_event("statuses_expired", "", "", "boundary=enemy_phase_end count=%d" % expired_statuses)

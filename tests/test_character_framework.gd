@@ -33,6 +33,10 @@ func _run() -> void:
 	_test_oath_shield_reaches_a_party_member()
 	_test_a_dead_target_is_not_marked()
 	_test_active_skills_grant_ultimate_energy()
+	_test_cast_uses_the_commanded_character()
+	_test_movement_uses_the_commanded_character()
+	_test_oath_vow_follows_the_passive_not_the_character()
+	_test_absolute_guard_follows_the_status()
 	_report()
 
 
@@ -404,6 +408,90 @@ func _test_a_dead_target_is_not_marked() -> void:
 	battle.get_actor("sakura").cell = Vector2i(1, 1)
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_01"), "a second Pierce Blossom resolves")
 	_check(battle.statuses.has_status("vanguard_01", &"sakura_petal_mark"), "a surviving target is still marked")
+
+
+## The framework claim being tested: the caster is whoever is commanded, not the
+## character the prototype started with. Damage numbers make this observable -
+## Sakura's 520 attack and Sevrin's 2000 produce different results from the same
+## distance against the same defense.
+func _test_cast_uses_the_commanded_character() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	# Sakura at (2,2) so the enemy at (2,1) is adjacent to both: the normal attack
+	# needs adjacency and the comparison is about who casts, not about reach.
+	var allies: Array[Vector2i] = [Vector2i(2, 2)]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], ids, allies)
+	_check(battle.active_character_id == "sevrin", "the first deployed character starts in command")
+
+	var adjacent = battle.get_actor("vanguard_00")
+	# Sevrin's 2000 attack against 700 defense: floor(2000 * 1000 / 1700) = 1176
+	var before_sevrin: int = adjacent.health
+	_check(battle.request_skill(&"oathblade", "vanguard_00"), "Sevrin's normal attack resolves")
+	_check(before_sevrin - adjacent.health == 1176, "Sevrin's attack uses Sevrin's attack stat")
+
+	_check(battle.set_active_character("sakura"), "command switches to Sakura")
+	# Sakura's 520 attack against 700 defense: floor(520 * 1000 / 1700) = 305
+	var before_sakura: int = adjacent.health
+	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Sakura's attack resolves after switching")
+	_check(before_sakura - adjacent.health == 305, "the same enemy takes Sakura's number, so the caster really changed")
+	battle.queue_free()
+
+
+## Movement was the other hardcoded path: it walked a fixed actor regardless of
+## who was being commanded, so a switched character could not move at all.
+func _test_movement_uses_the_commanded_character() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	var allies: Array[Vector2i] = [Vector2i(1, 5)]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(6, 6)], [], [], ids, allies)
+	_check(battle.set_active_character("sakura"), "command switches to Sakura")
+
+	var ap_before: int = battle.ap.current
+	var move_path: Array[Vector2i] = [Vector2i(1, 4)]
+	_check(battle.request_player_move(move_path), "the commanded character can move")
+	_check(battle.get_actor("sakura").cell == Vector2i(1, 4), "Sakura moved, not the prototype character")
+	_check(battle.get_actor("sevrin").cell == Vector2i(1, 1), "Sevrin stayed where he was")
+	_check(battle.ap.current == ap_before - 1, "the move drew from the shared pool")
+	battle.queue_free()
+
+
+## Oath Vow is a passive, so it belongs to the unit carrying it. Sakura does not
+## have it; without this check the hook would silently feed her a resource she
+## has no business owning.
+func _test_oath_vow_follows_the_passive_not_the_character() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sakura"]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], ids, [])
+	_check(not battle.has_passive("sakura", &"oath_vow"), "Sakura does not carry Oath Vow")
+	_check(battle.end_player_turn(), "the enemy attack resolves against Sakura")
+	_check(battle.get_oath_vow_stacks("sakura") == 0, "being hit grants Oath Vow only to a unit that has the passive")
+
+	var sevrin_battle = ControllerScript.new()
+	root.add_child(sevrin_battle)
+	sevrin_battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)])
+	_check(sevrin_battle.has_passive("sevrin", &"oath_vow"), "Sevrin carries Oath Vow")
+	_check(sevrin_battle.end_player_turn(), "the enemy attack resolves against Sevrin")
+	_check(sevrin_battle.get_oath_vow_stacks() == 1, "the passive holder does accumulate a stack")
+	battle.queue_free()
+	sevrin_battle.queue_free()
+
+
+## The taunt used to look for a character by id. It now looks for the status, so
+## the guardian is whoever holds it - including a character the prototype never
+## had.
+func _test_absolute_guard_follows_the_status() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	var allies: Array[Vector2i] = [Vector2i(1, 4)]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], ids, allies)
+
+	_check(battle.get_absolute_guardian().is_empty(), "nobody guards before the stance is up")
+	_check(battle.statuses.apply_status(&"absolute_guard", "sakura", "sakura", 1, 1, -1, &"player_phase_start", &"replace"), "the stance can be placed on any party member")
+	_check(battle.get_absolute_guardian() == "sakura", "the guardian is the status holder, not a fixed character")
 	battle.queue_free()
 
 

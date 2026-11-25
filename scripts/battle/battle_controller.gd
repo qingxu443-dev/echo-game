@@ -28,6 +28,8 @@ const DamagePipelineScript = preload("res://scripts/battle/damage_pipeline.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
 const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
+const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 
 ## Maximum straight-line steps for one player move action. The UI reads this
 ## constant so the movement-range rule has a single source of truth.
@@ -69,7 +71,7 @@ var absolute_guard_hit_intents: Dictionary = {}
 var absolute_guard_countered_enemies: Dictionary = {}
 ## Which party member the player is currently commanding. Skills resolve their
 ## caster from here, so adding a character never means hardcoding an actor id.
-var active_character_id: String = "sevrin"
+var active_character_id: String = ""
 ## Per-character bookkeeping for class resources: which turn the action budget was
 ## last reset, how much of it is spent, and whether the first echo return of the
 ## turn has already paid out.
@@ -155,9 +157,42 @@ func get_switchable_characters() -> Array[String]:
 	return ids
 
 
-func get_oath_vow_stacks(actor_id: String = "sevrin") -> int:
-	var vow = statuses.get_status(actor_id, &"oath_vow")
+func get_oath_vow_stacks(actor_id: String = "") -> int:
+	# Defaulting to the commanded character rather than a fixed id: with a party,
+	# "whose vow" must never be inferred from who the prototype used to have.
+	var target_id: String = actor_id if not actor_id.is_empty() else active_character_id
+	var vow = statuses.get_status(target_id, &"oath_vow")
 	return 0 if vow == null else vow.stacks
+
+
+## Whether a unit carries a given passive. Used where a mechanic belongs to the
+## character rather than to the status: Oath Vow accumulation follows the unit
+## that actually has the passive, so a character without it never accumulates.
+func has_passive(actor_id: String, passive_id: StringName) -> bool:
+	if not actors.has(actor_id):
+		return false
+	var unit = actors[actor_id]
+	if unit.team != "player" or unit.character_id == &"":
+		return false
+	var definition = CharacterCatalogScript.get_definition(String(unit.character_id))
+	if definition == null:
+		return false
+	for skill_id in definition.skill_ids:
+		if skill_id != passive_id:
+			continue
+		var skill = SkillRegistryScript.get_skill(skill_id)
+		return skill != null and skill.is_passive
+	return false
+
+
+## Whoever currently holds the Absolute Guard stance. The status is the authority,
+## not a character id, so the taunt works for any unit that can cast it.
+func get_absolute_guardian() -> String:
+	for actor_id in actors:
+		var actor = actors[actor_id]
+		if actor.team == "player" and actor.is_alive() and statuses.has_status(String(actor_id), &"absolute_guard"):
+			return String(actor_id)
+	return ""
 
 
 func get_oathkeeper_marked_target() -> String:
@@ -250,8 +285,10 @@ func _finish_battle(result: String) -> void:
 	BattleFlowScript.finish_battle(self, result)
 
 
-func _redirect_single_target_intent_to_sevrin(intent) -> void:
-	IntentResolverScript.redirect_to_sevrin(self, intent)
+## Kept as a thin facade because the controller test drives the taunt through it.
+## The target is the current Absolute Guard holder, not a fixed character.
+func _redirect_single_target_intent_to_guardian(intent) -> void:
+	IntentResolverScript.redirect_to_guardian(self, intent, get_absolute_guardian())
 
 
 func _resolve_absolute_guard_counter(intent) -> void:

@@ -28,8 +28,9 @@ static func resolve_phase(battle) -> void:
 		if not actors.has(intent.source_actor_id) or not actors[intent.source_actor_id].is_alive():
 			intent.cancel("source_defeated")
 			continue
-		if statuses.has_status("sevrin", &"absolute_guard"):
-			redirect_to_sevrin(battle, intent)
+		var guardian_id: String = battle.get_absolute_guardian()
+		if not guardian_id.is_empty():
+			redirect_to_guardian(battle, intent, guardian_id)
 		match intent.action_id:
 			"basic_melee":
 				_actor_locked_attack(battle, intent)
@@ -62,16 +63,16 @@ static func resolve_phase(battle) -> void:
 		battle._begin_player_turn()
 
 
-## Absolute Guard pulls eligible single-target attacks onto Sevrin. This runs
-## before the action branch so the redirected intent resolves against him.
-static func redirect_to_sevrin(battle, intent) -> void:
+## Absolute Guard pulls eligible single-target attacks onto its holder. This runs
+## before the action branch so the redirected intent resolves against the guardian.
+static func redirect_to_guardian(battle, intent, guardian_id: String) -> void:
 	var actors = battle.actors
-	if not actors.has("sevrin") or not actors["sevrin"].is_alive() or not actors.has(intent.source_actor_id):
+	if not actors.has(guardian_id) or not actors[guardian_id].is_alive() or not actors.has(intent.source_actor_id):
 		return
 	if intent.target_mode != BattleIntentScript.TargetMode.ACTOR_LOCKED and intent.target_mode != BattleIntentScript.TargetMode.TILE_LOCKED:
 		return
 	var source = actors[intent.source_actor_id]
-	var target = actors["sevrin"]
+	var target = actors[guardian_id]
 	var distance: int = GridRulesScript.manhattan_distance(source.cell, target.cell)
 	if distance > 2:
 		return
@@ -90,17 +91,18 @@ static func redirect_to_sevrin(battle, intent) -> void:
 	if not legal:
 		return
 	if intent.target_mode == BattleIntentScript.TargetMode.ACTOR_LOCKED:
-		intent.target_actor_id = "sevrin"
+		intent.target_actor_id = guardian_id
 	intent.target_cell = target.cell
 	var redirected_cells: Array[Vector2i] = [target.cell]
 	intent.affected_cells = redirected_cells
-	battle._emit_event("absolute_guard_taunt", intent.source_actor_id, "sevrin", "intent=%s action=%s" % [intent.intent_id, intent.action_id])
+	battle._emit_event("absolute_guard_taunt", intent.source_actor_id, guardian_id, "intent=%s action=%s" % [intent.intent_id, intent.action_id])
 
 
 static func absolute_guard_counter(battle, intent) -> void:
 	var actors = battle.actors
 	var statuses = battle.statuses
-	if not statuses.has_status("sevrin", &"absolute_guard") or not actors.has("sevrin") or not actors["sevrin"].is_alive():
+	var guardian_id: String = battle.get_absolute_guardian()
+	if guardian_id.is_empty() or not actors.has(guardian_id) or not actors[guardian_id].is_alive():
 		return
 	if not actors.has(intent.source_actor_id) or not actors[intent.source_actor_id].is_alive():
 		return
@@ -109,9 +111,9 @@ static func absolute_guard_counter(battle, intent) -> void:
 	battle.absolute_guard_countered_enemies[intent.source_actor_id] = true
 	var marked: bool = statuses.has_status(intent.source_actor_id, &"oathkeeper_mark")
 	var multiplier: float = ABSOLUTE_GUARD_MARKED_MULTIPLIER if marked else ABSOLUTE_GUARD_PLAIN_MULTIPLIER
-	var raw_damage: int = CombatMathScript.calculate_raw_damage(actors["sevrin"].defense, multiplier)
-	battle._apply_damage(intent.source_actor_id, raw_damage, "sevrin", "absolute_guard_counter", "physical", false, intent.intent_id)
-	battle._emit_event("counter_resolved", "sevrin", intent.source_actor_id, "skill=absolute_guard multiplier=%.2f raw=%d" % [multiplier, raw_damage])
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(actors[guardian_id].defense, multiplier)
+	battle._apply_damage(intent.source_actor_id, raw_damage, guardian_id, "absolute_guard_counter", "physical", false, intent.intent_id)
+	battle._emit_event("counter_resolved", guardian_id, intent.source_actor_id, "skill=absolute_guard multiplier=%.2f raw=%d" % [multiplier, raw_damage])
 
 
 static func _actor_locked_attack(battle, intent) -> void:

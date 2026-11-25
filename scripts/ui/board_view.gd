@@ -77,7 +77,8 @@ static func _draw_actor_badges(canvas: CanvasItem, controller, actor_id: String,
 	if actor.team == "player":
 		if actor.shield > 0:
 			canvas.draw_arc(center, 27.0, 0.0, TAU, 48, P.RING_SHIELD, 3.0)
-		if actor_id == "sevrin" and controller.statuses.has_status(actor_id, &"absolute_guard"):
+		# The stance is a status, so any guardian gets the ring, not one character.
+		if controller.statuses.has_status(actor_id, &"absolute_guard"):
 			canvas.draw_arc(center, 32.0, 0.0, TAU, 48, P.RING_GUARD, 3.0)
 		return
 	# Sakura's petal mark drives her automatic follow-up, so it must be visible.

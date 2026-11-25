@@ -23,6 +23,7 @@ const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 const CharacterScript = preload("res://scripts/battle/character_definition.gd")
 const SkillDefinitionScript = preload("res://scripts/battle/skill_definition.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 ## Sakura's mark (design plan §20) and resource (§19).
 const PETAL_MARK: StringName = &"sakura_petal_mark"
@@ -35,6 +36,10 @@ const INTENT_ACTION_BUDGET: int = 3
 
 ## §21: echo return is 50% of attack, or 65% under a Falling Petals empowerment.
 const ECHO_RETURN_MULTIPLIER: float = 0.5
+
+## §22: the dash is at most two cells. Separate from the skill's targeting range
+## (three), which is how far away the enemy may be picked.
+const FLOWING_WIND_DASH_STEPS: int = 2
 
 ## §24: ultimate cost, and how much each blade-intent stack lifts the finisher.
 const ULTIMATE_ENERGY_COST: int = 5
@@ -54,6 +59,11 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 
 	var skill := SkillRegistryScript.get_skill(skill_id)
 	if skill == null or skill.is_passive:
+		return false
+	# A character may only use skills their own sheet lists. Without this, asking
+	# for Sevrin's blade while Sakura is active resolves his numbers against her
+	# stats, and the UI is the only thing that would have prevented it.
+	if not _owns_skill(battle, skill_id):
 		return false
 
 	# Self-target skills are pressed, not aimed: the caller passes no target, so
@@ -99,7 +109,7 @@ static func _basic_attack(battle, skill, target_actor_id: String) -> bool:
 
 	_apply_segments(battle, caster, skill, [target], String(skill.skill_id))
 	gain_intent_from_action(battle, caster)
-	battle._emit_event("attack_resolved", caster.actor_id, target_actor_id, "%s ap=1" % String(skill.skill_id))
+	battle._emit_event("attack_resolved", caster.actor_id, target_actor_id, "%s ap=%d" % [String(skill.skill_id), skill.ap_cost])
 	battle._check_battle_end()
 	return true
 
@@ -284,6 +294,18 @@ static func _ultimate_multipliers(skill, caster) -> Array[float]:
 
 # --- shared helpers ----------------------------------------------------------
 
+## Whether the active character's sheet lists this skill. Ownership is data, so a
+## character cannot borrow another kit by naming its skill id.
+static func _owns_skill(battle, skill_id: StringName) -> bool:
+	var caster = battle.get_active_character()
+	if caster == null:
+		return false
+	var sheet = CharacterCatalogScript.get_definition(String(caster.character_id))
+	if sheet == null:
+		return false
+	return sheet.skill_ids.has(skill_id)
+
+
 static func _can_cast(battle, caster, skill) -> bool:
 	if caster == null or not caster.is_alive():
 		return false
@@ -336,7 +358,7 @@ static func _actors_in_cells(battle, cells: Dictionary) -> Array:
 ## Walk toward the target until blocked or adjacent, at most max_range steps.
 static func _dash_landing(battle, caster, target) -> Vector2i:
 	var cursor: Vector2i = caster.cell
-	var steps: int = 2
+	var steps: int = FLOWING_WIND_DASH_STEPS
 	var occupied: Dictionary = battle.get_occupied_cells(caster.actor_id)
 	for _i in range(steps):
 		var next := cursor

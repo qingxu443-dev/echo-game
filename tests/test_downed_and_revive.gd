@@ -17,6 +17,8 @@ func _run() -> void:
 	_test_revival_restores_the_member()
 	_test_a_standing_member_cannot_be_topped_up()
 	_test_defeat_requires_the_whole_party_down()
+	_test_defeat_without_sevrin()
+	_test_command_hands_over_to_a_standing_member()
 	_test_enemies_are_not_downed()
 	_report()
 
@@ -63,7 +65,11 @@ func _test_a_downed_member_cannot_act() -> void:
 
 	_check(not battle.request_oathkeeper_judgment_mark("vanguard_00"), "a downed member cannot cast a targeted skill")
 	_check(not battle.request_oath_shield("ally"), "a downed member cannot cast a support skill")
-	_check(not battle.request_player_move([Vector2i(2, 1)]), "a downed member cannot move")
+	# Typed first: an inline literal is an untyped Array, so passing one straight
+	# into request_player_move raised a type error, and `not <error>` read as a
+	# pass. The check has to reach the controller to mean anything.
+	var step: Array[Vector2i] = [Vector2i(2, 1)]
+	_check(not battle.request_player_move(step), "a downed member cannot move")
 	_check(battle.ap.current == battle.ap.maximum, "rejected actions from a downed member spend nothing")
 	battle.queue_free()
 
@@ -106,6 +112,37 @@ func _test_defeat_requires_the_whole_party_down() -> void:
 	battle._check_battle_end()
 	_check(battle.phase == ControllerScript.BattlePhase.FINISHED, "the battle ends when the whole party is down")
 	_check(battle.battle_result == "defeat", "the result is defeat")
+	battle.queue_free()
+
+
+## Defeat must not hinge on Sevrin being in the party: the guard used to require
+## his presence, so any other roster could never lose.
+func _test_defeat_without_sevrin() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var roster: Array[String] = ["sakura"]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 4)], [], [], roster, [])
+	battle._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
+	battle._check_battle_end()
+	_check(battle.phase == ControllerScript.BattlePhase.FINISHED, "a party without Sevrin can still be defeated")
+	_check(battle.battle_result == "defeat", "the result is defeat whatever the roster holds")
+	battle.queue_free()
+
+
+## A commander who falls during the enemy phase used to stay selected, so the new
+## turn opened on a character who could not act.
+func _test_command_hands_over_to_a_standing_member() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(5, 5)], [], [], ids, [Vector2i(1, 2)])
+
+	battle._apply_damage("sevrin", 999999, "vanguard_00", "test_strike", "physical")
+	_check(battle.active_character_id == "sevrin", "the downed commander stays selected until the turn turns over")
+
+	battle._begin_player_turn()
+	_check(battle.active_character_id == "sakura", "the next player turn hands command to a standing member")
+	_check(battle.get_active_character().is_alive(), "the commanded member can act")
 	battle.queue_free()
 
 

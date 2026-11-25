@@ -27,7 +27,13 @@ static func apply(
 ) -> void:
 	var actors = battle.actors
 	var statuses = battle.statuses
-	var target = actors[target_actor_id]
+	# A stale id (an intent whose source died, a summon aimed at a removed actor)
+	# used to raise on the dictionary read and leave the caller mid-action, with
+	# AP already spent. Refuse it explicitly instead.
+	var target = actors.get(target_actor_id)
+	if target == null:
+		push_error("DamagePipeline: unknown target '%s'" % target_actor_id)
+		return
 
 	var damage_result: Dictionary = target.apply_damage_with_result(amount, damage_type)
 	var applied: int = int(damage_result.get("health_damage", 0))

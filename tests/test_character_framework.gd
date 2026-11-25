@@ -21,6 +21,8 @@ func _run() -> void:
 	_test_sevrin_normal_attack()
 	_test_party_spawns_from_the_level_sheet()
 	_test_switching_is_free_and_party_wide()
+	_test_movement_follows_the_active_character()
+	_test_a_character_cannot_borrow_another_kit()
 	_test_pierce_blossom_applies_the_mark_without_follow_up()
 	_test_second_hit_triggers_echo_return()
 	_test_blade_intent_accumulates_and_caps()
@@ -105,6 +107,47 @@ func _test_switching_is_free_and_party_wide() -> void:
 	_check(battle.get_switchable_characters().size() == 2, "both members are offered by the switch control")
 	_check(not battle.set_active_character("vanguard_00"), "enemies cannot be commanded")
 	_check(not battle.set_active_character("nobody"), "an unknown id is rejected")
+	battle.queue_free()
+
+
+## The active character is the one that acts. Movement used to validate the path
+## from Sevrin's cell, so every move Sakura attempted failed the adjacency check.
+func _test_movement_follows_the_active_character() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	var ally_cells: Array[Vector2i] = [Vector2i(1, 2)]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(5, 5)], [], [], ids, ally_cells)
+	var sevrin = battle.get_actor("sevrin")
+	var sakura = battle.get_actor("sakura")
+	var sevrin_cell: Vector2i = sevrin.cell
+	battle.set_active_character("sakura")
+
+	var step: Array[Vector2i] = [sakura.cell + Vector2i(0, 1)]
+	_check(battle.request_player_move(step), "the active character can move")
+	_check(sakura.cell == step[0], "the active character is the one that moves")
+	_check(sevrin.cell == sevrin_cell, "the other party member stays put")
+	_check(battle.ap.current == battle.ap.maximum - 1, "one move spends one shared AP")
+	battle.queue_free()
+
+
+## Ownership comes from the sheet, so a caller cannot resolve Sevrin's numbers
+## against Sakura's stats by naming his skill id.
+func _test_a_character_cannot_borrow_another_kit() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	var ally_cells: Array[Vector2i] = [Vector2i(1, 2)]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 2)], [], [], ids, ally_cells)
+	battle.set_active_character("sakura")
+	var enemy = battle.get_actor("vanguard_00")
+	var health_before: int = enemy.health
+	var ap_before: int = battle.ap.current
+
+	_check(not battle.request_skill(&"oathblade", "vanguard_00"), "Sakura cannot cast Sevrin's normal attack")
+	_check(not battle.request_skill(&"oath_shield", "sevrin"), "Sakura cannot cast Sevrin's support skill")
+	_check(enemy.health == health_before and battle.ap.current == ap_before, "a borrowed skill spends and deals nothing")
+	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Sakura can still cast her own kit")
 	battle.queue_free()
 
 

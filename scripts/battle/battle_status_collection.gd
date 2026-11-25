@@ -95,6 +95,33 @@ func consume_trigger(target_actor_id: String, status_id: StringName) -> bool:
 	return true
 
 
+## Count down every status that uses the enemy-turn clock and drop the ones that
+## reach zero. Returns how many were removed.
+func tick_enemy_phase() -> int:
+	var removed_count: int = 0
+	var target_ids: Array[String] = []
+	for target_id in _statuses_by_actor.keys():
+		target_ids.append(String(target_id))
+	for target_id in target_ids:
+		var actor_statuses: Dictionary = _get_actor_statuses(target_id)
+		var expired: Array[StringName] = []
+		for key in actor_statuses.keys():
+			var status: BattleStatus = actor_statuses[key] as BattleStatus
+			if status.enemy_turns_remaining <= 0:
+				continue
+			status.enemy_turns_remaining -= 1
+			if status.enemy_turns_remaining == 0:
+				expired.append(status.status_id)
+		for status_id in expired:
+			actor_statuses.erase(status_id)
+			removed_count += 1
+		if actor_statuses.is_empty():
+			_statuses_by_actor.erase(target_id)
+		else:
+			_statuses_by_actor[target_id] = actor_statuses
+	return removed_count
+
+
 func expire_boundary(target_actor_id: String, boundary: StringName) -> int:
 	if boundary == &"":
 		return 0

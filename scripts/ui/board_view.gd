@@ -41,7 +41,9 @@ static func _draw_actors(canvas: CanvasItem, controller) -> void:
 		var outline := P.PLAYER_OUTLINE if actor.team == "player" else P.ENEMY_OUTLINE
 		canvas.draw_circle(center, 22.0, body_color)
 		canvas.draw_arc(center, 22.0, 0.0, TAU, 48, outline, 3.0)
-		var glyph := "守" if actor.team == "player" else ("射" if actor.archetype == "marksman" else ("术" if actor.archetype == "area_controller" else "锋"))
+		var glyph: String = actor.glyph
+		if glyph.is_empty():
+			glyph = "锋" if actor.team == "enemy" else "守"
 		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, 7.0), glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.TEXT_ON_DARK)
 		_draw_actor_badges(canvas, controller, actor_id, actor, center)
 

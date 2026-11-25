@@ -37,13 +37,13 @@ func _test_self_skill_controls() -> void:
 
 	_tap_skill(view, 1)
 	_check(controller.get_actor("sevrin").shield > 0, "V2 Oath Shield activates from the skill bar")
-	_check(controller.ap.current == 2, "V2 Oath Shield spends one AP through the battle view")
+	_check(controller.ap.current == controller.ap.maximum - 1, "V2 Oath Shield spends one AP through the battle view")
 
 	var sevrin = controller.get_actor("sevrin")
 	sevrin.ultimate_energy = 5
 	_tap_skill(view, 2)
 	_check(controller.statuses.has_status("sevrin", &"absolute_guard"), "Absolute Guard activates from the skill bar")
-	_check(sevrin.ultimate_energy == 0 and controller.ap.current == 0, "Absolute Guard spends five energy without exceeding the once-per-turn active-action gain cap")
+	_check(sevrin.ultimate_energy == 0 and controller.ap.current == controller.ap.maximum - 3, "Absolute Guard spends five energy without exceeding the once-per-turn active-action gain cap")
 
 	view.queue_free()
 	await process_frame
@@ -68,7 +68,7 @@ func _test_target_skill_flow() -> void:
 	_tap_skill(view, 0)
 	_tap_cell(view, marksman.cell)
 	_check(controller.statuses.has_status("marksman_02", &"oathkeeper_mark"), "V2 Judgment Mark can be selected and confirmed on the battlefield")
-	_check(controller.ap.current == 2, "V2 Judgment Mark spends one AP through the battle view")
+	_check(controller.ap.current == controller.ap.maximum - 1, "V2 Judgment Mark spends one AP through the battle view")
 	_check(marksman.health < marksman.max_health, "V2 Judgment Mark deals damage when confirmed")
 
 	_tap_skill(view, 3)

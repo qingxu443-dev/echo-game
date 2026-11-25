@@ -12,12 +12,14 @@ extends RefCounted
 ##   {"action": "skill", "index": int}
 ##   {"action": "cancel"}
 ##   {"action": "end_turn"}
+##   {"action": "switch"}
 ##   {} for anything irrelevant
 
 const ACTION_TAP: String = "tap"
 const ACTION_SKILL: String = "skill"
 const ACTION_CANCEL: String = "cancel"
 const ACTION_END_TURN: String = "end_turn"
+const ACTION_SWITCH: String = "switch"
 
 
 static func translate(event: InputEvent) -> Dictionary:
@@ -54,5 +56,7 @@ static func translate(event: InputEvent) -> Dictionary:
 				return {"action": ACTION_CANCEL}
 			KEY_ENTER, KEY_SPACE:
 				return {"action": ACTION_END_TURN}
+			KEY_TAB:
+				return {"action": ACTION_SWITCH}
 
 	return {}

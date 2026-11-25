@@ -6,7 +6,7 @@ extends RefCounted
 
 const P = preload("res://scripts/ui/theme_palette.gd")
 const SkillDefinitionScript = preload("res://scripts/battle/skill_definition.gd")
-const OathkeeperV2CatalogScript = preload("res://scripts/battle/oathkeeper_v2_skill_catalog.gd")
+const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 
 ## Short HUD hint lines. Rule-relevant numbers (AP cost, target ranges) are
 ## intentionally NOT written here: the entries are built from the V2 skill
@@ -17,6 +17,10 @@ const SKILL_HINTS := {
 	&"oath_shield": "自身 + 两格内友军 · 护盾",
 	&"absolute_guard": "2 AP + 5 能量 · 嘲讽反击",
 	&"hunter_summon": "任意敌人 · 现身一击 · 冷却 2 回合",
+	&"sakura_pierce_blossom": "相邻 · 100% ATK · 施加残香",
+	&"sakura_flowing_wind": "突进 2 格 · 80% ATK · 施加残香",
+	&"sakura_falling_petals": "面前 3×2 · 三段 · 每段 30% ATK",
+	&"sakura_endless_fragrance": "2 AP + 5 能量 · 十字四段",
 }
 ## Display name for bar entries that are not part of the V2 catalog.
 const SKILL_FALLBACK_NAMES := {
@@ -24,12 +28,15 @@ const SKILL_FALLBACK_NAMES := {
 }
 
 
-## The bar's rule numbers (AP cost, target ranges) come from the V2 catalog.
-## The hunter summon stays presentation data here because it is a free action
-## whose cooldown bookkeeping is owned by the controller.
+## The bar is built from the active character's sheet, so switching characters
+## swaps the buttons. Costs, ranges and targeting all come from the skill
+## definitions - the view only supplies the short hint line and the icon.
 static func build_entries(controller) -> Array:
 	var entries: Array = []
-	for skill in OathkeeperV2CatalogScript.create_prototype_skills():
+	var character_id := String(controller.active_character_id)
+	for skill in SkillRegistryScript.skills_for_character(character_id):
+		if skill.is_passive:
+			continue
 		entries.append(_entry(
 			skill.skill_id,
 			skill.display_name_zh,
@@ -39,16 +46,20 @@ static func build_entries(controller) -> Array:
 			skill.min_range,
 			skill.max_range
 		))
-	var hunter_reach: int = controller.grid_size.x + controller.grid_size.y
-	entries.append(_entry(
-		&"hunter_summon",
-		String(SKILL_FALLBACK_NAMES[&"hunter_summon"]),
-		String(SKILL_HINTS[&"hunter_summon"]),
-		0,
-		"actor",
-		1,
-		hunter_reach
-	))
+
+	# The hunter summon belongs to the player rather than to a character sheet, so
+	# it is appended here for the character it ships with instead of living in data.
+	if character_id == "sevrin":
+		var hunter_reach: int = controller.grid_size.x + controller.grid_size.y
+		entries.append(_entry(
+			&"hunter_summon",
+			String(SKILL_FALLBACK_NAMES[&"hunter_summon"]),
+			String(SKILL_HINTS[&"hunter_summon"]),
+			0,
+			"actor",
+			1,
+			hunter_reach
+		))
 	return entries
 
 
@@ -95,6 +106,7 @@ static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skil
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 58.0), "选中技能后，黄圈标出可打目标", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 76.0), "数字键 1–4 施放/选择技能", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 94.0), "Esc / 右键取消目标选择", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
+	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 112.0), "Tab 切换角色", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 
 
 static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: Array, index: int, selected_skill: int, summon_options: Array, selected_summon: int) -> void:

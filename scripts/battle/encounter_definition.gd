@@ -10,6 +10,12 @@ extends Resource
 @export var display_name_zh: String = ""
 @export var tactical_hint_zh: String = ""
 @export var player_cell: Vector2i = Vector2i.ZERO
+## Characters deployed this level, in the same order as their spawn cells.
+## Empty means the prototype default (Sevrin alone).
+@export var character_ids: Array[String] = []
+## Spawn cells for the second and later characters. character_ids[0] uses
+## player_cell; character_ids[i] uses ally_cells[i - 1].
+@export var ally_cells: Array[Vector2i] = []
 @export var enemy_cells: Array[Vector2i] = []
 @export var enemy_archetypes: Array[String] = []
 @export var obstacles: Array[Vector2i] = []

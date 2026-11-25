@@ -15,11 +15,26 @@ var attack: int
 var defense: int
 var magic_resistance: int
 var is_defeated: bool = false
+## Design plan §12: a party member at zero health is downed, not gone. A downed
+## unit cannot act and cannot be targeted, but it keeps its cell, so it still
+## blocks movement until revived. Enemies have no downed state - they simply die.
+var is_downed: bool = false
 var shield: int = 0
 ## Independent ultimate-energy pool; capped at five for each actor.
 var ultimate_energy: int = 0
 ## Prevents more than one successful-action energy gain per player turn.
 var active_energy_gain_turn: int = -1
+## Character sheet this unit was spawned from. Empty for enemies.
+var character_id: StringName = &""
+## Board token glyph, so the view does not have to know every character.
+var glyph: String = ""
+## Display name from the character sheet, for the HUD.
+var display_name_zh: String = ""
+## Class resource (design plan §19: 剑意). Empty id means the unit has none.
+var resource_id: StringName = &""
+var resource_name_zh: String = ""
+var resource_current: int = 0
+var resource_max: int = 0
 
 
 func _init(
@@ -93,7 +108,12 @@ func apply_damage_with_result(
 	## damage instance reached this living actor, even if shield absorbs all of it.
 	if is_defeated or raw_damage <= 0:
 		return {"hit": false, "absorbed": 0, "health_damage": 0, "final_damage": 0}
-	var base_resistance: int = defense if damage_type == "physical" else (magic_resistance if damage_type == "magical" else 0)
+	# §10.6: an unknown type used to fall through to zero resistance, which let a
+	# typo hit at full strength. Reject it instead of resolving it.
+	if not DamageTypes.is_valid(damage_type):
+		push_error("BattleActor: unknown damage type '%s' (expected %s)" % [damage_type, DamageTypes.describe()])
+		return {"hit": false, "invalid_type": true, "absorbed": 0, "health_damage": 0, "final_damage": 0}
+	var base_resistance: int = DamageTypes.resistance_for(self, damage_type)
 	var resistance: int = maxi(0, base_resistance - maxi(0, resistance_penalty))
 	var mitigated: int = CombatMathScript.calculate_damage(raw_damage, resistance)
 	var final_damage: int = mitigated
@@ -113,6 +133,8 @@ func apply_damage_with_result(
 	if health <= 0:
 		health = 0
 		is_defeated = true
+		if team == "player":
+			is_downed = true
 	return {
 		"hit": true,
 		"absorbed": absorbed,
@@ -122,4 +144,45 @@ func apply_damage_with_result(
 
 func is_alive() -> bool:
 	return not is_defeated and health > 0
+
+
+## Class resource track (design plan §19: 剑意). Capped, never negative, and a
+## no-op for units without one, so callers do not have to ask first.
+func gain_resource(amount: int) -> int:
+	if resource_max <= 0 or amount <= 0:
+		return resource_current
+	resource_current = clampi(resource_current + amount, 0, resource_max)
+	return resource_current
+
+
+func spend_resource(amount: int) -> bool:
+	if amount < 0 or resource_current < amount:
+		return false
+	resource_current -= amount
+	return true
+
+
+func has_resource() -> bool:
+	return resource_id != &"" and resource_max > 0
+
+
+func is_resource_full() -> bool:
+	return resource_max > 0 and resource_current >= resource_max
+
+
+## Whether this unit still occupies its cell. A downed body does: §12 says the
+## cell stays blocked until the unit is revived and moved.
+func blocks_cell() -> bool:
+	return is_alive() or is_downed
+
+
+## Bring a downed unit back at the given health. Reviving a unit that is not
+## downed is a no-op, so a skill cannot top up a standing ally by accident.
+func revive(restored_health: int) -> bool:
+	if not is_downed:
+		return false
+	health = clampi(restored_health, 1, max_health)
+	is_defeated = false
+	is_downed = false
+	return true
 

@@ -193,7 +193,7 @@ func _run() -> void:
 	_check(victory_intent.state == IntentScript.IntentState.CANCELED, "defeated final enemy intent is canceled")
 	_check(not victory_battle.statuses.has_status("vanguard_00", &"oathkeeper_mark"), "defeated actor has all statuses cleared")
 	_check(not victory_battle.request_oathkeeper_judgment_mark("vanguard_00"), "actions are rejected after battle victory")
-	_check(victory_battle.ap.current == 0, "victory sequence spends exactly three AP")
+	_check(victory_battle.ap.current == victory_battle.ap.maximum - 3, "victory sequence spends exactly three AP")
 	victory_battle.queue_free()
 
 
@@ -207,10 +207,10 @@ func _run() -> void:
 	_check(not custom_bounds_battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 4)]), "zero-width grid configuration is rejected")
 	_check(custom_bounds_battle.get_actor("sevrin") != null and custom_bounds_battle.get_actor("sevrin").cell == Vector2i(1, 1), "invalid grid configuration preserves active encounter state")
 	custom_bounds_battle.grid_size = Vector2i(6, 6)
-	custom_bounds_battle.player_ap = 0
+	custom_bounds_battle.team_ap = 0
 	_check(not custom_bounds_battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 4)]), "zero AP configuration is rejected")
-	custom_bounds_battle.player_ap = 3
-	custom_bounds_battle.player_ap = 4
+	custom_bounds_battle.team_ap = 3
+	custom_bounds_battle.team_ap = 4
 	_check(custom_bounds_battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 4)]), "valid encounter can restart after configuration correction")
 	_check(custom_bounds_battle.ap.maximum == 4 and custom_bounds_battle.ap.current == 4, "encounter applies the configured AP maximum")
 	custom_bounds_battle.queue_free()

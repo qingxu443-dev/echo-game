@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CharacterDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/character_definition.gd" id="1_ch"]
+
+[resource]
+script = ExtResource("1_ch")
+character_id = &"sevrin"
+display_name_zh = "瑟弗林"
+role_label_zh = "守誓者"
+glyph = "守"
+max_health = 12000
+attack = 2000
+defense = 650
+magic_resistance = 500
+skill_ids = Array[StringName]([&"", &"oath_vow", &"oathkeeper_judgment_mark", &"oath_shield", &"absolute_guard"])
+resource_id = &""
+resource_name_zh = ""
+resource_max = 0

@@ -14,6 +14,10 @@ var max_stacks: int = 1
 var remaining_triggers: int = -1
 ## Empty means no automatic phase-boundary expiry.
 var expiry_boundary: StringName = &""
+## Counted down at the end of each enemy phase, then removed at zero. Used by
+## marks that last "three enemy turns" (design plan §20). 0 means the status does
+## not use this clock and relies on expiry_boundary instead.
+var enemy_turns_remaining: int = 0
 
 
 func _init(

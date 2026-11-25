@@ -10,4 +10,6 @@ tactical_hint_zh = "神射手只在同一直线、距离 3–6 格时开火，�
 player_cell = Vector2i(1, 3)
 enemy_cells = Array[Vector2i]([Vector2i(6, 3)])
 enemy_archetypes = Array[String](["marksman"])
+character_ids = Array[String](["sevrin", "sakura"])
+ally_cells = Array[Vector2i]([Vector2i(1, 4)])
 obstacles = Array[Vector2i]([Vector2i(4, 1), Vector2i(4, 5)])

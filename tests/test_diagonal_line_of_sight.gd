@@ -39,7 +39,7 @@ func _test_diagonal_judgment_mark() -> void:
 	root.add_child(battle)
 	battle.start_encounter(Vector2i(1, 3), [Vector2i(2, 4)])
 	_check(battle.request_oathkeeper_judgment_mark("vanguard_00"), "Judgment Mark reaches a diagonally adjacent target")
-	_check(battle.ap.current == 2, "diagonal Judgment Mark spends one AP")
+	_check(battle.ap.current == battle.ap.maximum - 1, "diagonal Judgment Mark spends one AP")
 	_check(battle.statuses.has_status("vanguard_00", &"oathkeeper_mark"), "diagonal Judgment Mark applies the mark")
 	battle.queue_free()
 
@@ -55,7 +55,7 @@ func _test_diagonal_mark_blocked() -> void:
 	root.add_child(battle)
 	battle.start_encounter(Vector2i(1, 3), [Vector2i(3, 5)], [Vector2i(2, 4)])
 	_check(not battle.request_oathkeeper_judgment_mark("vanguard_00"), "Judgment Mark fails when the diagonal is blocked")
-	_check(battle.ap.current == 3, "blocked diagonal Judgment Mark spends no AP")
+	_check(battle.ap.current == battle.ap.maximum, "blocked diagonal Judgment Mark spends no AP")
 	battle.queue_free()
 
 

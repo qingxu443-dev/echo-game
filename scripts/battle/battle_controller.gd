@@ -26,6 +26,7 @@ const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 const DamagePipelineScript = preload("res://scripts/battle/damage_pipeline.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
+const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
 
 ## Hunter summon: a free support strike on a cooldown. The hunter is not a
 ## battlefield unit -- it appears next to the chosen enemy, strikes once and is
@@ -42,7 +43,10 @@ const PLAYER_MOVE_MAX_STEPS: int = 2
 enum BattlePhase { PLAYER, ENEMY, FINISHED }
 
 @export var grid_size: Vector2i = Vector2i(8, 8)
-@export var player_ap: int = 3
+## Team-wide AP pool (design plan §4): five points shared by the whole party per
+## player turn, not five per character. One ledger, drawn down by whichever
+## character acts. Unspent points are discarded at end of turn.
+@export var team_ap: int = 5
 
 var phase: BattlePhase = BattlePhase.FINISHED
 var ap: APBudget
@@ -67,10 +71,19 @@ var oath_vow_triggered_intents: Dictionary = {}
 var absolute_guard_hit_intents: Dictionary = {}
 ## Enemy actor IDs that have already been countered during the current player turn.
 var absolute_guard_countered_enemies: Dictionary = {}
+## Which party member the player is currently commanding. Skills resolve their
+## caster from here, so adding a character never means hardcoding an actor id.
+var active_character_id: String = "sevrin"
+## Per-character bookkeeping for class resources: which turn the action budget was
+## last reset, how much of it is spent, and whether the first echo return of the
+## turn has already paid out.
+var resource_gain_turn: Dictionary = {}
+var resource_gain_count: Dictionary = {}
+var echo_return_gain_turn: Dictionary = {}
 
 
 func _ready() -> void:
-	ap = APBudgetScript.new(player_ap)
+	ap = APBudgetScript.new(team_ap)
 
 
 # --- encounter ---------------------------------------------------------------
@@ -79,9 +92,11 @@ func start_encounter(
 	player_cell: Vector2i,
 	enemy_cells: Array[Vector2i],
 	obstacles: Array[Vector2i] = [],
-	enemy_archetypes: Array[String] = []
+	enemy_archetypes: Array[String] = [],
+	character_ids: Array[String] = [],
+	ally_cells: Array[Vector2i] = []
 ) -> bool:
-	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes)
+	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells)
 
 
 func end_player_turn() -> bool:
@@ -94,13 +109,54 @@ func get_occupied_cells(exclude_actor_id: String = "") -> Dictionary:
 	var occupied: Dictionary = {}
 	for actor_id in actors:
 		var actor = actors[actor_id]
-		if actor_id != exclude_actor_id and actor.is_alive():
+		# §12: a downed body still holds its cell, so it blocks movement.
+		if actor_id != exclude_actor_id and actor.blocks_cell():
 			occupied[actor.cell] = actor_id
 	return occupied
 
 
 func get_actor(actor_id: String):
 	return actors.get(actor_id)
+
+
+func get_active_character():
+	return actors.get(active_character_id)
+
+
+## Switch command to another living party member. Costs nothing: the AP pool is
+## shared, so switching is a free choice about who spends it.
+func set_active_character(character_id: String) -> bool:
+	if not actors.has(character_id):
+		return false
+	var candidate = actors[character_id]
+	if candidate.team != "player" or not candidate.is_alive():
+		return false
+	active_character_id = character_id
+	return true
+
+
+## Living, non-downed party members in a stable order, for the switch control.
+## Which party member enemies aim at. The character the player is commanding,
+## falling back to the first living one. Kept explicit so a party does not need
+## enemies hardcoded to a single actor id.
+func get_defender():
+	var active = actors.get(active_character_id)
+	if active != null and active.team == "player" and active.is_alive():
+		return active
+	for actor_id in actors:
+		var actor = actors[actor_id]
+		if actor.team == "player" and actor.is_alive():
+			return actor
+	return null
+
+
+func get_switchable_characters() -> Array[String]:
+	var ids: Array[String] = []
+	for actor_id in actors:
+		var actor = actors[actor_id]
+		if actor.team == "player" and actor.is_alive():
+			ids.append(String(actor_id))
+	return ids
 
 
 func get_oath_vow_stacks(actor_id: String = "sevrin") -> int:
@@ -127,6 +183,7 @@ func request_player_move(path: Array[Vector2i]) -> bool:
 		return false
 	player.cell = path[path.size() - 1]
 	SkillExecutorScript.gain_active_energy(self, "sevrin")
+	CharacterSkillRuntimeScript.gain_intent_from_action(self, player)
 	_emit_event("actor_moved", "sevrin", "", str(player.cell))
 	_check_battle_end()
 	return true
@@ -142,6 +199,12 @@ func request_oath_shield(target_actor_id: String) -> bool:
 
 func request_oathkeeper_judgment_mark(target_actor_id: String) -> bool:
 	return SkillExecutorScript.judgment_mark_v2(self, target_actor_id)
+
+
+## Single entry point for the active character. Adding a character adds data and,
+## only if it invents a new mechanic, one branch in CharacterSkillRuntime.
+func request_skill(skill_id: StringName, target_actor_id: String = "") -> bool:
+	return CharacterSkillRuntimeScript.request(self, skill_id, target_actor_id)
 
 
 # --- hunter summon -----------------------------------------------------------

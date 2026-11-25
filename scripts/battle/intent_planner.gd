@@ -33,8 +33,8 @@ static func plan(battle) -> Array:
 		var enemy = actors[actor_id]
 		if not enemy.is_alive() or enemy.team != "enemy":
 			continue
-		var target = actors["sevrin"]
-		if not target.is_alive():
+		var target = battle.get_defender()
+		if target == null or not target.is_alive():
 			continue
 		var intent = _marksman_intent(battle, enemy, target, occupied) if enemy.archetype == "marksman" else (_area_controller_intent(battle, enemy, target) if enemy.archetype == "area_controller" else _vanguard_intent(battle, enemy, target, occupied))
 		if intent != null:
@@ -59,7 +59,7 @@ static func _vanguard_intent(battle, enemy, target, occupied: Dictionary):
 	if distance == 2 and GridRulesScript.has_clear_orthogonal_line(enemy.cell, target.cell, battle.blocked_cells, occupied):
 		return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "charged_strike", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], CombatMathScript.calculate_raw_damage(enemy.attack, CHARGED_STRIKE_MULTIPLIER), 0)
 	if distance == 1:
-		return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.ACTOR_LOCKED, "sevrin", target.cell, [target.cell], CombatMathScript.calculate_raw_damage(enemy.attack, BASIC_MELEE_MULTIPLIER), 1)
+		return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.ACTOR_LOCKED, target.actor_id, target.cell, [target.cell], CombatMathScript.calculate_raw_damage(enemy.attack, BASIC_MELEE_MULTIPLIER), 1)
 	var pursuit_path: Array[Vector2i] = _pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, 2)
 	if not pursuit_path.is_empty():
 		return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "pursuit", BattleIntentScript.TargetMode.NONE, "", pursuit_path[pursuit_path.size() - 1], pursuit_path, 0, 2)

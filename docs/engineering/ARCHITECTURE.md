@@ -57,6 +57,19 @@
 | `encounter_definition.gd` | 52 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
 
+### 角色层（`scripts/battle/`）
+
+加一名角色 = 一个 `.tres` + 技能数据，不改控制器。
+
+| 模块 | 职责 | 关键约束 |
+|---|---|---|
+| `character_definition.gd` | 角色面板、五槽位技能 id、职业资源声明 | 纯数据；`skill_ids` 按槽位顺序 |
+| `character_catalog.gd` | `data/characters/*.tres` 的显式名册 | 不用目录扫描，出战名单可评审 |
+| `skill_registry.gd` | 跨角色技能解析（id → 定义） | 角色只写 skill id，不关心来自哪个目录 |
+| `character_skill_runtime.gd` | 按 `executor_id` 分派技能；樱的剑意 / 残香 / 回锋 | 数值来自数据，机制才写代码 |
+
+槽位见 `CharacterDefinition.SLOT_ORDER`：普通攻击、被动、主动一、主动二、终极。技能栏由当前角色的槽位生成，`Tab` 切换角色。
+
 ### 单位（`scripts/actors/`）
 
 | 模块 | 行数 | 职责 | 关键约束 |

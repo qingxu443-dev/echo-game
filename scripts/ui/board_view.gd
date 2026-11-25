@@ -10,6 +10,8 @@ const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
+const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
+const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
 
 
 static func draw(canvas: CanvasItem, controller, selected_skill: int, skill_bar: Array) -> void:
@@ -120,9 +122,11 @@ static func _draw_telegraphs(canvas: CanvasItem, controller) -> void:
 
 ## Whether the selected skill may legally target this enemy right now.
 ##
-## The single source of truth for both the highlight and the cast: the summon
-## needs a free cell beside the target as well as a ready cooldown, so a ring
-## derived from distance alone used to promise a cast the controller refused.
+## The single source of truth for both the highlight and the cast. Range and
+## sight used to be spelled out here, so every skill that added a condition (a
+## summon's free neighbour cell, Judgment Mark's line, then Flowing Wind's lane)
+## had to remember to teach this function too - and the two that forgot showed a
+## ring over a target the controller then refused.
 static func can_target(controller, skill_bar: Array, skill_id: String, actor_id: String) -> bool:
 	# The active character, not Sevrin: switching to Sakura must move the ring too.
 	var player = controller.get_active_character()
@@ -132,27 +136,28 @@ static func can_target(controller, skill_bar: Array, skill_id: String, actor_id:
 	if actor == null or actor.team != "enemy" or not actor.is_alive():
 		return false
 
-	# Ranges come from the skill bar, which is built from the V2 catalog: the
-	# hint and the cast read the same numbers instead of repeating them.
-	var skill: Dictionary = {}
+	# Summons live in their own catalogue: not a character skill, so not a
+	# SkillDefinition, and their range comes from the bar entry.
+	if skill_id.begins_with("summon:"):
+		var entry: Dictionary = _entry_for(skill_bar, skill_id)
+		if entry.is_empty():
+			return false
+		var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
+		if distance < int(entry["min_range"]) or distance > int(entry["max_range"]):
+			return false
+		return SummonServiceScript.can_summon(controller, StringName(skill_id.substr(7)), actor_id)
+
+	var skill = SkillRegistryScript.get_skill(StringName(skill_id))
+	if skill == null:
+		return false
+	return CharacterSkillRuntimeScript.can_aim(controller, skill, actor)
+
+
+static func _entry_for(skill_bar: Array, skill_id: String) -> Dictionary:
 	for entry in skill_bar:
 		if str(entry["id"]) == skill_id:
-			skill = entry
-			break
-	if skill.is_empty():
-		return false
-
-	var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
-	if distance < int(skill["min_range"]) or distance > int(skill["max_range"]):
-		return false
-	if skill_id == "oathkeeper_judgment_mark":
-		return GridRulesScript.has_clear_line_of_sight(player.cell, actor.cell, controller.blocked_cells, controller.get_occupied_cells())
-	if skill_id.begins_with("summon:"):
-		return SummonServiceScript.can_summon(controller, StringName(skill_id.substr(7)), actor_id)
-	# Only those two add a condition beyond range. Any other actor-targeted skill
-	# is legal once the range check passes; the cast re-validates on its own, so
-	# answering false here would only suppress the ring on a legal target.
-	return true
+			return entry
+	return {}
 
 
 static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: int, skill_bar: Array) -> void:

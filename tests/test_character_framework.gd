@@ -10,6 +10,8 @@ extends "res://tests/framework/test_case.gd"
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
+const BoardViewScript = preload("res://scripts/ui/board_view.gd")
+const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
 
 
 func _run() -> void:
@@ -26,6 +28,7 @@ func _run() -> void:
 	_test_endless_fragrance_scales_with_intent()
 	_test_falling_petals_covers_the_rectangle_in_front()
 	_test_flowing_wind_respects_its_range()
+	_test_a_wall_stops_the_lane()
 	_test_a_dead_target_is_not_marked()
 	_report()
 
@@ -286,6 +289,56 @@ func _test_flowing_wind_respects_its_range() -> void:
 	# floor(416 * 1000 / 1700) = 244
 	_check(health_before - enemy.health == 244, "the dash strikes once it arrives")
 	inside.queue_free()
+
+
+## A wall in the lane must stop the cast. Two different holes, one rule:
+##
+##  - Flowing Wind checked its own lane but the target ring did not, so a wall
+##    between Sakura and the enemy left the ring lit and the cast refused.
+##  - 落英 checked nothing but bounds. The rectangle walked straight through the
+##    wall and struck the enemy behind it for 273 damage.
+##
+## can_aim() now answers for both, so neither can drift again.
+func _test_a_wall_stops_the_lane() -> void:
+	# Sakura (1,1), wall (1,2), enemy (1,3): distance two is inside both ranges.
+	var dash = ControllerScript.new()
+	root.add_child(dash)
+	var dash_ids: Array[String] = ["sakura"]
+	dash.start_encounter(Vector2i(1, 1), [Vector2i(1, 3)], [Vector2i(1, 2)], [], dash_ids, [])
+	var dash_ap: int = dash.ap.current
+	_check(not dash.request_skill(&"sakura_flowing_wind", "vanguard_00"), "a wall stops the dash")
+	_check(dash.ap.current == dash_ap, "a blocked dash spends no AP")
+	dash.queue_free()
+
+	var petals = ControllerScript.new()
+	root.add_child(petals)
+	var petal_ids: Array[String] = ["sakura"]
+	petals.start_encounter(Vector2i(1, 1), [Vector2i(1, 3)], [Vector2i(1, 2)], [], petal_ids, [])
+	var enemy = petals.get_actor("vanguard_00")
+	var petal_ap: int = petals.ap.current
+	var health_before: int = enemy.health
+	_check(not petals.request_skill(&"sakura_falling_petals", "vanguard_00"), "a wall stops the rectangle")
+	_check(petals.ap.current == petal_ap, "a blocked rectangle spends no AP")
+	_check(enemy.health == health_before, "a blocked rectangle deals no damage, not even through the wall")
+	petals.queue_free()
+
+	# Control: the same rectangle against the same enemy, wall removed.
+	var open = ControllerScript.new()
+	root.add_child(open)
+	var open_ids: Array[String] = ["sakura"]
+	open.start_encounter(Vector2i(1, 1), [Vector2i(1, 3)], [], [], open_ids, [])
+	_check(open.request_skill(&"sakura_falling_petals", "vanguard_00"), "the same cast resolves once the lane is open")
+	open.queue_free()
+
+	# The ring reads the same predicate, so it agrees without being told twice.
+	var ring = ControllerScript.new()
+	root.add_child(ring)
+	var ring_ids: Array[String] = ["sakura"]
+	ring.start_encounter(Vector2i(1, 1), [Vector2i(1, 3)], [Vector2i(1, 2)], [], ring_ids, [])
+	var bar: Array = SkillBarViewScript.build_entries(ring)
+	_check(not BoardViewScript.can_target(ring, bar, "sakura_flowing_wind", "vanguard_00"), "the dash ring stays off behind a wall")
+	_check(not BoardViewScript.can_target(ring, bar, "sakura_falling_petals", "vanguard_00"), "the rectangle ring stays off behind a wall")
+	ring.queue_free()
 
 
 ## 残香 belongs to a living target. Damage already cleared the corpse's statuses,

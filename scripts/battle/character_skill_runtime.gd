@@ -122,9 +122,9 @@ static func _pierce_blossom(battle, skill, target_actor_id: String) -> bool:
 	if not _can_cast(battle, caster, skill):
 		return false
 	var target = battle.actors.get(target_actor_id)
-	if target == null or target.team != "enemy" or not target.is_alive():
+	if target == null or target.team != "enemy":
 		return false
-	if GridRulesScript.manhattan_distance(caster.cell, target.cell) != 1:
+	if not can_aim(battle, skill, target):
 		return false
 	if not battle.ap.spend(skill.ap_cost):
 		return false
@@ -154,13 +154,10 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	if target == null or target.team != "enemy" or not target.is_alive():
 		return false
 
-	# Line of sight below already requires a shared row or column, so a plain
-	# range gate is the whole condition. Guarding it with "not aligned" made it
-	# dead code: any aligned target was accepted at any distance, and the cast
-	# took the AP for a dash that landed two cells short of nothing.
-	if GridRulesScript.manhattan_distance(caster.cell, target.cell) > skill.max_range:
-		return false
-	if not GridRulesScript.has_clear_orthogonal_line(caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id)):
+	# Range and lane both come from can_aim, the same predicate the target ring
+	# calls. Writing them out twice is how the ring ended up promising a dash the
+	# cast refused whenever a wall stood between.
+	if not can_aim(battle, skill, target):
 		return false
 
 	var landing: Vector2i = _dash_landing(battle, caster, target)
@@ -195,6 +192,12 @@ static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
 		return false
 	var target = battle.actors.get(target_actor_id)
 	if target == null or target.team != "enemy" or not target.is_alive():
+		return false
+
+	# 落英 had no range gate and no sight gate at all: the rectangle only checked
+	# bounds, so a wall between Sakura and the enemy did not matter and the cast
+	# still landed. One predicate now covers the ring and the cast.
+	if not can_aim(battle, skill, target):
 		return false
 
 	var direction: Vector2i = _direction_toward(caster.cell, target.cell)
@@ -300,6 +303,54 @@ static func _ultimate_multipliers(skill, caster) -> Array[float]:
 
 
 # --- shared helpers ----------------------------------------------------------
+
+## Whether the aim itself is legal: range and line of sight, before AP, energy or
+## resource are considered. The target ring and the cast both call this, so the
+## highlight can never promise a shot the controller then refuses - and a skill
+## that forgets one of the two checks cannot silently pass it.
+##
+## Three aim shapes, because they are genuinely different:
+##  - A rectangle (FAN) is aimed by direction, not at a point. A three-wide row
+##    cannot sit on a single line, so only its centre lane has to be clear.
+##  - A dash needs a straight orthogonal lane: the landing walk steps along one
+##    axis, so a diagonal target three cells out would spend the AP and stop two
+##    cells short of striking anything.
+##  - Everything else needs a clear straight line to the target (45 degrees
+##    included). Adjacent targets skip it - nothing can stand in between.
+static func can_aim(battle, skill, target) -> bool:
+	var caster = battle.get_active_character()
+	if caster == null or target == null or not target.is_alive():
+		return false
+	var distance: int = GridRulesScript.manhattan_distance(caster.cell, target.cell)
+	if distance < skill.min_range or distance > skill.max_range:
+		return false
+	if skill.shape == SkillDefinitionScript.SHAPE_FAN:
+		return _centre_lane_clear(battle, caster, target, skill)
+	if distance <= 1:
+		return true
+	if String(skill.executor_id) == "sakura_flowing_wind":
+		return GridRulesScript.has_clear_orthogonal_line(
+			caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id))
+	return GridRulesScript.has_clear_line_of_sight(
+		caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id))
+
+
+## A rectangle is cast through the cell in front of the caster, so only that lane
+## has to be open. Checking every hit cell instead would refuse the whole skill
+## whenever one corner sat behind a wall, and a three-wide block has no single
+## line to begin with.
+static func _centre_lane_clear(battle, caster, target, skill) -> bool:
+	var direction: Vector2i = _direction_toward(caster.cell, target.cell)
+	if direction == Vector2i.ZERO:
+		return false
+	for step in range(1, skill.shape_depth + 1):
+		var cell: Vector2i = caster.cell + direction * step
+		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
+			break
+		if battle.blocked_cells.has(cell):
+			return false
+	return true
+
 
 ## Whether the active character's sheet lists this skill. Ownership is data, so a
 ## character cannot borrow another kit by naming its skill id.

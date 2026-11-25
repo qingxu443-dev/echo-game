@@ -15,3 +15,12 @@ static func calculate_damage(raw_damage: int, resistance: int) -> int:
 		return 0
 	var safe_resistance: int = maxi(0, resistance)
 	return maxi(1, floori(float(raw_damage) * 1000.0 / (1000.0 + float(safe_resistance))))
+
+
+## §47 待决 1 option B: the pipeline keeps integer points, the display layer
+## speaks percentages. This is the one direction that has to exist for the two
+## to agree; the reverse (R = 1000p / (1 - p)) is a design-time table, not a
+## runtime call. p = R / (1000 + R), so 111 points reads as 9.99%.
+static func resistance_percent(resistance: int) -> float:
+	var safe_resistance: float = float(maxi(0, resistance))
+	return 100.0 * safe_resistance / (1000.0 + safe_resistance)

@@ -37,6 +37,15 @@ func _run() -> void:
 	exposed = statuses.get_status("vanguard", &"exposed")
 	_check(exposed != null and exposed.stacks == 1, "replace policy resets stack count")
 
+	# §47 待决 15 option A: the shared default is replace. Seeded to three
+	# stacks so a refresh default would keep 3 and be visibly wrong.
+	_check(statuses.apply_status(&"exposed", "sevrin", "vanguard", 2, 3, -1, &"", BattleStatusScript.STACK_ADD), "stacks can be seeded for the default-policy check")
+	exposed = statuses.get_status("vanguard", &"exposed")
+	_check(exposed != null and exposed.stacks == 3, "seeded stacks are in place")
+	_check(statuses.apply_status(&"exposed", "sevrin", "vanguard", 1, 3, -1, &""), "stack policy may be omitted")
+	exposed = statuses.get_status("vanguard", &"exposed")
+	_check(exposed != null and exposed.stacks == 1, "an omitted stack policy behaves as replace")
+
 	_check(not statuses.apply_status(&"", "sevrin", "vanguard"), "empty status ID is rejected")
 	_check(not statuses.apply_status(&"invalid", "sevrin", "vanguard", 0), "zero stack application is rejected")
 	_check(statuses.remove_status("vanguard", &"exposed"), "status can be removed explicitly")

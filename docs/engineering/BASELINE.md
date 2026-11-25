@@ -8,11 +8,11 @@
 | 项目 | 值 |
 |---|---|
 | 分支 | `main` |
-| 提交 | `b504b4f`（main，PR #40 合并后，本机实测复核 752/0） |
+| 提交 | `main`（§47 裁决批合并后，本机实测复核 770/0） |
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 17 |
-| 断言总数 | **752** |
+| 断言总数 | **770** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -20,24 +20,24 @@
 
 | 套件 | 断言 | 归属 |
 |---|---:|---|
-| `test_battle_controller.gd` | 115 | 控制器场景 |
+| `test_battle_controller.gd` | 118 | 控制器场景 |
 | `test_shared_ap.gd` | 19 | 队伍共享 AP 池（§4） |
 | `test_downed_and_revive.gd` | 44 | 倒地、复活与指令交接（§12） |
-| `test_damage_types.gd` | 13 | 伤害类型白名单（§10.2 / §10.6） |
+| `test_damage_types.gd` | 24 | 伤害类型白名单、真实伤害语义、暴击钩子、抗性换算（§10.2 / §10.6 / §47） |
 | `test_character_framework.gd` | 130 | 角色框架、誓刃、樱与行动归属（§15 / §19-24） |
 | `test_oathkeeper_v2_controller.gd` | 96 | V2 技能控制器 |
 | `test_turn_bookkeeping.gd` | 44 | 回合账本 |
 | `test_enemy_catalog.gd` | 54 | 敌人数据目录（M1） |
 | `test_hunter_summon.gd` | 46 | 通灵（含数据驱动框架） |
 | `test_level_catalog.gd` | 30 | 关卡数据 |
-| `test_battle_status.gd` | 25 | 状态容器 |
+| `test_battle_status.gd` | 29 | 状态容器 |
 | `test_diagonal_line_of_sight.gd` | 20 | 视线规则 |
 | `test_battle_view_skills.gd` | 52 | UI 到控制器集成（目标提示一致性、普攻黄圈、快捷键覆盖、终极能量门槛、切换提示、空选点敌提示） |
 | `test_oathkeeper_v2_actor.gd` | 19 | 护盾与能量 |
 | `test_core_rules.gd` | 18 | 网格 / AP / 伤害 |
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 14 | 瑟弗林技能目录（含普攻） |
-| **合计** | **752** | |
+| **合计** | **770** | |
 
 ## 持续集成
 
@@ -131,3 +131,4 @@ RESULT test_core_rules assertions=18 failures=0
 **保留并迁移的部分**：视线、AP、伤害、状态容器、敌人数据、关卡数据、通灵、V2 技能、界面集成全部改为走 V2 入口，断言数与删除前一致或仅因机制消失而减少，没有静默丢覆盖。
 
 **如果以后重启这些机制**，需要按 V2 设计规范重新实现并补回对应测试，而不是从本文件的旧版本恢复。
+| 2026-11-26 | §47 裁决批：真实伤害入白名单（跳过防御与百分比减伤，仍吃护盾）；暴击作为管线钩子（无技能使用）；普攻计入 §13 终极能量；护盾默认叠层改为 replace；补抗性点数↔百分比换算。断言 +18 | 752 → 770（+18） |

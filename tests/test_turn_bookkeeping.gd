@@ -7,14 +7,11 @@ extends "res://tests/framework/test_case.gd"
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const APBudgetScript = preload("res://scripts/battle/ap_budget.gd")
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
-const AreaEffectScript = preload("res://scripts/battle/battle_area_effect.gd")
-const AreaEffectCollectionScript = preload("res://scripts/battle/battle_area_effect_collection.gd")
 
 
 func _run() -> void:
 	_check_ap_ledger()
 	_check_intent_state_machine()
-	_check_area_effect_clearing()
 	_check_occupied_cells()
 
 	_report()
@@ -86,41 +83,6 @@ func _check_intent_state_machine() -> void:
 	_check(not resolved.cancel("late_cancel"), "a resolved intent cannot be canceled")
 	_check(resolved.state == IntentScript.IntentState.RESOLVED, "a rejected cancel does not change the state")
 
-
-func _check_area_effect_clearing() -> void:
-	var effects: BattleAreaEffectCollection = AreaEffectCollectionScript.new()
-	_check(effects.clear_all() == 0, "clearing an empty collection removes nothing")
-
-	var first = AreaEffectScript.new(
-		&"watchwall_a",
-		AreaEffectScript.EFFECT_DAMAGE_REDUCTION,
-		"sevrin",
-		"player",
-		Vector2i(1, 1),
-		[Vector2i(1, 1), Vector2i(1, 2)] as Array[Vector2i],
-		AreaEffectScript.TARGET_SAME_TEAM,
-		20,
-		&"enemy_phase_end"
-	)
-	var second = AreaEffectScript.new(
-		&"watchwall_b",
-		AreaEffectScript.EFFECT_DAMAGE_REDUCTION,
-		"sevrin",
-		"player",
-		Vector2i(4, 4),
-		[Vector2i(4, 4)] as Array[Vector2i],
-		AreaEffectScript.TARGET_SAME_TEAM,
-		35,
-		&"enemy_phase_end"
-	)
-	_check(effects.apply_effect(first), "a valid area effect is accepted")
-	_check(effects.apply_effect(second), "a second valid area effect is accepted")
-	_check(effects.get_effect_count() == 2, "both area effects are stored")
-
-	_check(effects.clear_all() == 2, "clear_all reports how many effects it removed")
-	_check(effects.get_effect_count() == 0, "the collection is empty after clear_all")
-	_check(effects.get_effect(&"watchwall_a") == null, "a cleared effect can no longer be retrieved")
-	_check(effects.clear_all() == 0, "clear_all is idempotent")
 
 
 func _check_occupied_cells() -> void:

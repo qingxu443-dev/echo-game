@@ -8,7 +8,7 @@
 
 ## 一、当前阶段
 
-**Prototype 0.1 的战斗闭环已完整：从进入关卡、执行回合、结算胜负到重开或进入下一关，全流程可运行，并已通过 16 个自动化测试套件（654 条断言，0 失败）。当前剩余重点是人工桌面操作检查与 Android 适配。**
+**Prototype 0.1 的战斗闭环已完整：从进入关卡、执行回合、结算胜负到重开或进入下一关，全流程可运行，并已通过 13 个自动化测试套件（483 条断言，0 失败）。当前剩余重点是人工桌面操作检查与 Android 适配。**
 
 2026-11-25 上游重构批（M0–M2，`main` @ `aa569bd`）：测试套件迁入公共基类并新增一键回归（`tests/run_all.*`）；敌人属性与三关配置外置为 `.tres`；936 行控制器拆为 234 行门面 + 6 个子系统（battle_flow / intent_planner / intent_resolver / skill_executor / damage_pipeline / summon_service）。断言 582 → 623。
 
@@ -54,7 +54,7 @@ Prototype 0.1 的目标内容：
 | 技能视线规则 | 已完成 | 同行、同列或对角直线且路径无遮挡 |
 | 战斗界面与桌面操作 | 已实现 | 技能栏、目标选择、状态标识、数字键 1–4 快捷键 |
 | 战斗胜负判定 | 已完成 | 胜利/失败终止逻辑，并接入结算流程 |
-| Godot 4.7.2 Windows 无头验证 | 已验证 | 导入零错误，16 套件 654 条断言 0 失败，主场景可运行 |
+| Godot 4.7.2 Windows 无头验证 | 已验证 | 导入零错误，13 套件 483 条断言 0 失败，主场景可运行 |
 
 ## 四、待办任务（按优先级）
 
@@ -134,7 +134,7 @@ Prototype 0.1 的目标内容：
 
 已实现：
 - 战斗结束时弹出结算面板，显示关卡、回合数、造成伤害、承受伤害、击败敌人数与剩余生命。
-- 「重开本关」按钮可重置 AP、单位状态、护盾、终极能量、敌人预告与区域效果。
+- 「重开本关」按钮可重置 AP、单位状态、护盾、终极能量与敌人预告。
 - 胜利时提供「下一关」；打完最后一关后按钮变为「从头开始」。
 - 重开通过 `start_encounter` 重建全部战斗状态，不残留上一场数据。
 
@@ -167,25 +167,7 @@ Prototype 0.1 的目标内容：
 
 测试套件清单（逐套件维护以 `docs/engineering/BASELINE.md` 为准）：
 
-| 套件 | 断言数 |
-|---|---:|
-| `test_battle_controller.gd` | 162 |
-| `test_oathkeeper_v2_controller.gd` | 87 |
-| `test_turn_bookkeeping.gd` | 52 |
-| `test_battle_area_effects.gd` | 43 |
-| `test_hunter_summon.gd` | 39 |
-| `test_battle_echo_counter.gd` | 49 |
-| `test_enemy_catalog.gd` | 41 |
-| `test_level_catalog.gd` | 30 |
-| `test_battle_status.gd` | 25 |
-| `test_diagonal_line_of_sight.gd` | 24 |
-| `test_skill_definitions.gd` | 20 |
-| `test_oathkeeper_v2_actor.gd` | 19 |
-| `test_core_rules.gd` | 18 |
-| `test_battle_view_skills.gd` | 15 |
-| `test_battle_stats.gd` | 13 |
-| `test_oathkeeper_v2_skill_catalog.gd` | 12 |
-| **合计** | **654** |
+当前为 **13 个套件、483 条断言、0 失败**。逐套件明细以 `docs/engineering/BASELINE.md` 为准——那张表是唯一维护点，此处不再复制，避免两处数字各自漂移。
 
 **重要限制：**
 - 无头测试与脚本化点击不验证实际窗口绘制、鼠标键盘焦点、画面观感或 Android 触控。

@@ -9,7 +9,6 @@
 在本地 Godot 4.7.2 项目根目录执行：
 
 ```bash
-godot --headless --path . --script res://tests/test_battle_echo_counter.gd
 ```
 
 重点检查：
@@ -27,7 +26,6 @@ godot --headless --path . --script res://tests/test_battle_echo_counter.gd
 在本地 Godot 4.7.2 项目根目录执行：
 
 ```bash
-godot --headless --path . --script res://tests/test_battle_area_effects.gd
 ```
 
 重点检查：
@@ -93,7 +91,6 @@ godot --headless --path . --script res://tests/test_battle_controller.gd
 
 ```bash
 godot --headless --path . --script res://tests/test_battle_view_skills.gd
-godot --headless --path . --script res://tests/test_skill_definitions.gd
 godot --headless --path . --script res://tests/test_turn_bookkeeping.gd
 godot --headless --path . --script res://tests/test_hunter_summon.gd
 ```

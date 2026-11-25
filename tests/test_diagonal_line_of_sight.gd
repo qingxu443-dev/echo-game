@@ -8,7 +8,6 @@ func _run() -> void:
 	_test_line_of_sight_geometry()
 	_test_diagonal_judgment_mark()
 	_test_diagonal_mark_blocked()
-	_test_diagonal_oath_severance()
 	_test_non_aligned_targets_still_fail()
 	_test_marksman_lane_stays_orthogonal()
 
@@ -39,15 +38,15 @@ func _test_diagonal_judgment_mark() -> void:
 	var battle = ControllerScript.new()
 	root.add_child(battle)
 	battle.start_encounter(Vector2i(1, 3), [Vector2i(2, 4)])
-	_check(battle.request_judgment_mark("vanguard_00"), "Judgment Mark reaches a diagonally adjacent target")
+	_check(battle.request_oathkeeper_judgment_mark("vanguard_00"), "Judgment Mark reaches a diagonally adjacent target")
 	_check(battle.ap.current == 2, "diagonal Judgment Mark spends one AP")
-	_check(battle.statuses.has_status("vanguard_00", &"judgment_mark"), "diagonal Judgment Mark applies the mark")
+	_check(battle.statuses.has_status("vanguard_00", &"oathkeeper_mark"), "diagonal Judgment Mark applies the mark")
 	battle.queue_free()
 
 	var far = ControllerScript.new()
 	root.add_child(far)
 	far.start_encounter(Vector2i(1, 3), [Vector2i(3, 5)])
-	_check(far.request_judgment_mark("vanguard_00"), "Judgment Mark reaches a diagonal at the edge of its range")
+	_check(far.request_oathkeeper_judgment_mark("vanguard_00"), "Judgment Mark reaches a diagonal at the edge of its range")
 	far.queue_free()
 
 
@@ -55,20 +54,10 @@ func _test_diagonal_mark_blocked() -> void:
 	var battle = ControllerScript.new()
 	root.add_child(battle)
 	battle.start_encounter(Vector2i(1, 3), [Vector2i(3, 5)], [Vector2i(2, 4)])
-	_check(not battle.request_judgment_mark("vanguard_00"), "Judgment Mark fails when the diagonal is blocked")
+	_check(not battle.request_oathkeeper_judgment_mark("vanguard_00"), "Judgment Mark fails when the diagonal is blocked")
 	_check(battle.ap.current == 3, "blocked diagonal Judgment Mark spends no AP")
 	battle.queue_free()
 
-
-func _test_diagonal_oath_severance() -> void:
-	var battle = ControllerScript.new()
-	root.add_child(battle)
-	battle.start_encounter(Vector2i(1, 3), [Vector2i(2, 4)])
-	_check(battle.request_judgment_mark("vanguard_00"), "mark lands on the diagonal target first")
-	_check(battle.request_oath_severance("vanguard_00"), "Oath Severance reaches a diagonally adjacent marked target")
-	_check(not battle.statuses.has_status("vanguard_00", &"judgment_mark"), "diagonal Oath Severance consumes the mark")
-	_check(battle.ap.current == 0, "mark plus severance spends all three AP")
-	battle.queue_free()
 
 
 func _test_non_aligned_targets_still_fail() -> void:
@@ -82,7 +71,7 @@ func _test_non_aligned_targets_still_fail() -> void:
 	var aligned = ControllerScript.new()
 	root.add_child(aligned)
 	aligned.start_encounter(Vector2i(1, 3), [Vector2i(3, 4)])
-	_check(not aligned.request_judgment_mark("vanguard_00"), "a knight-offset target still fails even at close range")
+	_check(not aligned.request_oathkeeper_judgment_mark("vanguard_00"), "a knight-offset target still fails even at close range")
 	aligned.queue_free()
 
 

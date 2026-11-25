@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-25，`main` @ `83f840f` + 审计修复分支 `fix/audit-p0-p1`，Godot 4.7.2 导入零错误、十六个测试套件 654 条断言 0 失败。
+最后核对：2026-11-25，`main` @ `e0ba84d` + v1 移除分支，Godot 4.7.2 导入零错误、十三个测试套件 483 条断言 0 失败。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -50,12 +50,9 @@
 | `combat_math.gd` | 17 | 共享伤害公式，防御采用递减收益 | 物理走防御、法术走法抗 |
 | `battle_intent.gd` | 60 | 敌方意图快照，actor / tile / area 三种锁定模式与 active→resolved/canceled 单向生命周期 | **预告展示与敌方执行使用同一份快照** |
 | `battle_status.gd` | 44 | 单个状态实例：触发次数（-1 为无限）、到期边界、叠层策略 | — |
-| `battle_status_collection.gd` | 186 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 裁决印记可延后一个敌方阶段 |
-| `battle_area_effect.gd` | 67 | 区域效果实例 | — |
-| `battle_area_effect_collection.gd` | 63 | 区域效果集合，同 ID 覆盖 | 守望壁垒按队伍而非固定 ID 判定 |
+| `battle_status_collection.gd` | 186 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 延迟接口保留，当前无调用方 |
 | `skill_definition.gd` | 47 | 技能纯数据规格（Resource） | 不含执行逻辑 |
 | `oathkeeper_v2_skill_catalog.gd` | 40 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
-| `oathkeeper_skill_catalog.gd` | 44 | v1 旧技能数据，仅供历史追溯与兼容性测试 | **不再接入技能栏** |
 | `enemy_definition.gd` / `enemy_catalog.gd` | 23 / 34 | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres` |
 | `encounter_definition.gd` | 52 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
@@ -68,7 +65,19 @@
 
 ### 表现层（`scripts/ui/`）
 
-`battle_view.gd`（606 行）是 `Node2D`，负责：绘制棋盘（尺寸读 `controller.grid_size`）、障碍格、单位、意图预告与执行顺序、AP/血量/护盾/终极能量/守誓层数、状态标记、区域效果、结算面板；处理鼠标/触摸/键盘输入；维护四格技能栏。技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
+表现层拆为六个文件，`battle_view.gd`（258 行）只做编排：保留遭遇生命周期、技能栏与玩家意图，绘制全部转发给下面的视图，原始输入转发给 `input_router`。
+
+| 模块 | 行数 | 职责 |
+|---|---|---|
+| `battle_view.gd` | 258 | 编排：关卡流程、技能栏构建、点击分发、控制器信号 |
+| `board_view.gd` | 141 | 棋盘、障碍、单位与状态标记、意图预告、目标黄圈 |
+| `skill_bar_view.gd` | 141 | 四格技能栏、结束回合按钮、操作提示；`skill_rect()` 是唯一的按钮几何 |
+| `theme_palette.gd` | 113 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
+| `hud_view.gd` | 93 | 标题、回合与资源读数、战术提示、敌方行动顺序 |
+| `settlement_view.gd` | 65 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |
+| `input_router.gd` | 58 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` |
+
+技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 
 输入约定：数字键 `1`–`4` 对应技能栏顺序；`Esc` 或右键取消目标选择；`Enter`/空格结束回合。自身技能按下即施放，目标技能需再点战场上的敌人确认。结算面板出现时，点击只响应「重开本关」与「下一关」。
 

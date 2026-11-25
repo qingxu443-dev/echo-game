@@ -8,6 +8,7 @@ character_id = &"sakura"
 display_name_zh = "樱"
 role_label_zh = "剑舞者"
 glyph = "樱"
+ultimate_energy_max = 5
 max_health = 1800
 attack = 520
 defense = 180

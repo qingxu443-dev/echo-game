@@ -117,7 +117,7 @@ static func is_affordable(controller, skill: Dictionary) -> bool:
 		return false
 	if str(skill.get("slot", "")) == "ultimate":
 		var caster = controller.get_active_character()
-		return caster != null and caster.ultimate_energy >= P.ULTIMATE_ENERGY_MAX
+		return caster != null and caster.ultimate_energy >= caster.ultimate_energy_max
 	return true
 
 

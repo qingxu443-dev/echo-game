@@ -59,7 +59,8 @@ wc -l scripts/**/*.gd
 | `battle_status_collection.gd` | 213 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 延迟接口保留，当前无调用方 |
 | `skill_definition.gd` | 78 | 技能纯数据规格（Resource） | 不含执行逻辑 |
 | `oathkeeper_v2_skill_catalog.gd` | 60 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
-| `enemy_definition.gd` / `enemy_catalog.gd` | 23 / 34 | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres` |
+| `enemy_definition.gd` / `enemy_catalog.gd` | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres`；`actions` 列表决定该原型按优先级尝试哪些行动 |
+| `intent_planner.gd` | 按 `actions` 顺序挑第一个可用的行动，生成意图预告 | 行动的合法性判定在代码，行动的组合在数据 |
 | `encounter_definition.gd` | 58 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
 
@@ -72,7 +73,7 @@ wc -l scripts/**/*.gd
 | `character_definition.gd` | 角色面板、五槽位技能 id、职业资源声明 | 纯数据；`skill_ids` 按槽位顺序 |
 | `character_catalog.gd` | `data/characters/*.tres` 的显式名册 | 不用目录扫描，出战名单可评审 |
 | `skill_registry.gd` | 跨角色技能解析（id → 定义） | 角色只写 skill id，不关心来自哪个目录 |
-| `character_skill_runtime.gd` | 按 `executor_id` 分派技能；樱的剑意 / 残香 / 回锋；通用普攻；`can_aim()` 是射程与视线的唯一真源 | 数值来自数据，机制才写代码 |
+| `character_skill_runtime.gd` | 按 `executor_id` 分派技能；樱的剑意 / 极意 / 残香 / 回锋；通用普攻；`can_aim()` 是射程与视线的唯一真源 | 数值来自数据，机制才写代码；极意的范围加成与黄圈读同一尺寸 |
 | `summon_definition.gd` / `summon_catalog.gd` | 通灵数据（`data/summons/*.tres`）与名册 | 通灵属于玩家，不属于角色面板 |
 | `summon_service.gd` | 通灵的可用性、现身格与冷却 | 数值全部来自 `SummonDefinition` |
 
@@ -88,6 +89,10 @@ wc -l scripts/**/*.gd
 | 绝对守护的嘲讽与反击 | `get_absolute_guardian()`，即持有 `absolute_guard` 状态者 | 硬编码瑟弗林 |
 
 所以「谁在守」由状态决定，「谁的誓约」由被动决定，与角色 id 无关。
+
+**终极能量**：上限是角色属性（`CharacterDefinition.ultimate_energy_max` → 单位的 `ultimate_energy_max`），释放终极消耗整池。因此执行器与技能栏都不再持有数字，不同角色可以有不同池深。
+
+**极意（§19-23）**：剑意满层即极意，无需额外标志位。极意强化下一次主动技能（流风追加 40% 追击、落英范围与回锋提升），随后清空剑意，再按正常规则获取；普通攻击与终极既不消耗也不清除。
 
 **通灵不是角色技能**：它属于玩家，任何角色都能使用，技能栏在角色槽位之后追加。技能 id 形如 `summon:yu_bubble`，运行时按前缀分派，因此新增一个通灵不需要改代码——只加一个 `.tres`。
 

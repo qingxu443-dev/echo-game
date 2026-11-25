@@ -24,8 +24,11 @@ var _is_defeated: bool = false
 ## blocks movement until revived. Enemies have no downed state - they simply die.
 var _is_downed: bool = false
 var shield: int = 0
-## Independent ultimate-energy pool; capped at five for each actor.
+## Independent ultimate-energy pool. The ceiling comes from the character sheet
+## so a character with a bigger pool is data, not a code branch; enemies keep the
+## default and never gain any.
 var ultimate_energy: int = 0
+var ultimate_energy_max: int = 5
 ## Prevents more than one successful-action energy gain per player turn.
 var active_energy_gain_turn: int = -1
 ## Character sheet this unit was spawned from. Empty for enemies.
@@ -34,6 +37,8 @@ var character_id: StringName = &""
 var glyph: String = ""
 ## Display name from the character sheet, for the HUD.
 var display_name_zh: String = ""
+## Role label from the sheet ("守誓者" / "剑舞者"), shown beside the name.
+var role_label_zh: String = ""
 ## Class resource (design plan §19: 剑意). Empty id means the unit has none.
 var resource_id: StringName = &""
 var resource_name_zh: String = ""
@@ -63,7 +68,7 @@ func _init(
 
 
 func gain_ultimate_energy(amount: int = 1) -> int:
-	ultimate_energy = clampi(ultimate_energy + maxi(0, amount), 0, 5)
+	ultimate_energy = clampi(ultimate_energy + maxi(0, amount), 0, ultimate_energy_max)
 	return ultimate_energy
 
 

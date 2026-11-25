@@ -12,17 +12,22 @@ extends RefCounted
 
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
+const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 
-const ABSOLUTE_GUARD_AP: int = 2
-const ABSOLUTE_GUARD_ENERGY: int = 5
-const OATH_SHIELD_AP: int = 1
+## Costs, ranges and damage multipliers are NOT repeated here. They live in the
+## skill definitions, which is also what the skill bar reads - the two used to be
+## separate constants, so editing the catalogue changed the hint and the target
+## ring while the cast kept judging by the old numbers. Two sources for one rule
+## is the bug; a test that compares the two would only paper over it.
+##
+## What stays here is what neither the catalogue nor the sheet has a field for:
+## mechanism parameters that are not per-skill or per-character numbers.
+##
+## Ultimate energy is not one of them any more. Releasing an ultimate spends the
+## caster's whole pool, and the pool's size lives on the character sheet, so
+## neither this file nor the bar needs a number.
 const OATH_SHIELD_DEFENSE_RATIO: float = 0.3
 const OATH_SHIELD_VOW_BONUS: float = 0.1
-const OATH_SHIELD_RANGE: int = 2
-const JUDGMENT_MARK_AP: int = 1
-const JUDGMENT_MARK_MIN_RANGE: int = 1
-const JUDGMENT_MARK_MAX_RANGE: int = 4
-const JUDGMENT_MARK_DEFENSE_MULTIPLIER: float = 0.8
 
 
 static func absolute_guard(battle) -> bool:
@@ -35,8 +40,12 @@ static func absolute_guard(battle) -> bool:
 	var caster = battle.get_active_character()
 	if caster == null:
 		return false
+	var skill := SkillRegistryScript.get_skill(&"absolute_guard")
+	if skill == null:
+		return false
 	var caster_id: String = caster.actor_id
-	if not caster.is_alive() or not battle.ap.can_spend(ABSOLUTE_GUARD_AP) or caster.ultimate_energy < ABSOLUTE_GUARD_ENERGY:
+	var energy_cost: int = caster.ultimate_energy_max
+	if not caster.is_alive() or not battle.ap.can_spend(skill.ap_cost) or caster.ultimate_energy < energy_cost:
 		return false
 	# The stance is singular: a new cast takes it over from any other holder, so
 	# the guardian query never has two names to choose between. Without this, a
@@ -52,17 +61,17 @@ static func absolute_guard(battle) -> bool:
 		return false
 	# Both spends are guarded above, but revert whichever one landed: spending AP
 	# and then failing on energy used to lose the AP silently.
-	var spent_energy: bool = caster.spend_ultimate_energy(ABSOLUTE_GUARD_ENERGY)
-	var spent_ap: bool = battle.ap.spend(ABSOLUTE_GUARD_AP)
+	var spent_energy: bool = caster.spend_ultimate_energy(energy_cost)
+	var spent_ap: bool = battle.ap.spend(skill.ap_cost)
 	if not (spent_energy and spent_ap):
 		if spent_energy:
-			caster.gain_ultimate_energy(ABSOLUTE_GUARD_ENERGY)
+			caster.gain_ultimate_energy(energy_cost)
 		if spent_ap:
-			battle.ap.refund(ABSOLUTE_GUARD_AP)
+			battle.ap.refund(skill.ap_cost)
 		battle.statuses.remove_status(caster_id, &"absolute_guard")
 		return false
 	gain_active_energy(battle, caster_id)
-	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=2 energy=5 radius=2 expires=next_player_phase_start")
+	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=%d energy=%d radius=%d expires=next_player_phase_start" % [skill.ap_cost, energy_cost, skill.max_range])
 	return true
 
 
@@ -98,15 +107,18 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 	var caster = battle.get_active_character()
 	if caster == null:
 		return false
+	var skill := SkillRegistryScript.get_skill(&"oath_shield")
+	if skill == null:
+		return false
 	var target = actors[target_actor_id]
 	var reviving: bool = target.is_downed()
 	if not caster.is_alive() or target.team != "player" or not (target.is_alive() or reviving):
 		return false
 	if reviving and battle.oath_shield_revived.has(target_actor_id):
 		return false
-	if GridRulesScript.manhattan_distance(caster.cell, target.cell) > OATH_SHIELD_RANGE:
+	if GridRulesScript.manhattan_distance(caster.cell, target.cell) > skill.max_range:
 		return false
-	if not battle.ap.can_spend(OATH_SHIELD_AP):
+	if not battle.ap.can_spend(skill.ap_cost):
 		return false
 	var caster_id: String = caster.actor_id
 	var vow_stacks: int = battle.get_oath_vow_stacks(caster_id)
@@ -114,7 +126,7 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 	var shielded_ids: Array[String] = [caster_id]
 	if target_actor_id != caster_id:
 		shielded_ids.append(target_actor_id)
-	if not battle.ap.spend(OATH_SHIELD_AP):
+	if not battle.ap.spend(skill.ap_cost):
 		return false
 	if reviving:
 		target.revive(raw_shield)
@@ -143,7 +155,7 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 	if vow_stacks > 0:
 		battle.statuses.remove_status(caster_id, &"oath_vow")
 		battle._emit_event("status_consumed", caster_id, caster_id, "status=oath_vow stacks=%d" % vow_stacks)
-	battle._emit_event("skill_resolved", caster_id, target_actor_id, "skill=oath_shield ap=1 vow_stacks=%d shield=%d" % [vow_stacks, raw_shield])
+	battle._emit_event("skill_resolved", caster_id, target_actor_id, "skill=oath_shield ap=%d vow_stacks=%d shield=%d" % [skill.ap_cost, vow_stacks, raw_shield])
 	return true
 
 
@@ -163,32 +175,35 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 	var caster = battle.get_active_character()
 	if caster == null:
 		return false
+	var skill := SkillRegistryScript.get_skill(&"oathkeeper_judgment_mark")
+	if skill == null:
+		return false
 	var caster_id: String = caster.actor_id
 	var target = actors[target_actor_id]
 	if not caster.is_alive() or not target.is_alive() or target.team != "enemy":
 		return false
 	var distance: int = GridRulesScript.manhattan_distance(caster.cell, target.cell)
-	if distance < JUDGMENT_MARK_MIN_RANGE or distance > JUDGMENT_MARK_MAX_RANGE:
+	if distance < skill.min_range or distance > skill.max_range:
 		return false
 	if not GridRulesScript.has_clear_line_of_sight(caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells()):
 		return false
-	if not battle.ap.can_spend(JUDGMENT_MARK_AP):
+	if not battle.ap.can_spend(skill.ap_cost):
 		return false
-	if not battle.ap.spend(JUDGMENT_MARK_AP):
+	if not battle.ap.spend(skill.ap_cost):
 		return false
 	for actor_id in actors.keys():
 		battle.statuses.remove_status(String(actor_id), &"oathkeeper_mark")
 	if not battle.statuses.apply_status(&"oathkeeper_mark", caster_id, target_actor_id, 1, 1, -1, &"enemy_phase_end", &"replace"):
-		battle.ap.refund(1)
+		battle.ap.refund(skill.ap_cost)
 		return false
 	gain_active_energy(battle, caster_id)
-	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.defense, JUDGMENT_MARK_DEFENSE_MULTIPLIER)
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.defense, skill.damage_multiplier)
 	battle._apply_damage(target_actor_id, raw_damage, caster_id, "oathkeeper_judgment_mark", "physical")
 	battle._emit_event(
 		"skill_resolved",
 		caster_id,
 		target_actor_id,
-		"skill=oathkeeper_judgment_mark ap=1 raw=%d mark=oathkeeper_mark expires=enemy_phase_end" % raw_damage
+		"skill=oathkeeper_judgment_mark ap=%d raw=%d mark=oathkeeper_mark expires=enemy_phase_end" % [skill.ap_cost, raw_damage]
 	)
 	battle._check_battle_end()
 	return true

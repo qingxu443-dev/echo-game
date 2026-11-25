@@ -10,6 +10,7 @@ func _run() -> void:
 	_test_controller_uses_profiles()
 	_test_unknown_archetype_is_rejected()
 	_test_default_archetype()
+	_test_actions_come_from_data()
 
 
 func _test_catalog_contents() -> void:
@@ -97,3 +98,37 @@ func _test_default_archetype() -> void:
 	_check(enemy != null, "omitting archetypes falls back to the vanguard")
 	_check(enemy.health == CatalogScript.get_definition("vanguard").health, "the fallback uses the vanguard profile")
 	battle.queue_free()
+
+
+## An enemy's behaviour is its action list, not a branch keyed on its name. These
+## assertions are what makes that true: if the planner ever special-cases an
+## archetype again, the lists below stop describing what happens.
+func _test_actions_come_from_data() -> void:
+	var vanguard = CatalogScript.get_definition("vanguard")
+	var marksman = CatalogScript.get_definition("marksman")
+	var area = CatalogScript.get_definition("area_controller")
+
+	_check(vanguard.actions == [&"charged_strike", &"basic_melee", &"pursuit"], "the vanguard's action list and its order come from data")
+	_check(marksman.actions == [&"aimed_shot"], "the marksman knows exactly one action")
+	_check(area.actions == [&"ground_pulse"], "the area controller knows exactly one action")
+
+	# The planner reads that list, so the melee-range case must pick the vanguard's
+	# second entry and the marksman must have nothing to pick at the same range.
+	var melee = ControllerScript.new()
+	root.add_child(melee)
+	_check(melee.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], ["vanguard"]), "adjacent vanguard encounter starts")
+	_check(melee.intents[0].action_id == "basic_melee", "an adjacent vanguard falls through to its melee action")
+	melee.queue_free()
+
+	var ranged = ControllerScript.new()
+	root.add_child(ranged)
+	_check(ranged.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], ["marksman"]), "adjacent marksman encounter starts")
+	_check(ranged.intents[0].action_id == "wait", "a marksman at melee range waits, because aimed_shot is its only action")
+
+	# Each action keeps its own reach: the marksman's shot needs three cells.
+	var aligned = ControllerScript.new()
+	root.add_child(aligned)
+	_check(aligned.start_encounter(Vector2i(1, 3), [Vector2i(5, 3)], [], ["marksman"]), "aligned marksman encounter starts")
+	_check(aligned.intents[0].action_id == "aimed_shot", "an aligned marksman inside its range shoots")
+	aligned.queue_free()
+	ranged.queue_free()

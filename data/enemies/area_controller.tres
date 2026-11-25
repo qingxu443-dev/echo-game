@@ -11,3 +11,4 @@ health = 2600
 attack = 1100
 defense = 450
 magic_resistance = 650
+actions = Array[StringName]([&"ground_pulse"])

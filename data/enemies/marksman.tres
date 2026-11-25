@@ -11,3 +11,4 @@ health = 2000
 attack = 1200
 defense = 350
 magic_resistance = 250
+actions = Array[StringName]([&"aimed_shot"])

@@ -2,6 +2,7 @@ extends "res://tests/framework/test_case.gd"
 
 const MainScene = preload("res://scenes/main/main.tscn")
 const InputRouterScript = preload("res://scripts/ui/input_router.gd")
+const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
 
 
 func _run() -> void:
@@ -11,6 +12,7 @@ func _run() -> void:
 	await _test_target_hint_matches_cast()
 	await _test_normal_attack_ring()
 	await _test_hotkeys_cover_the_bar()
+	await _test_ultimate_needs_a_full_bar()
 	_report()
 
 
@@ -153,6 +155,60 @@ func _test_hotkeys_cover_the_bar() -> void:
 
 	view.queue_free()
 	await process_frame
+
+
+## An ultimate costs a full energy bar, and the button should say so. The check
+## used to be special-cased on "absolute_guard" by id, so Sakura's ultimate
+## looked ready at zero energy and only failed after the tap.
+func _test_ultimate_needs_a_full_bar() -> void:
+	var view: Node = MainScene.instantiate()
+	root.add_child(view)
+	await process_frame
+	var controller: Variant = view.get("controller")
+
+	var guard: Dictionary = _entry_for(view, "absolute_guard")
+	_check(not guard.is_empty(), "the bar carries Absolute Guard")
+	var sevrin = controller.get_actor("sevrin")
+	sevrin.ultimate_energy = 0
+	_check(not SkillBarViewScript.is_affordable(controller, guard), "Absolute Guard is dim at zero energy")
+	sevrin.ultimate_energy = 5
+	_check(SkillBarViewScript.is_affordable(controller, guard), "Absolute Guard lights up at a full bar")
+
+	_check(controller.set_active_character("sakura"), "command switches to Sakura")
+	# The view rebuilds its bar from the turn event; asking the builder directly
+	# is the same call the view makes, without waiting for a turn boundary.
+	var sakura_bar: Array = SkillBarViewScript.build_entries(controller)
+	var ultimate: Dictionary = {}
+	for entry in sakura_bar:
+		if str(entry["slot"]) == "ultimate":
+			ultimate = entry
+	_check(not ultimate.is_empty(), "Sakura's bar exposes her ultimate slot")
+	_check(str(ultimate["id"]) == "sakura_endless_fragrance", "the ultimate slot is her own skill, not Sevrin's")
+	var sakura = controller.get_actor("sakura")
+	sakura.ultimate_energy = 0
+	_check(not SkillBarViewScript.is_affordable(controller, ultimate), "Sakura's ultimate is dim at zero energy")
+	sakura.ultimate_energy = 5
+	_check(SkillBarViewScript.is_affordable(controller, ultimate), "Sakura's ultimate lights up at a full bar")
+
+	# A plain skill is judged by AP alone.
+	var basic: Dictionary = {}
+	for entry in sakura_bar:
+		if str(entry["id"]) == "sakura_pierce_blossom":
+			basic = entry
+	_check(not basic.is_empty(), "the bar carries her normal attack")
+	_check(SkillBarViewScript.is_affordable(controller, basic), "a 1 AP skill is affordable on a fresh turn")
+	controller.ap.clear()
+	_check(not SkillBarViewScript.is_affordable(controller, basic), "a 1 AP skill is dim with an empty pool")
+
+	view.queue_free()
+	await process_frame
+
+
+func _entry_for(view: Node, skill_id: String) -> Dictionary:
+	for entry in view.get("skill_bar"):
+		if str(entry["id"]) == skill_id:
+			return entry
+	return {}
 
 
 ## Tap helpers resolve positions from the view's own layout methods so a

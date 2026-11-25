@@ -41,7 +41,8 @@ static func build_entries(controller) -> Array:
 			skill.ap_cost,
 			"actor" if skill.target_mode == SkillDefinitionScript.TARGET_ACTOR else "self",
 			skill.min_range,
-			skill.max_range
+			skill.max_range,
+			skill.slot
 		))
 
 	# Summons belong to the player, not to a character sheet, so every character
@@ -72,7 +73,8 @@ static func _entry(
 	ap_cost: int,
 	mode: String,
 	min_range: int,
-	max_range: int
+	max_range: int,
+	slot: StringName = &""
 ) -> Dictionary:
 	return {
 		"id": String(skill_id),
@@ -82,7 +84,29 @@ static func _entry(
 		"mode": mode,
 		"min_range": min_range,
 		"max_range": max_range,
+		"slot": String(slot),
 	}
+
+
+## Whether the button may look ready right now: the AP cost, the summon
+## cooldown, and - for an ultimate - a full energy bar. Extracted from draw() so
+## a suite can assert the rule instead of the pixels, and driven by the slot
+## rather than by a skill id, so a second character's ultimate is covered too.
+static func is_affordable(controller, skill: Dictionary) -> bool:
+	if controller.ap == null:
+		return false
+	if skill.has("summon_id"):
+		if controller.phase != controller.BattlePhase.PLAYER:
+			return false
+		var summon_remaining: int = controller.summon_cooldown_remaining(StringName(str(skill["summon_id"])))
+		# A summon still has to be paid for, even though its data says 0 AP today.
+		return summon_remaining <= 0 and controller.ap.can_spend(int(skill["cost"]))
+	if not controller.ap.can_spend(int(skill["cost"])):
+		return false
+	if str(skill.get("slot", "")) == "ultimate":
+		var caster = controller.get_active_character()
+		return caster != null and caster.ultimate_energy >= P.ULTIMATE_ENERGY_MAX
+	return true
 
 
 static func skill_rect(index: int) -> Rect2:
@@ -114,17 +138,13 @@ static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skil
 static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: Array, index: int, selected_skill: int) -> void:
 	var skill: Dictionary = skill_bar[index]
 	var rect := skill_rect(index)
-	var affordable: bool = controller.ap != null and controller.ap.can_spend(int(skill["cost"]))
-	if skill["id"] == "absolute_guard":
-		var sevrin = controller.get_actor("sevrin")
-		affordable = affordable and sevrin != null and sevrin.ultimate_energy >= P.ULTIMATE_ENERGY_MAX
+	var affordable: bool = is_affordable(controller, skill)
 
 	var cost_label := "%d AP" % int(skill["cost"])
 	var cost_offset: float = 52.0
 	var cost_y: float = 30.0
 	if skill.has("summon_id"):
 		var summon_remaining: int = controller.summon_cooldown_remaining(StringName(str(skill["summon_id"])))
-		affordable = controller.phase == controller.BattlePhase.PLAYER and summon_remaining <= 0
 		cost_label = "就绪" if summon_remaining <= 0 else "冷却 %d" % summon_remaining
 		cost_offset = 76.0
 		# The icon pushes the text block 36 px to the right, so the status label

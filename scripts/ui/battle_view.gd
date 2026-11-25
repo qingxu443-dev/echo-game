@@ -181,6 +181,12 @@ func _handle_tap(position: Vector2) -> void:
 		if actor.team == "enemy" and actor.is_alive() and actor.cell == cell:
 			if selected_skill >= 0:
 				_use_skill_on(actor_id)
+			else:
+				# Tapping an enemy with no skill selected used to do nothing at
+				# all, which reads as an unresponsive board rather than a missing
+				# first step.
+				status_message = "先点右侧技能，再点目标敌人。"
+				queue_redraw()
 			return
 
 	var path := _path_to_cell(cell)

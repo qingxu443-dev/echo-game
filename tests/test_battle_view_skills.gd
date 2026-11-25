@@ -31,6 +31,7 @@ func _test_no_default_selection() -> void:
 	_tap_cell(view, enemy.cell)
 	_check(controller.ap.current == starting_ap, "clicking an enemy without selecting a skill does not spend AP")
 	_check(enemy.health == enemy.max_health, "clicking an enemy without selecting a skill does not attack")
+	_check(String(view.get("status_message")).find("先点右侧技能") != -1, "tapping an enemy with nothing selected explains the missing step instead of doing nothing")
 	view.queue_free()
 	await process_frame
 

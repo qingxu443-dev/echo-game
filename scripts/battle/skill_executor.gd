@@ -43,7 +43,15 @@ static func absolute_guard(battle) -> bool:
 		return false
 	if not battle.statuses.apply_status(&"absolute_guard", "sevrin", "sevrin", 1, 1, -1, &"player_phase_start", &"replace"):
 		return false
-	if not battle.ap.spend(ABSOLUTE_GUARD_AP) or not caster.spend_ultimate_energy(ABSOLUTE_GUARD_ENERGY):
+	# Both spends are guarded above, but revert whichever one landed: spending AP
+	# and then failing on energy used to lose the AP silently.
+	var spent_energy: bool = caster.spend_ultimate_energy(ABSOLUTE_GUARD_ENERGY)
+	var spent_ap: bool = battle.ap.spend(ABSOLUTE_GUARD_AP)
+	if not (spent_energy and spent_ap):
+		if spent_energy:
+			caster.gain_ultimate_energy(ABSOLUTE_GUARD_ENERGY)
+		if spent_ap:
+			battle.ap.current += ABSOLUTE_GUARD_AP
 		battle.statuses.remove_status("sevrin", &"absolute_guard")
 		return false
 	gain_active_energy(battle, "sevrin")

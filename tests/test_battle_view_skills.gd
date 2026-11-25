@@ -7,6 +7,7 @@ func _run() -> void:
 	await _test_no_default_basic_attack()
 	await _test_self_skill_controls()
 	await _test_target_skill_flow()
+	await _test_target_hint_matches_cast()
 	_report()
 
 
@@ -73,6 +74,29 @@ func _test_target_skill_flow() -> void:
 	_tap_skill(view, 3)
 	_tap_cell(view, marksman.cell)
 	_check(controller.summon_cooldown_remaining() > 0, "Hunter Summon enters its two-turn cooldown after use")
+
+	view.queue_free()
+	await process_frame
+
+
+func _test_target_hint_matches_cast() -> void:
+	var view: Node = MainScene.instantiate()
+	root.add_child(view)
+	await process_frame
+	var controller: Variant = view.get("controller")
+
+	var enemy = controller.get_actor("vanguard_00")
+	_check(view.call("_can_target_actor", "hunter_summon", enemy.actor_id), "a summonable enemy is highlighted")
+	_check(view.call("_can_target_actor", "oathkeeper_judgment_mark", enemy.actor_id), "an enemy on a clear line is highlighted for Judgment Mark")
+
+	# Surround the enemy. The cast would now fail, so the ring must not appear.
+	for offset in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+		controller.blocked_cells[enemy.cell + offset] = true
+	_check(not controller.can_summon(enemy.actor_id), "the controller refuses a summon when every neighbour is blocked")
+	_check(not view.call("_can_target_actor", "hunter_summon", enemy.actor_id), "the summon hint drops the ring when the cast would fail")
+	# The enemy's left neighbour is also the cell Sevrin's sight line crosses,
+	# so blocking the ring legitimately blocks the mark as well.
+	_check(not view.call("_can_target_actor", "oathkeeper_judgment_mark", enemy.actor_id), "blocking the neighbour on the sight line also drops the mark hint")
 
 	view.queue_free()
 	await process_frame

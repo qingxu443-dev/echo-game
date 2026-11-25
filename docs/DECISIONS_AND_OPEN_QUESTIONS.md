@@ -34,7 +34,7 @@ Use these labels consistently:
 
 ## Prototype 0.1 scope baseline
 
-One playable Oathkeeper (Sevrin), one temporary Hunter companion, three ordinary enemy types, one battlefield, five to six skills, the AP and telegraph systems, victory/defeat resolution, and Android touch interaction.
+One playable Oathkeeper (Sevrin), one temporary Hunter companion, three ordinary enemy types, one battlefield, four player-facing skill slots plus the Oath Vow passive (verified against the shipped skill bar, 2026-11-25; the earlier "five to six skills" predates the V2 kit), the AP and telegraph systems, victory/defeat resolution, and Android touch interaction.
 
 Confirmed enemy battlefield roles: melee vanguard (close-range pressure), ranged marksman (long-range threat), and area controller (area denial). The melee vanguard's approved behavior direction is hybrid: normally pursues and applies steady melee pressure, then uses a charged strike when conditions are met. Exact trigger conditions and all action details remain open. Other identities, art, stats, exact actions, targeting assignments, and numerical values remain open.
 
@@ -42,10 +42,10 @@ Confirmed enemy battlefield roles: melee vanguard (close-range pressure), ranged
 
 The project owner delegated detailed Prototype 0.1 design and implementation decisions to the maintainer while unavailable. The following are selected implementation baselines, not claims of explicit owner review; numerical values remain subject to playtesting.
 
-- Melee Vanguard: 6 HP; pursuit up to 2 orthogonal cells; adjacent actor-locked basic attack for 1 damage; straight-line distance-2 tile-locked charged strike for 2 damage to one marked cell. Selection priority is charged strike, basic attack, pursuit, wait. Target and action are captured at telegraph generation; no execution-time retargeting.
-- Melee Vanguard target selection: lowest health ratio, then stable actor ID; pursuit target: shortest Manhattan distance, then stable actor ID.
+- Melee Vanguard (numbers verified against `data/enemies/vanguard.tres` and the intent planner, 2026-11-25): 3200 health, 1400 attack, 700 defense, 350 magic resistance. Pursuit up to 2 orthogonal cells; adjacent actor-locked basic melee at 0.8x attack; straight-line distance-2 tile-locked charged strike at 1.5x attack. Selection priority is charged strike (0), basic attack (1), pursuit (2), wait (3). Target and action are captured at telegraph generation; no execution-time retargeting.
+- Melee Vanguard target selection: the intent generator locks onto Sevrin only. There is no health-ratio or distance-based target choice, because the prototype has exactly one player-side actor. This supersedes the earlier "lowest health ratio, then stable actor ID" note, which described a roster the prototype does not have.
 - Pursuit pathfinding uses a deterministic neighbor order (up, right, down, left); no diagonal movement or traversal through blocked/occupied cells.
-- These values are first-pass encounter tuning, not final balance. Revisit after the Oathkeeper's combat profile and the complete three-enemy encounter can be tested.
+- These values are first-pass encounter tuning, not final balance. The earlier numbers in this section (6 HP, 1 and 2 damage) predate the integer-stat model and are superseded by the values above.
 
 ## Open questions — do not silently decide in code
 

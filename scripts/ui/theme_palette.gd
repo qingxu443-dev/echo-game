@@ -51,6 +51,9 @@ const RING_MARK := Color("#c98be0")
 const RING_MELEE := Color("#e3a35d")
 const RING_WAIT := Color("#8c8b84")
 const RING_TARGET := Color(0.95, 0.85, 0.55, 0.55)
+## Ally-target rings: green so a shield target can never be mistaken for an
+## enemy in reach.
+const RING_ALLY := Color(0.56, 0.78, 0.60, 0.70)
 const MARK_LABEL := Color("#e6c9f2")
 
 const TELEGRAPH_PULSE_FILL := Color(0.48, 0.35, 0.72, 0.24)

@@ -189,6 +189,24 @@ func _handle_tap(position: Vector2) -> void:
 				queue_redraw()
 			return
 
+	# A party member shares the board but is not a destination, so tapping one
+	# used to fall through to the path finder and answer "cannot reach". With an
+	# ally skill selected it is a target instead.
+	for actor_id in controller.actors:
+		var member = controller.actors[actor_id]
+		if member.team == "player" and member.is_alive() and member.cell == cell:
+			if selected_skill >= 0:
+				var chosen: Dictionary = skill_bar[selected_skill]
+				if str(chosen["mode"]) == "ally":
+					_use_skill_on(actor_id)
+				else:
+					status_message = "「%s」只能对敌人使用。" % str(chosen["name"])
+					queue_redraw()
+			else:
+				status_message = "这是队伍成员所在的格子，不能移动过去。"
+				queue_redraw()
+			return
+
 	var path := _path_to_cell(cell)
 	if path.is_empty():
 		status_message = "该位置无法到达，或超出两格移动范围。"
@@ -226,7 +244,10 @@ func _on_skill_pressed(index: int) -> void:
 		queue_redraw()
 		return
 	selected_skill = index
-	status_message = "已选择「%s」，点击目标敌人施放。" % str(skill["name"])
+	if str(skill["mode"]) == "ally":
+		status_message = "已选择「%s」，点击自己或 %d 格内友军施放。" % [str(skill["name"]), int(skill["max_range"])]
+	else:
+		status_message = "已选择「%s」，点击目标敌人施放。" % str(skill["name"])
 	queue_redraw()
 
 

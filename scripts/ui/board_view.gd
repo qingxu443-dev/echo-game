@@ -153,6 +153,25 @@ static func can_target(controller, skill_bar: Array, skill_id: String, actor_id:
 	return CharacterSkillRuntimeScript.can_aim(controller, skill, actor)
 
 
+## Whether the selected ally skill may be applied to this party member right now.
+##
+## Kept beside can_target() because it answers the same question for the other
+## team: pressing Oath Shield has to offer Sevrin and the allies within reach, not
+## just Sevrin - the data has said SELF_AND_ALLY since the skill was written.
+static func can_target_ally(controller, skill_bar: Array, skill_id: String, actor_id: String) -> bool:
+	var player = controller.get_active_character()
+	if player == null:
+		return false
+	var actor = controller.get_actor(actor_id)
+	if actor == null or actor.team != "player" or not actor.is_alive():
+		return false
+	var entry: Dictionary = _entry_for(skill_bar, skill_id)
+	if entry.is_empty() or str(entry["mode"]) != "ally":
+		return false
+	var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
+	return distance >= int(entry["min_range"]) and distance <= int(entry["max_range"])
+
+
 static func _entry_for(skill_bar: Array, skill_id: String) -> Dictionary:
 	for entry in skill_bar:
 		if str(entry["id"]) == skill_id:
@@ -166,9 +185,15 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 	if selected_skill < 0 or selected_skill >= skill_bar.size():
 		return
 	var skill: Dictionary = skill_bar[selected_skill]
-	if skill["mode"] != "actor":
+	var mode := str(skill["mode"])
+	if mode == "actor":
+		for actor_id in controller.actors:
+			if not can_target(controller, skill_bar, str(skill["id"]), str(actor_id)):
+				continue
+			canvas.draw_arc(P.cell_center(controller.actors[actor_id].cell), 31.0, 0.0, TAU, 48, P.RING_TARGET, 2.0)
 		return
-	for actor_id in controller.actors:
-		if not can_target(controller, skill_bar, str(skill["id"]), str(actor_id)):
-			continue
-		canvas.draw_arc(P.cell_center(controller.actors[actor_id].cell), 31.0, 0.0, TAU, 48, P.RING_TARGET, 2.0)
+	if mode == "ally":
+		for actor_id in controller.actors:
+			if not can_target_ally(controller, skill_bar, str(skill["id"]), str(actor_id)):
+				continue
+			canvas.draw_arc(P.cell_center(controller.actors[actor_id].cell), 31.0, 0.0, TAU, 48, P.RING_ALLY, 2.0)

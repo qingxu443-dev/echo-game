@@ -25,9 +25,13 @@ const SKILL_HINTS := {
 	&"sakura_endless_fragrance": "2 AP + 5 能量 · 十字四段",
 }
 
-## The bar is built from the active character's sheet, so switching characters
-## swaps the buttons. Costs, ranges and targeting all come from the skill
-## definitions - the view only supplies the short hint line and the icon.
+## Three targeting modes, straight from the skill data:
+##  - "actor": pick an enemy, then tap it
+##  - "ally":  pick a party member (self included), then tap it
+##  - "self":  press once, no target
+## SELF_AND_ALLY exists in the data and was being flattened into "self", which is
+## why Oath Shield could only ever shield Sevrin while its description promised a
+## second party member.
 static func build_entries(controller) -> Array:
 	var entries: Array = []
 	var character_id := String(controller.active_character_id)
@@ -39,7 +43,7 @@ static func build_entries(controller) -> Array:
 			skill.display_name_zh,
 			String(SKILL_HINTS.get(skill.skill_id, skill.description_zh)),
 			skill.ap_cost,
-			"actor" if skill.target_mode == SkillDefinitionScript.TARGET_ACTOR else "self",
+			_mode_for(skill.target_mode),
 			skill.min_range,
 			skill.max_range,
 			skill.slot
@@ -64,6 +68,14 @@ static func build_entries(controller) -> Array:
 		entry["icon"] = summon.icon
 		entries.append(entry)
 	return entries
+
+
+static func _mode_for(target_mode: StringName) -> String:
+	if target_mode == SkillDefinitionScript.TARGET_ACTOR:
+		return "actor"
+	if target_mode == SkillDefinitionScript.TARGET_SELF_AND_ALLY:
+		return "ally"
+	return "self"
 
 
 static func _entry(
@@ -151,7 +163,7 @@ static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: A
 		# shares the name baseline instead of sitting between the two text rows.
 		cost_y = 21.0
 
-	var is_selected: bool = (index == selected_skill and skill["mode"] == "actor")
+	var is_selected: bool = index == selected_skill and str(skill["mode"]) != "self"
 	var bg := P.PANEL_SELECTED if is_selected else P.PANEL
 	var border := P.GOLD_LIGHT if is_selected else P.PANEL_BORDER
 	if not affordable:

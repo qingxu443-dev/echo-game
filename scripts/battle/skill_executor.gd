@@ -67,12 +67,15 @@ static func gain_active_energy(battle, actor_id: String) -> void:
 
 static func oath_shield(battle, target_actor_id: String) -> bool:
 	## Applies a DEF-scaled shield to Sevrin and one selected allied actor.
-	## The target may be Sevrin himself; allied units are supported by the API
-	## without adding a companion to the prototype encounter roster.
+	## The caster comes from the active character, not from a fixed id: this was
+	## the last skill that read actors["sevrin"] for both the caster and the
+	## shield list, which is why a party member could never be shielded.
 	var actors = battle.actors
-	if battle.phase != battle.BattlePhase.PLAYER or not actors.has("sevrin") or not actors.has(target_actor_id):
+	if battle.phase != battle.BattlePhase.PLAYER or not actors.has(target_actor_id):
 		return false
-	var caster = actors["sevrin"]
+	var caster = battle.get_active_character()
+	if caster == null:
+		return false
 	var target = actors[target_actor_id]
 	if not caster.is_alive() or not target.is_alive() or target.team != "player":
 		return false
@@ -80,10 +83,11 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 		return false
 	if not battle.ap.can_spend(OATH_SHIELD_AP):
 		return false
-	var vow_stacks: int = battle.get_oath_vow_stacks("sevrin")
+	var caster_id: String = caster.actor_id
+	var vow_stacks: int = battle.get_oath_vow_stacks(caster_id)
 	var raw_shield: int = floori(float(caster.defense) * OATH_SHIELD_DEFENSE_RATIO * (1.0 + OATH_SHIELD_VOW_BONUS * float(vow_stacks)))
-	var shielded_ids: Array[String] = ["sevrin"]
-	if target_actor_id != "sevrin":
+	var shielded_ids: Array[String] = [caster_id]
+	if target_actor_id != caster_id:
 		shielded_ids.append(target_actor_id)
 	if not battle.ap.spend(OATH_SHIELD_AP):
 		return false
@@ -96,7 +100,7 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 		battle.oath_shield_expiry_turn[shielded_id] = battle.turn_number + 1
 		battle._emit_event(
 			"oath_shield_applied",
-			"sevrin",
+			caster_id,
 			shielded_id,
 			"raw=%d previous=%d current=%d cap=%d expires_after_player_turn=%d" % [
 				raw_shield,
@@ -106,11 +110,11 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 				battle.turn_number + 1
 			]
 		)
-	gain_active_energy(battle, "sevrin")
+	gain_active_energy(battle, caster_id)
 	if vow_stacks > 0:
-		battle.statuses.remove_status("sevrin", &"oath_vow")
-		battle._emit_event("status_consumed", "sevrin", "sevrin", "status=oath_vow stacks=%d" % vow_stacks)
-	battle._emit_event("skill_resolved", "sevrin", target_actor_id, "skill=oath_shield ap=1 vow_stacks=%d shield=%d" % [vow_stacks, raw_shield])
+		battle.statuses.remove_status(caster_id, &"oath_vow")
+		battle._emit_event("status_consumed", caster_id, caster_id, "status=oath_vow stacks=%d" % vow_stacks)
+	battle._emit_event("skill_resolved", caster_id, target_actor_id, "skill=oath_shield ap=1 vow_stacks=%d shield=%d" % [vow_stacks, raw_shield])
 	return true
 
 

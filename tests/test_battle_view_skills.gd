@@ -42,8 +42,12 @@ func _test_self_skill_controls() -> void:
 	await process_frame
 	var controller: Variant = view.get("controller")
 
+	# Oath Shield is a SELF_AND_ALLY skill, so the button now waits for a target
+	# instead of silently shielding Sevrin. Tapping him is the one-target case.
 	_tap_skill_by_id(view, "oath_shield")
-	_check(controller.get_actor("sevrin").shield > 0, "V2 Oath Shield activates from the skill bar")
+	_check(int(view.get("selected_skill")) >= 0, "Oath Shield waits for a target instead of firing at Sevrin on its own")
+	_tap_cell(view, controller.get_actor("sevrin").cell)
+	_check(controller.get_actor("sevrin").shield > 0, "V2 Oath Shield activates from the skill bar once Sevrin is tapped")
 	_check(controller.ap.current == controller.ap.maximum - 1, "V2 Oath Shield spends one AP through the battle view")
 
 	var sevrin = controller.get_actor("sevrin")

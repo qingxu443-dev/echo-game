@@ -12,6 +12,7 @@ const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.g
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 const BoardViewScript = preload("res://scripts/ui/board_view.gd")
 const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
+const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 
 
 func _run() -> void:
@@ -29,6 +30,7 @@ func _run() -> void:
 	_test_falling_petals_covers_the_rectangle_in_front()
 	_test_flowing_wind_respects_its_range()
 	_test_a_wall_stops_the_lane()
+	_test_oath_shield_reaches_a_party_member()
 	_test_a_dead_target_is_not_marked()
 	_report()
 
@@ -339,6 +341,46 @@ func _test_a_wall_stops_the_lane() -> void:
 	_check(not BoardViewScript.can_target(ring, bar, "sakura_flowing_wind", "vanguard_00"), "the dash ring stays off behind a wall")
 	_check(not BoardViewScript.can_target(ring, bar, "sakura_falling_petals", "vanguard_00"), "the rectangle ring stays off behind a wall")
 	ring.queue_free()
+
+
+## Oath Shield promises Sevrin and one nearby ally. The bar used to flatten
+## SELF_AND_ALLY into a press-once button and the runtime filled the missing
+## target with the caster, so the second shield was only reachable by calling the
+## API by hand. Sevrin and Sakura now stand next to each other.
+func _test_oath_shield_reaches_a_party_member() -> void:
+	# The ring reads max_range from the catalogue; the executor checks its own
+	# constant. If those two ever disagree the ally ring lies, which is the exact
+	# bug the last two commits were about.
+	var definition = SkillRegistryScript.get_skill(&"oath_shield")
+	_check(definition.max_range == SkillExecutorScript.OATH_SHIELD_RANGE, "the catalogue range and the executor constant still agree")
+
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(6, 6)], [], [], ids, [Vector2i(1, 2)])
+	var sevrin = battle.get_actor("sevrin")
+	var sakura = battle.get_actor("sakura")
+	var bar: Array = SkillBarViewScript.build_entries(battle)
+
+	_check(sakura.shield == 0, "no shield before the cast")
+	_check(BoardViewScript.can_target_ally(battle, bar, "oath_shield", "sakura"), "the ally ring covers the nearby party member")
+	_check(BoardViewScript.can_target_ally(battle, bar, "oath_shield", "sevrin"), "the ally ring covers the caster as well")
+	_check(not BoardViewScript.can_target(battle, bar, "oath_shield", "vanguard_00"), "a support skill is not offered against an enemy")
+
+	_check(battle.request_skill(&"oath_shield", "sakura"), "Oath Shield can name the ally as its target")
+	_check(sakura.shield > 0, "the named ally is shielded")
+	_check(sakura.shield == sevrin.shield, "the caster is shielded for the same amount")
+	battle.queue_free()
+
+	# Out of reach: the ring and the cast must both refuse.
+	var far = ControllerScript.new()
+	root.add_child(far)
+	var far_ids: Array[String] = ["sevrin", "sakura"]
+	far.start_encounter(Vector2i(1, 1), [Vector2i(6, 6)], [], [], far_ids, [Vector2i(1, 4)])
+	var far_bar: Array = SkillBarViewScript.build_entries(far)
+	_check(not BoardViewScript.can_target_ally(far, far_bar, "oath_shield", "sakura"), "an ally three cells away gets no ring")
+	_check(not far.request_skill(&"oath_shield", "sakura"), "an ally three cells away cannot be named")
+	far.queue_free()
 
 
 ## 残香 belongs to a living target. Damage already cleared the corpse's statuses,

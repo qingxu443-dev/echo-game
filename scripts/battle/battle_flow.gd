@@ -131,7 +131,7 @@ static func end_player_turn(battle) -> bool:
 		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_end count=%d" % expired_statuses)
 	battle.ap.clear()
 	battle.phase = battle.BattlePhase.ENEMY
-	battle._emit_event("turn_ended", "sevrin", "", "turn=%d" % battle.turn_number)
+	battle._emit_event("turn_ended", battle.active_character_id, "", "turn=%d" % battle.turn_number)
 	IntentResolverScript.resolve_phase(battle)
 	return true
 
@@ -171,20 +171,37 @@ static func begin_player_turn(battle) -> void:
 			member.gain_resource(1)
 	battle.ap.reset()
 	battle.phase = battle.BattlePhase.PLAYER
+	# The commanded member may have gone down during the enemy phase. Hand command
+	# to the first one still standing, otherwise the turn starts on a character
+	# who cannot act and nothing on screen says why.
+	var active = battle.get_active_character()
+	if active == null or not active.is_alive():
+		for actor_id in battle.actors:
+			var member = battle.actors[actor_id]
+			if member.team == "player" and member.is_alive():
+				battle.active_character_id = String(actor_id)
+				break
 	battle.intents = IntentPlannerScript.plan(battle)
-	battle._emit_event("player_turn_started", "sevrin", "", "turn=%d" % battle.turn_number)
+	# Emitted after the handover above, so the id is the member who actually
+	# holds command for this turn - the view rebuilds the bar from this event.
+	battle._emit_event("player_turn_started", battle.active_character_id, "", "turn=%d" % battle.turn_number)
 
 
 static func check_battle_end(battle) -> void:
 	if battle.phase == battle.BattlePhase.FINISHED:
 		return
 	# §12: defeat only when the whole party is down. A single downed member is
-	# still revivable while anyone else stands.
+	# still revivable while anyone else stands. Any party counts - naming Sevrin
+	# here meant a party without him could never lose.
+	var party_size := 0
 	var living_party := 0
 	for actor in battle.actors.values():
-		if actor.team == "player" and actor.is_alive():
+		if actor.team != "player":
+			continue
+		party_size += 1
+		if actor.is_alive():
 			living_party += 1
-	if battle.actors.has("sevrin") and living_party == 0:
+	if party_size > 0 and living_party == 0:
 		finish_battle(battle, "defeat")
 		return
 	var living_enemies := 0

@@ -36,13 +36,24 @@ const PLAYER_BODY := Color("#a8a08b")
 const PLAYER_OUTLINE := Color("#e7d7ae")
 const ENEMY_BODY := Color("#873f3b")
 const ENEMY_OUTLINE := Color("#d58b78")
+## §12: a downed body keeps its cell, so the token stays on the board - dimmed,
+## not removed, because an empty cell that refuses movement reads as a bug.
+const PLAYER_BODY_DOWNED := Color("#3c3b35")
+const PLAYER_OUTLINE_DOWNED := Color("#6d6a5f")
+const DOWNED_MARK := Color("#a39e8f")
 
 const RING_SHIELD := Color("#7fb8d8")
+## Which party member the player is commanding. Two identical tokens otherwise
+## leave no way to tell who a move or skill will come from.
+const RING_ACTIVE := Color("#e4d2aa")
 const RING_GUARD := Color("#e0b25c")
 const RING_MARK := Color("#c98be0")
 const RING_MELEE := Color("#e3a35d")
 const RING_WAIT := Color("#8c8b84")
 const RING_TARGET := Color(0.95, 0.85, 0.55, 0.55)
+## Ally-target rings: green so a shield target can never be mistaken for an
+## enemy in reach.
+const RING_ALLY := Color(0.56, 0.78, 0.60, 0.70)
 const MARK_LABEL := Color("#e6c9f2")
 
 const TELEGRAPH_PULSE_FILL := Color(0.48, 0.35, 0.72, 0.24)

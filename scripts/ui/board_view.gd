@@ -10,6 +10,8 @@ const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
+const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
+const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
 
 
 static func draw(canvas: CanvasItem, controller, selected_skill: int, skill_bar: Array) -> void:
@@ -35,6 +37,9 @@ static func _draw_grid(canvas: CanvasItem, controller) -> void:
 static func _draw_actors(canvas: CanvasItem, controller) -> void:
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]
+		if actor.is_downed:
+			_draw_downed_actor(canvas, actor)
+			continue
 		if not actor.is_alive():
 			continue
 		var center := P.cell_center(actor.cell)
@@ -46,7 +51,25 @@ static func _draw_actors(canvas: CanvasItem, controller) -> void:
 		if glyph.is_empty():
 			glyph = "锋" if actor.team == "enemy" else "守"
 		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, 7.0), glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.TEXT_ON_DARK)
+		# The commanded member gets an outer ring: same token, but the player can
+		# see whose move and whose AP a click will spend.
+		if actor.team == "player" and actor_id == controller.active_character_id:
+			canvas.draw_arc(center, 30.0, 0.0, TAU, 48, P.RING_ACTIVE, 2.0)
 		_draw_actor_badges(canvas, controller, actor_id, actor, center)
+
+
+## A downed party member: same footprint, drained palette, and a cross over the
+## token, so the cell being impassable is explained rather than looking like a
+## glitch. A text label does not fit: the cell is 64 px and the token already
+## takes 44 of them.
+static func _draw_downed_actor(canvas: CanvasItem, actor) -> void:
+	var center := P.cell_center(actor.cell)
+	canvas.draw_circle(center, 22.0, P.PLAYER_BODY_DOWNED)
+	canvas.draw_arc(center, 22.0, 0.0, TAU, 48, P.PLAYER_OUTLINE_DOWNED, 2.0)
+	var glyph: String = actor.glyph if not actor.glyph.is_empty() else "守"
+	canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, 7.0), glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.TEXT_DISABLED)
+	canvas.draw_line(center + Vector2(-12.0, -12.0), center + Vector2(12.0, 12.0), P.DOWNED_MARK, 2.0)
+	canvas.draw_line(center + Vector2(12.0, -12.0), center + Vector2(-12.0, 12.0), P.DOWNED_MARK, 2.0)
 
 
 ## V2 status markers: shield/guard on Sevrin and the isolated mark on enemies.
@@ -99,9 +122,11 @@ static func _draw_telegraphs(canvas: CanvasItem, controller) -> void:
 
 ## Whether the selected skill may legally target this enemy right now.
 ##
-## The single source of truth for both the highlight and the cast: hunter_summon
-## needs a free cell beside the target as well as a ready cooldown, so a ring
-## derived from distance alone used to promise a cast the controller refused.
+## The single source of truth for both the highlight and the cast. Range and
+## sight used to be spelled out here, so every skill that added a condition (a
+## summon's free neighbour cell, Judgment Mark's line, then Flowing Wind's lane)
+## had to remember to teach this function too - and the two that forgot showed a
+## ring over a target the controller then refused.
 static func can_target(controller, skill_bar: Array, skill_id: String, actor_id: String) -> bool:
 	# The active character, not Sevrin: switching to Sakura must move the ring too.
 	var player = controller.get_active_character()
@@ -111,27 +136,47 @@ static func can_target(controller, skill_bar: Array, skill_id: String, actor_id:
 	if actor == null or actor.team != "enemy" or not actor.is_alive():
 		return false
 
-	# Ranges come from the skill bar, which is built from the V2 catalog: the
-	# hint and the cast read the same numbers instead of repeating them.
-	var skill: Dictionary = {}
+	# Summons live in their own catalogue: not a character skill, so not a
+	# SkillDefinition, and their range comes from the bar entry.
+	if skill_id.begins_with("summon:"):
+		var entry: Dictionary = _entry_for(skill_bar, skill_id)
+		if entry.is_empty():
+			return false
+		var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
+		if distance < int(entry["min_range"]) or distance > int(entry["max_range"]):
+			return false
+		return SummonServiceScript.can_summon(controller, StringName(skill_id.substr(7)), actor_id)
+
+	var skill = SkillRegistryScript.get_skill(StringName(skill_id))
+	if skill == null:
+		return false
+	return CharacterSkillRuntimeScript.can_aim(controller, skill, actor)
+
+
+## Whether the selected ally skill may be applied to this party member right now.
+##
+## Kept beside can_target() because it answers the same question for the other
+## team: pressing Oath Shield has to offer Sevrin and the allies within reach, not
+## just Sevrin - the data has said SELF_AND_ALLY since the skill was written.
+static func can_target_ally(controller, skill_bar: Array, skill_id: String, actor_id: String) -> bool:
+	var player = controller.get_active_character()
+	if player == null:
+		return false
+	var actor = controller.get_actor(actor_id)
+	if actor == null or actor.team != "player" or not actor.is_alive():
+		return false
+	var entry: Dictionary = _entry_for(skill_bar, skill_id)
+	if entry.is_empty() or str(entry["mode"]) != "ally":
+		return false
+	var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
+	return distance >= int(entry["min_range"]) and distance <= int(entry["max_range"])
+
+
+static func _entry_for(skill_bar: Array, skill_id: String) -> Dictionary:
 	for entry in skill_bar:
 		if str(entry["id"]) == skill_id:
-			skill = entry
-			break
-	if skill.is_empty():
-		return false
-
-	var distance: int = absi(actor.cell.x - player.cell.x) + absi(actor.cell.y - player.cell.y)
-	if distance < int(skill["min_range"]) or distance > int(skill["max_range"]):
-		return false
-	if skill_id == "oathkeeper_judgment_mark":
-		return GridRulesScript.has_clear_line_of_sight(player.cell, actor.cell, controller.blocked_cells, controller.get_occupied_cells())
-	if skill_id.begins_with("summon:"):
-		return SummonServiceScript.can_summon(controller, StringName(skill_id.substr(7)), actor_id)
-	# Only those two add a condition beyond range. Any other actor-targeted skill
-	# is legal once the range check passes; the cast re-validates on its own, so
-	# answering false here would only suppress the ring on a legal target.
-	return true
+			return entry
+	return {}
 
 
 static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: int, skill_bar: Array) -> void:
@@ -140,9 +185,15 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 	if selected_skill < 0 or selected_skill >= skill_bar.size():
 		return
 	var skill: Dictionary = skill_bar[selected_skill]
-	if skill["mode"] != "actor":
+	var mode := str(skill["mode"])
+	if mode == "actor":
+		for actor_id in controller.actors:
+			if not can_target(controller, skill_bar, str(skill["id"]), str(actor_id)):
+				continue
+			canvas.draw_arc(P.cell_center(controller.actors[actor_id].cell), 31.0, 0.0, TAU, 48, P.RING_TARGET, 2.0)
 		return
-	for actor_id in controller.actors:
-		if not can_target(controller, skill_bar, str(skill["id"]), str(actor_id)):
-			continue
-		canvas.draw_arc(P.cell_center(controller.actors[actor_id].cell), 31.0, 0.0, TAU, 48, P.RING_TARGET, 2.0)
+	if mode == "ally":
+		for actor_id in controller.actors:
+			if not can_target_ally(controller, skill_bar, str(skill["id"]), str(actor_id)):
+				continue
+			canvas.draw_arc(P.cell_center(controller.actors[actor_id].cell), 31.0, 0.0, TAU, 48, P.RING_ALLY, 2.0)

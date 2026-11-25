@@ -19,8 +19,8 @@ const SettlementViewScript = preload("res://scripts/ui/settlement_view.gd")
 const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
-## Number keys 1–4 mirror the visible order; no default attack is selected.
-## Built in _ready() from the V2 catalog.
+## Number keys 1–5 mirror the visible order, and nothing is selected by default.
+## Rebuilt from the active character's sheet whenever the command switches.
 var skill_bar: Array = []
 
 var controller: BattleController
@@ -43,10 +43,15 @@ func _ready() -> void:
 func _start_level(index: int) -> void:
 	if index < 0 or index >= levels.size():
 		return
-	current_level = index
 	var level: EncounterDefinition = levels[index]
 	selected_skill = -1
-	controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells)
+	# A rejected setup leaves the previous encounter untouched, so say so instead
+	# of showing a fresh-looking screen that will not accept any action.
+	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells):
+		status_message = "关卡「%s」数据无效，未能开始。" % str(level.display_name_zh)
+		queue_redraw()
+		return
+	current_level = index
 	status_message = level.tactical_hint_zh
 	skill_bar = SkillBarViewScript.build_entries(controller)
 	queue_redraw()
@@ -133,7 +138,13 @@ func _switch_character() -> void:
 	if controller.set_active_character(next_id):
 		selected_skill = -1
 		skill_bar = SkillBarViewScript.build_entries(controller)
-		status_message = "已切换到 %s。" % next_id
+		# The rest of the screen is Chinese; the raw actor id ("sakura") is not
+		# what the player sees on the token or in the HUD.
+		var member = controller.get_actor(next_id)
+		var label: String = next_id
+		if member != null and not String(member.display_name_zh).is_empty():
+			label = String(member.display_name_zh)
+		status_message = "已切换到 %s。" % label
 	queue_redraw()
 
 
@@ -170,6 +181,30 @@ func _handle_tap(position: Vector2) -> void:
 		if actor.team == "enemy" and actor.is_alive() and actor.cell == cell:
 			if selected_skill >= 0:
 				_use_skill_on(actor_id)
+			else:
+				# Tapping an enemy with no skill selected used to do nothing at
+				# all, which reads as an unresponsive board rather than a missing
+				# first step.
+				status_message = "先点右侧技能，再点目标敌人。"
+				queue_redraw()
+			return
+
+	# A party member shares the board but is not a destination, so tapping one
+	# used to fall through to the path finder and answer "cannot reach". With an
+	# ally skill selected it is a target instead.
+	for actor_id in controller.actors:
+		var member = controller.actors[actor_id]
+		if member.team == "player" and member.is_alive() and member.cell == cell:
+			if selected_skill >= 0:
+				var chosen: Dictionary = skill_bar[selected_skill]
+				if str(chosen["mode"]) == "ally":
+					_use_skill_on(actor_id)
+				else:
+					status_message = "「%s」只能对敌人使用。" % str(chosen["name"])
+					queue_redraw()
+			else:
+				status_message = "这是队伍成员所在的格子，不能移动过去。"
+				queue_redraw()
 			return
 
 	var path := _path_to_cell(cell)
@@ -209,7 +244,10 @@ func _on_skill_pressed(index: int) -> void:
 		queue_redraw()
 		return
 	selected_skill = index
-	status_message = "已选择「%s」，点击目标敌人施放。" % str(skill["name"])
+	if str(skill["mode"]) == "ally":
+		status_message = "已选择「%s」，点击自己或 %d 格内友军施放。" % [str(skill["name"]), int(skill["max_range"])]
+	else:
+		status_message = "已选择「%s」，点击目标敌人施放。" % str(skill["name"])
 	queue_redraw()
 
 
@@ -240,7 +278,13 @@ func _path_to_cell(goal: Vector2i) -> Array[Vector2i]:
 
 # --- controller signals ------------------------------------------------------
 
-func _on_battle_event(_event: Dictionary) -> void:
+func _on_battle_event(event: Dictionary) -> void:
+	# The bar belongs to the commanded character, and command can change without
+	# the view asking - a downed commander hands over at the start of the turn.
+	# Rebuild there, or the buttons would keep offering a dead character's kit.
+	if str(event.get("type", "")) == "player_turn_started":
+		selected_skill = -1
+		skill_bar = SkillBarViewScript.build_entries(controller)
 	queue_redraw()
 
 

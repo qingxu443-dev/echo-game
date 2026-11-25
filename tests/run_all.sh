@@ -42,6 +42,17 @@ for f in tests/test_*.gd; do
 		continue
 	fi
 
+	# A GDScript runtime error aborts the function that raised it, and the suite
+	# still prints a RESULT line with failures=0. Any script error means the run
+	# stopped testing what it claims to, so treat it as broken rather than green.
+	if printf '%s\n' "$out" | grep -q 'SCRIPT ERROR'; then
+		first="$(printf '%s\n' "$out" | grep -m1 'SCRIPT ERROR' | cut -c1-90)"
+		printf '%-38s SCRIPT ERROR: %s\n' "$name" "$first"
+		broken=$((broken + 1))
+		suites=$((suites + 1))
+		continue
+	fi
+
 	a="$(printf '%s' "$line" | sed -n 's/.*assertions=\([0-9]*\).*/\1/p')"
 	x="$(printf '%s' "$line" | sed -n 's/.*failures=\([0-9]*\).*/\1/p')"
 	total=$((total + a))

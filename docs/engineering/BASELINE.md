@@ -12,7 +12,7 @@
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 17 |
-| 断言总数 | **602** |
+| 断言总数 | **662** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -22,9 +22,9 @@
 |---|---:|---|
 | `test_battle_controller.gd` | 115 | 控制器场景 |
 | `test_shared_ap.gd` | 19 | 队伍共享 AP 池（§4） |
-| `test_downed_and_revive.gd` | 23 | 倒地与复活（§12） |
+| `test_downed_and_revive.gd` | 30 | 倒地、复活与指令交接（§12） |
 | `test_damage_types.gd` | 13 | 伤害类型白名单（§10.2 / §10.6） |
-| `test_character_framework.gd` | 47 | 角色框架、誓刃与樱（§15 / §19-24） |
+| `test_character_framework.gd` | 84 | 角色框架、誓刃、樱与行动归属（§15 / §19-24） |
 | `test_oathkeeper_v2_controller.gd` | 87 | V2 技能控制器 |
 | `test_turn_bookkeeping.gd` | 44 | 回合账本 |
 | `test_enemy_catalog.gd` | 41 | 敌人数据目录（M1） |
@@ -32,12 +32,12 @@
 | `test_level_catalog.gd` | 30 | 关卡数据 |
 | `test_battle_status.gd` | 25 | 状态容器 |
 | `test_diagonal_line_of_sight.gd` | 20 | 视线规则 |
-| `test_battle_view_skills.gd` | 28 | UI 到控制器集成（目标提示一致性、普攻黄圈、快捷键覆盖） |
+| `test_battle_view_skills.gd` | 44 | UI 到控制器集成（目标提示一致性、普攻黄圈、快捷键覆盖、终极能量门槛、切换提示、空选点敌提示） |
 | `test_oathkeeper_v2_actor.gd` | 19 | 护盾与能量 |
 | `test_core_rules.gd` | 18 | 网格 / AP / 伤害 |
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 14 | 瑟弗林技能目录（含普攻） |
-| **合计** | **602** | |
+| **合计** | **662** | |
 
 ## 持续集成
 
@@ -45,7 +45,9 @@
 
 **断言数不写死在 workflow 里**：CI 从本文件的「断言总数」一行读取，因此基线仍只有一个维护点。脚本层面由 `EXPECTED_ASSERTIONS` 兜底——`tests/run_all.sh` 发现实际断言数低于声明值会直接退出 1。
 
-这条守卫是必需的：某个套件走到不存在的调用会**中途报错但整体仍退出 0、failures=0**，唯一能察觉的信号就是断言数变少。
+这条守卫是必需的：某个套件走到不存在的调用会**中途报错但整体仍退出 0、failures=0**。
+
+因此 `tests/run_all.sh` 现在还会直接拦截脚本错误：只要某个套件的输出里出现 `SCRIPT ERROR`，该套件记为 broken 并让整轮退 1，不再需要等断言数下降才发现。断言数守卫则继续拦住「少跑了几条但没错」的情况。
 
 ## 变更记录
 
@@ -68,6 +70,10 @@
 | 2026-11-25 | 落英格形定为面前横 3 × 纵 2 矩形，改用 `shape_width` / `shape_depth` 数据字段 | 575 → 580（+5） |
 | 2026-11-25 | 补回瑟弗林普攻（誓刃，§15）；通灵改为数据驱动（`data/summons/` + `summon:<id>` 分派） | 580 → 594（+14） |
 | 2026-11-25 | 修复普攻与樱技能不显示目标黄圈、第 5 项通灵缺快捷键 | 594 → 602（+8） |
+| 2026-11-25 | 行动归属改为当前角色（移动 / 技能归属校验 / 倒地可见 / 全队倒地判负 / 指令交接） | 602 → 617（+15） |
+| 2026-11-25 | 流风射程门槛失效（`not aligned and` 使判定成为死代码，越程施放照样扣 AP）、残香落在已死目标上、终极按钮在零能量时仍显示就绪（且只按 `absolute_guard` id 特判） | 617 → 639（+22）；切换提示改为角色名，+3 → 642 |
+| 2026-11-25 | 落英无射程与视线门槛（矩形只查边界，隔墙照样打出 273 伤害）、流风黄圈不查视线（亮圈后施放被拒）、空选点敌无提示 | 642 → 651（+9） |
+| 2026-11-25 | 誓盾的 `SELF_AND_ALLY` 被压成「按一下给自己」，樱永远拿不到盾；`oath_shield` 施法者取自 `actors["sevrin"]` | 651 → 662（+11） |
 
 ## 如何复现
 

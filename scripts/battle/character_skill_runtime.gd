@@ -23,6 +23,7 @@ const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 const CharacterScript = preload("res://scripts/battle/character_definition.gd")
 const SkillDefinitionScript = preload("res://scripts/battle/skill_definition.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 ## Sakura's mark (design plan §20) and resource (§19).
 const PETAL_MARK: StringName = &"sakura_petal_mark"
@@ -35,6 +36,10 @@ const INTENT_ACTION_BUDGET: int = 3
 
 ## §21: echo return is 50% of attack, or 65% under a Falling Petals empowerment.
 const ECHO_RETURN_MULTIPLIER: float = 0.5
+
+## §22: the dash is at most two cells. Separate from the skill's targeting range
+## (three), which is how far away the enemy may be picked.
+const FLOWING_WIND_DASH_STEPS: int = 2
 
 ## §24: ultimate cost, and how much each blade-intent stack lifts the finisher.
 const ULTIMATE_ENERGY_COST: int = 5
@@ -54,6 +59,11 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 
 	var skill := SkillRegistryScript.get_skill(skill_id)
 	if skill == null or skill.is_passive:
+		return false
+	# A character may only use skills their own sheet lists. Without this, asking
+	# for Sevrin's blade while Sakura is active resolves his numbers against her
+	# stats, and the UI is the only thing that would have prevented it.
+	if not _owns_skill(battle, skill_id):
 		return false
 
 	# Self-target skills are pressed, not aimed: the caller passes no target, so
@@ -99,7 +109,7 @@ static func _basic_attack(battle, skill, target_actor_id: String) -> bool:
 
 	_apply_segments(battle, caster, skill, [target], String(skill.skill_id))
 	gain_intent_from_action(battle, caster)
-	battle._emit_event("attack_resolved", caster.actor_id, target_actor_id, "%s ap=1" % String(skill.skill_id))
+	battle._emit_event("attack_resolved", caster.actor_id, target_actor_id, "%s ap=%d" % [String(skill.skill_id), skill.ap_cost])
 	battle._check_battle_end()
 	return true
 
@@ -112,9 +122,9 @@ static func _pierce_blossom(battle, skill, target_actor_id: String) -> bool:
 	if not _can_cast(battle, caster, skill):
 		return false
 	var target = battle.actors.get(target_actor_id)
-	if target == null or target.team != "enemy" or not target.is_alive():
+	if target == null or target.team != "enemy":
 		return false
-	if GridRulesScript.manhattan_distance(caster.cell, target.cell) != 1:
+	if not can_aim(battle, skill, target):
 		return false
 	if not battle.ap.spend(skill.ap_cost):
 		return false
@@ -123,7 +133,10 @@ static func _pierce_blossom(battle, skill, target_actor_id: String) -> bool:
 	# application must not also fire the follow-up.
 	var was_marked: bool = battle.statuses.has_status(target.actor_id, PETAL_MARK)
 	_apply_segments(battle, caster, skill, [target], "sakura_pierce_blossom")
-	_apply_petal_mark(battle, caster, target)
+	# A dead target cannot carry a mark: damage clears its statuses, so marking it
+	# afterwards leaves one on a corpse for three enemy phases.
+	if target.is_alive():
+		_apply_petal_mark(battle, caster, target)
 	gain_intent_from_action(battle, caster)
 	if was_marked:
 		_check_echo_return(battle, caster, target)
@@ -141,10 +154,10 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	if target == null or target.team != "enemy" or not target.is_alive():
 		return false
 
-	var aligned: bool = caster.cell.x == target.cell.x or caster.cell.y == target.cell.y
-	if not aligned and GridRulesScript.manhattan_distance(caster.cell, target.cell) > skill.max_range:
-		return false
-	if not GridRulesScript.has_clear_orthogonal_line(caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id)):
+	# Range and lane both come from can_aim, the same predicate the target ring
+	# calls. Writing them out twice is how the ring ended up promising a dash the
+	# cast refused whenever a wall stood between.
+	if not can_aim(battle, skill, target):
 		return false
 
 	var landing: Vector2i = _dash_landing(battle, caster, target)
@@ -161,7 +174,8 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	if GridRulesScript.manhattan_distance(caster.cell, target.cell) == 1:
 		var was_marked: bool = battle.statuses.has_status(target.actor_id, PETAL_MARK)
 		_apply_segments(battle, caster, skill, [target], "sakura_flowing_wind")
-		_apply_petal_mark(battle, caster, target)
+		if target.is_alive():
+			_apply_petal_mark(battle, caster, target)
 		if was_marked:
 			_check_echo_return(battle, caster, target)
 	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_flowing_wind ap=1 from=%s to=%s" % [str(from_cell), str(landing)])
@@ -178,6 +192,12 @@ static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
 		return false
 	var target = battle.actors.get(target_actor_id)
 	if target == null or target.team != "enemy" or not target.is_alive():
+		return false
+
+	# 落英 had no range gate and no sight gate at all: the rectangle only checked
+	# bounds, so a wall between Sakura and the enemy did not matter and the cast
+	# still landed. One predicate now covers the ring and the cast.
+	if not can_aim(battle, skill, target):
 		return false
 
 	var direction: Vector2i = _direction_toward(caster.cell, target.cell)
@@ -284,6 +304,66 @@ static func _ultimate_multipliers(skill, caster) -> Array[float]:
 
 # --- shared helpers ----------------------------------------------------------
 
+## Whether the aim itself is legal: range and line of sight, before AP, energy or
+## resource are considered. The target ring and the cast both call this, so the
+## highlight can never promise a shot the controller then refuses - and a skill
+## that forgets one of the two checks cannot silently pass it.
+##
+## Three aim shapes, because they are genuinely different:
+##  - A rectangle (FAN) is aimed by direction, not at a point. A three-wide row
+##    cannot sit on a single line, so only its centre lane has to be clear.
+##  - A dash needs a straight orthogonal lane: the landing walk steps along one
+##    axis, so a diagonal target three cells out would spend the AP and stop two
+##    cells short of striking anything.
+##  - Everything else needs a clear straight line to the target (45 degrees
+##    included). Adjacent targets skip it - nothing can stand in between.
+static func can_aim(battle, skill, target) -> bool:
+	var caster = battle.get_active_character()
+	if caster == null or target == null or not target.is_alive():
+		return false
+	var distance: int = GridRulesScript.manhattan_distance(caster.cell, target.cell)
+	if distance < skill.min_range or distance > skill.max_range:
+		return false
+	if skill.shape == SkillDefinitionScript.SHAPE_FAN:
+		return _centre_lane_clear(battle, caster, target, skill)
+	if distance <= 1:
+		return true
+	if String(skill.executor_id) == "sakura_flowing_wind":
+		return GridRulesScript.has_clear_orthogonal_line(
+			caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id))
+	return GridRulesScript.has_clear_line_of_sight(
+		caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id))
+
+
+## A rectangle is cast through the cell in front of the caster, so only that lane
+## has to be open. Checking every hit cell instead would refuse the whole skill
+## whenever one corner sat behind a wall, and a three-wide block has no single
+## line to begin with.
+static func _centre_lane_clear(battle, caster, target, skill) -> bool:
+	var direction: Vector2i = _direction_toward(caster.cell, target.cell)
+	if direction == Vector2i.ZERO:
+		return false
+	for step in range(1, skill.shape_depth + 1):
+		var cell: Vector2i = caster.cell + direction * step
+		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
+			break
+		if battle.blocked_cells.has(cell):
+			return false
+	return true
+
+
+## Whether the active character's sheet lists this skill. Ownership is data, so a
+## character cannot borrow another kit by naming its skill id.
+static func _owns_skill(battle, skill_id: StringName) -> bool:
+	var caster = battle.get_active_character()
+	if caster == null:
+		return false
+	var sheet = CharacterCatalogScript.get_definition(String(caster.character_id))
+	if sheet == null:
+		return false
+	return sheet.skill_ids.has(skill_id)
+
+
 static func _can_cast(battle, caster, skill) -> bool:
 	if caster == null or not caster.is_alive():
 		return false
@@ -336,7 +416,7 @@ static func _actors_in_cells(battle, cells: Dictionary) -> Array:
 ## Walk toward the target until blocked or adjacent, at most max_range steps.
 static func _dash_landing(battle, caster, target) -> Vector2i:
 	var cursor: Vector2i = caster.cell
-	var steps: int = 2
+	var steps: int = FLOWING_WIND_DASH_STEPS
 	var occupied: Dictionary = battle.get_occupied_cells(caster.actor_id)
 	for _i in range(steps):
 		var next := cursor

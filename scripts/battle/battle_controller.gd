@@ -128,7 +128,6 @@ func set_active_character(character_id: String) -> bool:
 	return true
 
 
-## Living, non-downed party members in a stable order, for the switch control.
 ## Which party member enemies aim at. The character the player is commanding,
 ## falling back to the first living one. Kept explicit so a party does not need
 ## enemies hardcoded to a single actor id.
@@ -143,6 +142,7 @@ func get_defender():
 	return null
 
 
+## Living, non-downed party members in a stable order, for the switch control.
 func get_switchable_characters() -> Array[String]:
 	var ids: Array[String] = []
 	for actor_id in actors:
@@ -164,20 +164,23 @@ func get_oathkeeper_marked_target() -> String:
 # --- player actions ----------------------------------------------------------
 
 func request_player_move(path: Array[Vector2i]) -> bool:
-	if phase != BattlePhase.PLAYER or not actors.has("sevrin"):
+	# The active character moves, not Sevrin: the view builds the candidate path
+	# from whoever is being commanded, so validating from a fixed actor id made
+	# every move by anyone else fail the adjacency check on the first step.
+	var mover = get_active_character()
+	if phase != BattlePhase.PLAYER or mover == null:
 		return false
-	var player = actors["sevrin"]
-	if not player.is_alive() or not ap.can_spend(1):
+	if not mover.is_alive() or not ap.can_spend(1):
 		return false
-	if not GridRulesScript.is_path_legal(player.cell, path, grid_size, blocked_cells, get_occupied_cells("sevrin"), PLAYER_MOVE_MAX_STEPS):
-		_emit_event("action_rejected", "sevrin", "", "invalid_move")
+	if not GridRulesScript.is_path_legal(mover.cell, path, grid_size, blocked_cells, get_occupied_cells(mover.actor_id), PLAYER_MOVE_MAX_STEPS):
+		_emit_event("action_rejected", mover.actor_id, "", "invalid_move")
 		return false
 	if not ap.spend(1):
 		return false
-	player.cell = path[path.size() - 1]
-	SkillExecutorScript.gain_active_energy(self, "sevrin")
-	CharacterSkillRuntimeScript.gain_intent_from_action(self, player)
-	_emit_event("actor_moved", "sevrin", "", str(player.cell))
+	mover.cell = path[path.size() - 1]
+	SkillExecutorScript.gain_active_energy(self, mover.actor_id)
+	CharacterSkillRuntimeScript.gain_intent_from_action(self, mover)
+	_emit_event("actor_moved", mover.actor_id, "", str(mover.cell))
 	_check_battle_end()
 	return true
 

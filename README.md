@@ -152,7 +152,7 @@ suites=16 assertions=623 failures=0 broken=0
 | 分组 | 文档 | 说明 |
 |---|---|---|
 | **世界观与美术** | [`ECHO_WORLD_OVERVIEW_1.0`](docs/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md)、[`ECHO_OPENING_PROLOGUE_1.0`](docs/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md)、[`ECHO_VISUAL_ART_DIRECTION_1.1`](docs/ECHO_VISUAL_ART_DIRECTION_1.1_zh-CN.md) | 氛围、叙事与美术参考，**不产出世界规则** |
-| **机制与法则** | [`ECHO_SYSTEM_LAWS_v1.0`](docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md)（Draft）、[`CORE_COMBAT_RULES_v0.1`](docs/design/CORE_COMBAT_RULES_v0.1.md)、[`BATTLE_EVENT_TIMELINE_v0.1`](docs/design/BATTLE_EVENT_TIMELINE_v0.1.md)、[`ENEMY_AI_AND_TELEGRAPH_v0.1`](docs/design/ENEMY_AI_AND_TELEGRAPH_v0.1.md) | 世界法则与机制解释；冲突时以系统法则为准 |
+| **机制与法则** | [`ECHO_SYSTEM_LAWS_v1.0`](docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md)（Draft）、[`CORE_COMBAT_RULES_v0.1`](docs/design/CORE_COMBAT_RULES_v0.1_zh-CN.md)、[`BATTLE_EVENT_TIMELINE_v0.1`](docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md)、[`ENEMY_AI_AND_TELEGRAPH_v0.1`](docs/design/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md) | 世界法则与机制解释；冲突时以系统法则为准 |
 | **角色与技能** | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](docs/design/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md)、[`skill_design_principles`](docs/skill_design_principles_zh-CN.md)、[`sevrin_skill_kit`](docs/sevrin_skill_kit_zh-CN.md)（历史版本） | 当前技能结构以 V2 规范为准 |
 | **数值与状态** | [`combat_stats`](docs/combat_stats_zh-CN.md)、[`battle_status_system`](docs/battle_status_system_zh-CN.md) | 伤害公式、抗性与状态系统 |
 | **工程** | [`ARCHITECTURE`](docs/ARCHITECTURE.md)、[`PROJECT_STATUS`](docs/PROJECT_STATUS.md)、[`DECISIONS_AND_OPEN_QUESTIONS`](docs/DECISIONS_AND_OPEN_QUESTIONS.md)、[`FRAMEWORK_PROPOSAL_v1.0`](docs/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)、[`engineering/BASELINE`](docs/engineering/BASELINE.md) | 模块边界、进度、待决事项、重构方案与测试基线 |

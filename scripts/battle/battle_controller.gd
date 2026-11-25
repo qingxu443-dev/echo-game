@@ -128,7 +128,6 @@ func set_active_character(character_id: String) -> bool:
 	return true
 
 
-## Living, non-downed party members in a stable order, for the switch control.
 ## Which party member enemies aim at. The character the player is commanding,
 ## falling back to the first living one. Kept explicit so a party does not need
 ## enemies hardcoded to a single actor id.
@@ -143,6 +142,7 @@ func get_defender():
 	return null
 
 
+## Living, non-downed party members in a stable order, for the switch control.
 func get_switchable_characters() -> Array[String]:
 	var ids: Array[String] = []
 	for actor_id in actors:

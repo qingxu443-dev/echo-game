@@ -6,10 +6,6 @@ extends "res://tests/framework/test_case.gd"
 ## data - its sheet, its slots and its skills - rather than because the
 ## controller knows its name. Second, that Sakura's mechanics behave as design
 ## plan §19-24 describe.
-##
-## Falling Petals (落英) is deliberately absent: §23 says its fan shape is not
-## settled and must not be fixed in code, so the skill exists as data with no
-## executor and cannot be cast.
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
@@ -29,6 +25,8 @@ func _run() -> void:
 	_test_petal_mark_lasts_three_enemy_turns()
 	_test_endless_fragrance_scales_with_intent()
 	_test_falling_petals_covers_the_rectangle_in_front()
+	_test_flowing_wind_respects_its_range()
+	_test_a_dead_target_is_not_marked()
 	_report()
 
 
@@ -253,4 +251,61 @@ func _test_falling_petals_covers_the_rectangle_in_front() -> void:
 	_check(beyond_depth.health == beyond_before, "an enemy four cells ahead is beyond the two-cell depth")
 	_check(battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the block applies the mark")
 	_check(battle.statuses.has_status("vanguard_01", &"sakura_petal_mark"), "the mark lands on every enemy in the block")
+	battle.queue_free()
+
+
+## §22 prices the dash at a three-cell pick. The gate used to be written as
+## "not aligned and too far", and the line-of-sight check right after it already
+## requires a shared row or column, so it never fired: any target in the same row
+## at any distance was accepted, the AP was spent, and the dash landed short of
+## everything with no damage and no explanation.
+func _test_flowing_wind_respects_its_range() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sakura"]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(5, 1)], [], [], ids, [])
+	var sakura = battle.get_actor("sakura")
+	var cell_before: Vector2i = sakura.cell
+	var ap_before: int = battle.ap.current
+
+	_check(not battle.request_skill(&"sakura_flowing_wind", "vanguard_00"), "the dash refuses a target beyond its three-cell range")
+	_check(battle.ap.current == ap_before, "an out-of-range dash spends no AP")
+	_check(sakura.cell == cell_before, "an out-of-range dash does not move the caster")
+	battle.queue_free()
+
+	# Control: three cells away is inside the range, so the dash closes in and hits.
+	var inside = ControllerScript.new()
+	root.add_child(inside)
+	var inside_ids: Array[String] = ["sakura"]
+	inside.start_encounter(Vector2i(1, 1), [Vector2i(4, 1)], [], [], inside_ids, [])
+	var inside_sakura = inside.get_actor("sakura")
+	var enemy = inside.get_actor("vanguard_00")
+	var health_before: int = enemy.health
+	_check(inside.request_skill(&"sakura_flowing_wind", "vanguard_00"), "a target three cells away is inside the dash range")
+	_check(inside_sakura.cell == Vector2i(3, 1), "the dash lands two cells closer")
+	# floor(416 * 1000 / 1700) = 244
+	_check(health_before - enemy.health == 244, "the dash strikes once it arrives")
+	inside.queue_free()
+
+
+## 残香 belongs to a living target. Damage already cleared the corpse's statuses,
+## so marking afterwards left one behind for the mark's full three enemy phases -
+## and the other multi-target skill guards against exactly that.
+func _test_a_dead_target_is_not_marked() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sakura"]
+	# A second enemy keeps the battle alive, so nothing else clears the statuses.
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1), Vector2i(1, 6)], [], [], ids, [])
+	var enemy = battle.get_actor("vanguard_00")
+	enemy.health = 1
+	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the killing blow resolves")
+	_check(enemy.is_defeated, "the target is down")
+	_check(not battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "a dead target carries no mark")
+
+	var survivor = battle.get_actor("vanguard_01")
+	survivor.cell = Vector2i(1, 2)
+	battle.get_actor("sakura").cell = Vector2i(1, 1)
+	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_01"), "a second Pierce Blossom resolves")
+	_check(battle.statuses.has_status("vanguard_01", &"sakura_petal_mark"), "a surviving target is still marked")
 	battle.queue_free()

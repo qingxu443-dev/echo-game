@@ -133,7 +133,10 @@ static func _pierce_blossom(battle, skill, target_actor_id: String) -> bool:
 	# application must not also fire the follow-up.
 	var was_marked: bool = battle.statuses.has_status(target.actor_id, PETAL_MARK)
 	_apply_segments(battle, caster, skill, [target], "sakura_pierce_blossom")
-	_apply_petal_mark(battle, caster, target)
+	# A dead target cannot carry a mark: damage clears its statuses, so marking it
+	# afterwards leaves one on a corpse for three enemy phases.
+	if target.is_alive():
+		_apply_petal_mark(battle, caster, target)
 	gain_intent_from_action(battle, caster)
 	if was_marked:
 		_check_echo_return(battle, caster, target)
@@ -151,8 +154,11 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	if target == null or target.team != "enemy" or not target.is_alive():
 		return false
 
-	var aligned: bool = caster.cell.x == target.cell.x or caster.cell.y == target.cell.y
-	if not aligned and GridRulesScript.manhattan_distance(caster.cell, target.cell) > skill.max_range:
+	# Line of sight below already requires a shared row or column, so a plain
+	# range gate is the whole condition. Guarding it with "not aligned" made it
+	# dead code: any aligned target was accepted at any distance, and the cast
+	# took the AP for a dash that landed two cells short of nothing.
+	if GridRulesScript.manhattan_distance(caster.cell, target.cell) > skill.max_range:
 		return false
 	if not GridRulesScript.has_clear_orthogonal_line(caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id)):
 		return false
@@ -171,7 +177,8 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	if GridRulesScript.manhattan_distance(caster.cell, target.cell) == 1:
 		var was_marked: bool = battle.statuses.has_status(target.actor_id, PETAL_MARK)
 		_apply_segments(battle, caster, skill, [target], "sakura_flowing_wind")
-		_apply_petal_mark(battle, caster, target)
+		if target.is_alive():
+			_apply_petal_mark(battle, caster, target)
 		if was_marked:
 			_check_echo_return(battle, caster, target)
 	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_flowing_wind ap=1 from=%s to=%s" % [str(from_cell), str(landing)])

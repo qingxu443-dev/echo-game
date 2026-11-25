@@ -107,7 +107,6 @@ const SETTLEMENT_RECT := Rect2(330.0, 210.0, 620.0, 330.0)
 const RESTART_BTN := Rect2(390.0, 464.0, 220.0, 52.0)
 const NEXT_BTN := Rect2(640.0, 464.0, 220.0, 52.0)
 
-const ULTIMATE_ENERGY_MAX: int = 5
 const OATH_VOW_MAX: int = 3
 
 

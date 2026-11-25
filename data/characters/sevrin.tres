@@ -8,6 +8,7 @@ character_id = &"sevrin"
 display_name_zh = "瑟弗林"
 role_label_zh = "守誓者"
 glyph = "守"
+ultimate_energy_max = 5
 max_health = 12000
 attack = 2000
 defense = 650

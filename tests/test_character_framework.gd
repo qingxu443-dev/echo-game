@@ -34,6 +34,7 @@ func _run() -> void:
 	_test_a_dead_target_is_not_marked()
 	_test_active_skills_grant_ultimate_energy()
 	_test_every_sakura_action_grants_the_same_energy()
+	_test_extreme_strengthens_the_next_active_skill()
 	_test_cast_uses_the_commanded_character()
 	_test_movement_uses_the_commanded_character()
 	_test_oath_vow_follows_the_passive_not_the_character()
@@ -552,3 +553,69 @@ func _test_every_sakura_action_grants_the_same_energy() -> void:
 	_check(capped.request_skill(&"sakura_flowing_wind", "vanguard_00"), "second action resolves")
 	_check(capped_sakura.ultimate_energy == after_first, "the second action in the same turn grants no further energy")
 	capped.queue_free()
+
+
+## §19-23 极意: full intent strengthens the next active skill and is then spent.
+## The numbers here are the plan's - 40% follow-up, 65% echo return - so a change
+## to either constant shows up as a failure rather than a quiet rebalance.
+func _test_extreme_strengthens_the_next_active_skill() -> void:
+	# Flowing Wind at 极意: 80% dash strike plus the 40% second strike.
+	# floor(416*1000/1700) = 244, floor(208*1000/1700) = 122.
+	var dash = ControllerScript.new()
+	root.add_child(dash)
+	var dash_ids: Array[String] = ["sakura"]
+	dash.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], dash_ids, [])
+	var dash_sakura = dash.get_actor("sakura")
+	var dash_enemy = dash.get_actor("vanguard_00")
+	dash_sakura.resource_current = 4
+	_check(dash_sakura.is_resource_full(), "four stacks is the 极意 state")
+	var before: int = dash_enemy.health
+	_check(dash.request_skill(&"sakura_flowing_wind", "vanguard_00"), "an extreme Flowing Wind resolves")
+	_check(before - dash_enemy.health == 366, "the dash strikes for 80% then follows up for 40%")
+	# Spent first, then the action's own gain applies (§19).
+	_check(dash_sakura.resource_current == 1, "using an enhanced skill spends the bar, then the action earns one")
+	dash.queue_free()
+
+	# The same skill without 极意 must not gain the follow-up - otherwise the
+	# assertion above would pass for the wrong reason.
+	var plain = ControllerScript.new()
+	root.add_child(plain)
+	var plain_ids: Array[String] = ["sakura"]
+	plain.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], plain_ids, [])
+	var plain_sakura = plain.get_actor("sakura")
+	var plain_enemy = plain.get_actor("vanguard_00")
+	plain_sakura.resource_current = 3
+	var plain_before: int = plain_enemy.health
+	_check(plain.request_skill(&"sakura_flowing_wind", "vanguard_00"), "a non-extreme Flowing Wind resolves")
+	_check(plain_before - plain_enemy.health == 244, "without 极意 the dash strikes once")
+	plain.queue_free()
+
+	# 落英 at 极意: the rectangle grows and the echo return rises to 65%.
+	var petals = ControllerScript.new()
+	root.add_child(petals)
+	var petal_ids: Array[String] = ["sakura"]
+	# (2,1) adjacent and pre-marked; (2,3) sits one row outside the base block.
+	petals.start_encounter(Vector2i(1, 1), [Vector2i(2, 1), Vector2i(2, 3)], [], [], petal_ids, [])
+	var petal_sakura = petals.get_actor("sakura")
+	var near = petals.get_actor("vanguard_00")
+	var outside = petals.get_actor("vanguard_01")
+	petals.statuses.apply_status(&"sakura_petal_mark", "sakura", "vanguard_00", 1, 1, -1, &"")
+	petal_sakura.resource_current = 4
+	var near_before: int = near.health
+	var outside_before: int = outside.health
+	_check(petals.request_skill(&"sakura_falling_petals", "vanguard_00"), "an extreme Falling Petals resolves")
+	# 273 from three segments, plus 65% echo: floor(338*1000/1700) = 198.
+	_check(near_before - near.health == 471, "the marked target takes the segments and a 65% echo return")
+	_check(outside_before - outside.health == 273, "the expanded block reaches one extra row")
+	petals.queue_free()
+
+	# 极意 is not spent by the other actions.
+	var plain_attack = ControllerScript.new()
+	root.add_child(plain_attack)
+	var attack_ids: Array[String] = ["sakura"]
+	plain_attack.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], attack_ids, [])
+	var attack_sakura = plain_attack.get_actor("sakura")
+	attack_sakura.resource_current = 4
+	_check(plain_attack.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Pierce Blossom resolves at full intent")
+	_check(attack_sakura.resource_current >= 4, "a normal attack neither spends nor clears 极意")
+	plain_attack.queue_free()

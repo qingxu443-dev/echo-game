@@ -20,9 +20,12 @@ const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 ## ring while the cast kept judging by the old numbers. Two sources for one rule
 ## is the bug; a test that compares the two would only paper over it.
 ##
-## What stays here is what the catalogue has no field for: mechanism parameters
-## that are not per-skill numbers (shield ratio, vow bonus, ultimate energy).
-const ABSOLUTE_GUARD_ENERGY: int = 5
+## What stays here is what neither the catalogue nor the sheet has a field for:
+## mechanism parameters that are not per-skill or per-character numbers.
+##
+## Ultimate energy is not one of them any more. Releasing an ultimate spends the
+## caster's whole pool, and the pool's size lives on the character sheet, so
+## neither this file nor the bar needs a number.
 const OATH_SHIELD_DEFENSE_RATIO: float = 0.3
 const OATH_SHIELD_VOW_BONUS: float = 0.1
 
@@ -41,7 +44,8 @@ static func absolute_guard(battle) -> bool:
 	if skill == null:
 		return false
 	var caster_id: String = caster.actor_id
-	if not caster.is_alive() or not battle.ap.can_spend(skill.ap_cost) or caster.ultimate_energy < ABSOLUTE_GUARD_ENERGY:
+	var energy_cost: int = caster.ultimate_energy_max
+	if not caster.is_alive() or not battle.ap.can_spend(skill.ap_cost) or caster.ultimate_energy < energy_cost:
 		return false
 	# The stance is singular: a new cast takes it over from any other holder, so
 	# the guardian query never has two names to choose between. Without this, a
@@ -57,17 +61,17 @@ static func absolute_guard(battle) -> bool:
 		return false
 	# Both spends are guarded above, but revert whichever one landed: spending AP
 	# and then failing on energy used to lose the AP silently.
-	var spent_energy: bool = caster.spend_ultimate_energy(ABSOLUTE_GUARD_ENERGY)
+	var spent_energy: bool = caster.spend_ultimate_energy(energy_cost)
 	var spent_ap: bool = battle.ap.spend(skill.ap_cost)
 	if not (spent_energy and spent_ap):
 		if spent_energy:
-			caster.gain_ultimate_energy(ABSOLUTE_GUARD_ENERGY)
+			caster.gain_ultimate_energy(energy_cost)
 		if spent_ap:
 			battle.ap.refund(skill.ap_cost)
 		battle.statuses.remove_status(caster_id, &"absolute_guard")
 		return false
 	gain_active_energy(battle, caster_id)
-	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=%d energy=%d radius=%d expires=next_player_phase_start" % [skill.ap_cost, ABSOLUTE_GUARD_ENERGY, skill.max_range])
+	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=%d energy=%d radius=%d expires=next_player_phase_start" % [skill.ap_cost, energy_cost, skill.max_range])
 	return true
 
 

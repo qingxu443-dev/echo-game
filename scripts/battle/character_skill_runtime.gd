@@ -36,13 +36,22 @@ const INTENT_ACTION_BUDGET: int = 3
 
 ## §21: echo return is 50% of attack, or 65% under a Falling Petals empowerment.
 const ECHO_RETURN_MULTIPLIER: float = 0.5
+## §19-23 极意. Being at full intent strengthens the next active skill (流风 or
+## 落英) and consumes every stack. A normal attack and the ultimate neither spend
+## nor clear it.
+const EXTREME_FOLLOW_UP_MULTIPLIER: float = 0.4   # §22 second strike
+const EXTREME_ECHO_MULTIPLIER: float = 0.65       # §21 / §23 boosted echo return
+## §23 says 落英's area "expands" at 极意 without giving a number. One extra cell
+## each way is this implementation's reading, and it is recorded as open rather
+## than settled - the footprint is data, so changing it is an edit.
+const EXTREME_SHAPE_WIDTH_BONUS: int = 1
+const EXTREME_SHAPE_DEPTH_BONUS: int = 1
 
 ## §22: the dash is at most two cells. Separate from the skill's targeting range
 ## (three), which is how far away the enemy may be picked.
 const FLOWING_WIND_DASH_STEPS: int = 2
 
 ## §24: ultimate cost, and how much each blade-intent stack lifts the finisher.
-const ULTIMATE_ENERGY_COST: int = 5
 const ULTIMATE_FINISHER_PER_STACK: float = 0.05
 const ULTIMATE_FINISHER_FULL_BONUS: float = 0.20
 
@@ -174,22 +183,35 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	if not battle.ap.spend(skill.ap_cost):
 		return false
 
+	# Captured before any settlement: the bar is spent by this action, but the
+	# stacks this action earns must survive, so consumption happens first and the
+	# gain afterwards (§19).
+	var extreme: bool = _is_extreme(caster)
 	var from_cell: Vector2i = caster.cell
 	caster.cell = landing
 	battle._emit_event("actor_moved", caster.actor_id, "", str(landing))
+
+	var adjacent: bool = GridRulesScript.manhattan_distance(caster.cell, target.cell) == 1
+	var was_marked: bool = adjacent and battle.statuses.has_status(target.actor_id, PETAL_MARK)
+	if adjacent:
+		_apply_segments(battle, caster, skill, [target], "sakura_flowing_wind")
+		if target.is_alive():
+			_apply_petal_mark(battle, caster, target)
+		# §22 极意: a second strike at 40% against the same target. The plan allows
+		# a new direction and a new target, but picking one is a second aiming
+		# step the interface does not offer yet, so this strike reuses the target.
+		if extreme and target.is_alive():
+			_apply_one_hit(battle, caster, target, EXTREME_FOLLOW_UP_MULTIPLIER, "sakura_flowing_wind_extreme")
+
+	if extreme:
+		_consume_extreme(battle, caster)
 	gain_intent_from_action(battle, caster)
 	# §13: a successful active action grants one ultimate energy per turn, for
 	# every character. The dash resolves even without a strike, so the grant
 	# follows the action rather than the hit.
 	SkillExecutorScript.gain_active_energy(battle, caster.actor_id)
-
-	if GridRulesScript.manhattan_distance(caster.cell, target.cell) == 1:
-		var was_marked: bool = battle.statuses.has_status(target.actor_id, PETAL_MARK)
-		_apply_segments(battle, caster, skill, [target], "sakura_flowing_wind")
-		if target.is_alive():
-			_apply_petal_mark(battle, caster, target)
-		if was_marked:
-			_check_echo_return(battle, caster, target)
+	if adjacent and was_marked:
+		_check_echo_return(battle, caster, target)
 	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_flowing_wind ap=1 from=%s to=%s" % [str(from_cell), str(landing)])
 	battle._check_battle_end()
 	return true
@@ -215,7 +237,12 @@ static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
 	var direction: Vector2i = _direction_toward(caster.cell, target.cell)
 	if direction == Vector2i.ZERO:
 		return false
-	var cells: Dictionary = _rectangle_cells(battle, caster.cell, direction, skill.shape_width, skill.shape_depth)
+	var extreme: bool = _is_extreme(caster)
+	# §23 极意: the area expands. The bonus is a constant beside the mechanic
+	# rather than a data field because the plan gives no number to put in data.
+	var width: int = skill.shape_width + (EXTREME_SHAPE_WIDTH_BONUS if extreme else 0)
+	var depth: int = skill.shape_depth + (EXTREME_SHAPE_DEPTH_BONUS if extreme else 0)
+	var cells: Dictionary = _rectangle_cells(battle, caster.cell, direction, width, depth)
 	var targets: Array = _actors_in_cells(battle, cells)
 	if targets.is_empty():
 		return false
@@ -230,13 +257,17 @@ static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
 	for actor in targets:
 		if actor.is_alive():
 			_apply_petal_mark(battle, caster, actor)
+	if extreme:
+		_consume_extreme(battle, caster)
 	gain_intent_from_action(battle, caster)
 	# §13: same per-turn ultimate-energy grant as every other active action.
 	SkillExecutorScript.gain_active_energy(battle, caster.actor_id)
+	# §21 / §23: 极意 raises the echo return against already-marked targets.
+	var echo_multiplier: float = EXTREME_ECHO_MULTIPLIER if extreme else ECHO_RETURN_MULTIPLIER
 	for actor in targets:
 		if actor.is_alive() and bool(was_marked.get(actor.actor_id, false)):
-			_check_echo_return(battle, caster, actor)
-	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_falling_petals cells=%d targets=%d" % [cells.size(), targets.size()])
+			_check_echo_return(battle, caster, actor, echo_multiplier)
+	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_falling_petals cells=%d targets=%d extreme=%s" % [cells.size(), targets.size(), str(extreme)])
 	battle._check_battle_end()
 	return true
 
@@ -273,14 +304,17 @@ static func _endless_fragrance(battle, skill) -> bool:
 	var caster = battle.get_active_character()
 	if not _can_cast(battle, caster, skill):
 		return false
-	if caster.ultimate_energy < ULTIMATE_ENERGY_COST:
+	# Releasing an ultimate spends the whole pool; the pool's size is a character
+	# property, so Sakura and Sevrin can differ without touching this branch.
+	var energy_cost: int = caster.ultimate_energy_max
+	if caster.ultimate_energy < energy_cost:
 		return false
 	var targets := _cross_targets(battle, caster, skill.max_range)
 	if targets.is_empty():
 		return false
 	if not battle.ap.spend(skill.ap_cost):
 		return false
-	if not caster.spend_ultimate_energy(ULTIMATE_ENERGY_COST):
+	if not caster.spend_ultimate_energy(energy_cost):
 		battle.ap.refund(skill.ap_cost)
 		return false
 
@@ -339,7 +373,10 @@ static func can_aim(battle, skill, target) -> bool:
 	if distance < skill.min_range or distance > skill.max_range:
 		return false
 	if skill.shape == SkillDefinitionScript.SHAPE_FAN:
-		return _centre_lane_clear(battle, caster, target, skill)
+		# Same footprint the cast will use, so the ring cannot promise an expanded
+		# rectangle whose lane is actually blocked.
+		var shape_depth: int = skill.shape_depth + (EXTREME_SHAPE_DEPTH_BONUS if _is_extreme(caster) else 0)
+		return _centre_lane_clear(battle, caster, target, shape_depth)
 	if distance <= 1:
 		return true
 	if String(skill.executor_id) == "sakura_flowing_wind":
@@ -353,11 +390,11 @@ static func can_aim(battle, skill, target) -> bool:
 ## has to be open. Checking every hit cell instead would refuse the whole skill
 ## whenever one corner sat behind a wall, and a three-wide block has no single
 ## line to begin with.
-static func _centre_lane_clear(battle, caster, target, skill) -> bool:
+static func _centre_lane_clear(battle, caster, target, depth: int) -> bool:
 	var direction: Vector2i = _direction_toward(caster.cell, target.cell)
 	if direction == Vector2i.ZERO:
 		return false
-	for step in range(1, skill.shape_depth + 1):
+	for step in range(1, depth + 1):
 		var cell: Vector2i = caster.cell + direction * step
 		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
 			break
@@ -376,6 +413,22 @@ static func _owns_skill(battle, skill_id: StringName) -> bool:
 	if sheet == null:
 		return false
 	return sheet.skill_ids.has(skill_id)
+
+
+## §19: 极意 is simply the full-intent state, so there is no separate flag to keep
+## in sync with the resource.
+static func _is_extreme(caster) -> bool:
+	return caster != null and caster.has_resource() and caster.is_resource_full()
+
+
+## §19: using an enhanced active skill consumes the whole bar. Called before the
+## normal gain of this action, so the stacks earned by the action itself survive.
+static func _consume_extreme(battle, caster) -> void:
+	var consumed: int = caster.resource_current
+	if consumed <= 0:
+		return
+	caster.spend_resource(consumed)
+	battle._emit_event("resource_consumed", caster.actor_id, caster.actor_id, "resource=%s value=%d reason=extreme" % [String(caster.resource_id), consumed])
 
 
 static func _can_cast(battle, caster, skill) -> bool:
@@ -400,8 +453,16 @@ static func _apply_segments(battle, caster, skill, targets: Array, action_id: St
 		for target in targets:
 			if not target.is_alive():
 				continue
-			var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, multiplier)
-			battle._apply_damage(target.actor_id, raw_damage, caster.actor_id, action_id, String(skill.damage_type))
+			_apply_one_hit(battle, caster, target, multiplier, action_id, String(skill.damage_type))
+
+
+## One segment at an explicit multiplier, for hits that are not part of the
+## skill's own segment list (极意's follow-up strike).
+static func _apply_one_hit(battle, caster, target, multiplier: float, action_id: String, damage_type: String = "physical") -> void:
+	if not target.is_alive():
+		return
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, multiplier)
+	battle._apply_damage(target.actor_id, raw_damage, caster.actor_id, action_id, damage_type)
 
 
 ## Cells two steps out in each orthogonal direction, kept on the board.
@@ -459,21 +520,21 @@ static func _apply_petal_mark(battle, caster, target) -> void:
 
 
 ## §21: an adjacent marked target takes one automatic follow-up per action.
-static func _check_echo_return(battle, caster, target) -> void:
+static func _check_echo_return(battle, caster, target, multiplier: float = ECHO_RETURN_MULTIPLIER) -> void:
 	if not target.is_alive():
 		return
 	if not battle.statuses.has_status(target.actor_id, PETAL_MARK):
 		return
 	if GridRulesScript.manhattan_distance(caster.cell, target.cell) != 1:
 		return
-	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, ECHO_RETURN_MULTIPLIER)
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, multiplier)
 	battle._apply_damage(target.actor_id, raw_damage, caster.actor_id, "sakura_echo_return", "physical")
 
 	# §19: the first echo return of a turn is worth one more stack.
 	if int(battle.echo_return_gain_turn.get(caster.actor_id, -1)) != battle.turn_number:
 		battle.echo_return_gain_turn[caster.actor_id] = battle.turn_number
 		gain_intent_from_action(battle, caster)
-	battle._emit_event("counter_resolved", caster.actor_id, target.actor_id, "skill=sakura_echo_return raw=%d" % raw_damage)
+	battle._emit_event("counter_resolved", caster.actor_id, target.actor_id, "skill=sakura_echo_return multiplier=%.2f raw=%d" % [multiplier, raw_damage])
 
 
 ## §19: action events share a three-stack budget per turn; the turn-start stack

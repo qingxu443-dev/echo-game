@@ -1,9 +1,16 @@
 class_name EnemyCatalog
 extends RefCounted
 
-## Loads the enemy profiles from data/enemies/. Adding a stat variant means
-## adding one .tres here and referencing its archetype id from a level; adding a
-## new behaviour still means writing a _generate_*_intent branch.
+## Loads the enemy profiles from data/enemies/.
+##
+## The roster is an explicit list rather than a directory scan, for the same
+## reason the character and level rosters are: which enemies exist is a decision
+## worth reviewing, and a stray .tres should not join a fight because it was
+## dropped in a folder.
+##
+## Adding an archetype is therefore one .tres plus one line here. What it *does*
+## is its own `actions` list in the data; writing a new behaviour - a new kind of
+## action - is the only thing that still needs a branch, in IntentPlanner.
 
 const VANGUARD_DEFINITION = preload("res://data/enemies/vanguard.tres")
 const MARKSMAN_DEFINITION = preload("res://data/enemies/marksman.tres")

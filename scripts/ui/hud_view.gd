@@ -34,13 +34,22 @@ static func draw_status(canvas: CanvasItem, controller, status_message: String) 
 			active_name = String(active.actor_id)
 		active_name = _name_with_glyph(String(active.glyph), active_name)
 	canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 235), active_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, P.TEXT)
+	# The role label ("守誓者" / "剑舞者") has been in every character sheet since
+	# the framework landed and was never shown, so the header said who without
+	# ever saying what they are. Drawn beside the name rather than under it to keep
+	# the stat block where it was.
+	if active != null:
+		var role_label: String = String(active.role_label_zh)
+		if not role_label.is_empty():
+			var name_width: float = font.get_string_size(active_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+			canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X + name_width + 8.0, 233), "· " + role_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
 
 	var sevrin = active
 	if sevrin != null:
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 263), "生命  %d / %d" % [sevrin.health, sevrin.max_health], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, P.TEXT_BODY)
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 290), "攻击 %d  防御 %d" % [sevrin.attack, sevrin.defense], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.TEXT_BODY)
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 313), "魔抗 %d" % sevrin.magic_resistance, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.TEXT_BODY)
-		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 336), "护盾 %d  终极能量 %d / %d" % [sevrin.shield, sevrin.ultimate_energy, P.ULTIMATE_ENERGY_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.CYAN)
+		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 336), "护盾 %d  终极能量 %d / %d" % [sevrin.shield, sevrin.ultimate_energy, sevrin.ultimate_energy_max], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.CYAN)
 		if sevrin.has_resource():
 			canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 359), "%s %d / %d%s" % [String(sevrin.resource_name_zh), sevrin.resource_current, sevrin.resource_max, "　极意" if sevrin.is_resource_full() else ""], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.GOLD_LIGHT)
 		else:
@@ -131,7 +140,7 @@ static func draw_party(canvas: CanvasItem, controller) -> void:
 		elif actor.shield > 0:
 			row += "  盾%d" % actor.shield
 		if not actor.is_downed():
-			row += "  能%d/%d" % [actor.ultimate_energy, P.ULTIMATE_ENERGY_MAX]
+			row += "  能%d/%d" % [actor.ultimate_energy, actor.ultimate_energy_max]
 		var color := P.TEXT_DISABLED if actor.is_downed() else (P.GOLD_LIGHT if String(actor_id) == String(controller.active_character_id) else P.TEXT_BODY)
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, y), row, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, color)
 		y += 22.0

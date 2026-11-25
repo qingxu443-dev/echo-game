@@ -33,6 +33,11 @@ const SLOT_ORDER: Array[StringName] = [SLOT_NORMAL, SLOT_PASSIVE, SLOT_ACTIVE_ON
 ## Skill ids in slot order, matching SLOT_ORDER. Shorter lists are allowed.
 @export var skill_ids: Array[StringName] = []
 
+## Ultimate energy ceiling (design plan §13). It belongs to the character, not to
+## the skill: releasing an ultimate spends the whole pool, so a character with a
+## larger pool charges and spends more. Five for both prototypes.
+@export var ultimate_energy_max: int = 5
+
 ## Class resource, if the character has one (剑意 for Sakura). An empty
 ## resource_id means the character has no personal resource track.
 @export var resource_id: StringName = &""

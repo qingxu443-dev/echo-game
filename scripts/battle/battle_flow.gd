@@ -105,9 +105,11 @@ static func start_encounter(
 		unit.character_id = sheet.character_id
 		unit.glyph = sheet.glyph
 		unit.display_name_zh = sheet.display_name_zh
+		unit.role_label_zh = sheet.role_label_zh
 		unit.resource_id = sheet.resource_id
 		unit.resource_name_zh = sheet.resource_name_zh
 		unit.resource_max = sheet.resource_max
+		unit.ultimate_energy_max = maxi(1, sheet.ultimate_energy_max)
 		unit.resource_current = 0
 		battle.actors[character_id] = unit
 	battle.active_character_id = roster[0]

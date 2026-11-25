@@ -1,9 +1,16 @@
 # ECHO 项目框架与技术栈方案 v1.0
 
-- 文档状态：提案（待评审），不代表已批准实施
+- 文档状态：提案（已部分实施——见下方「实施进度」），正文保留为评审快照
 - 适用范围：ECHO Prototype 0.1 → 0.2 的重构基线
 - 编写依据：`main` @ `75d1871` 的实际代码，非规划稿
 - 相关文档：`docs/ARCHITECTURE.md`（现状）、`docs/PROJECT_STATUS.md`（进度）、`docs/skill_design_principles_zh-CN.md`（设计原则）
+
+> **实施进度（2026-11-25，`main` @ `aa569bd`）**：
+> - **M0 已完成**——测试套件迁入公共基类 `tests/framework/test_case.gd`，新增一键回归 `tests/run_all.*`。
+> - **M1 已完成**——敌人属性外置为 `data/enemies/*.tres`（新增 `test_enemy_catalog`，断言 582 → 623）；三关外置为 `data/levels/*.tres`，`level_catalog.gd` 69 → 29 行。
+> - **M2 已完成**——936 行控制器拆为门面（230 行）+ 六个协作模块，测试文件零改动，断言数不变。
+> - M3（表现层拆分）与 M4（CI）尚未实施。
+> 逐项断言对照见 `docs/engineering/BASELINE.md` 的变更记录；拆分后的现行架构见 `docs/ARCHITECTURE.md`。下文「现状盘点」中的行数与断言数为提案编写时（`75d1871`）的快照，保留作为决策依据，请勿当作当前数值。
 
 ---
 

@@ -120,6 +120,8 @@ tests\run_all.bat
 godot --headless --path . --script res://tests/test_core_rules.gd
 ```
 
+> **首次克隆提示**：克隆后必须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
+
 正常汇总输出示例（仅当所有套件 `failures=0` 且无崩溃时退出码为 `0`）：
 
 ```text

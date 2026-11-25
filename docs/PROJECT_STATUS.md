@@ -163,6 +163,7 @@ Prototype 0.1 的目标内容：
 - 测试套件：16 个，共 654 条断言（运行时 PASS 口径，逐套件分表见 `docs/engineering/BASELINE.md`），0 失败。
 - 主场景：可启动并正常渲染，截图见仓库外的验证记录。
 - 关卡：三关 `.tres` 配置通过数据校验，每关首回合的预告类型与教学设计一致。
+- **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
 测试套件清单（逐套件维护以 `docs/engineering/BASELINE.md` 为准）：
 

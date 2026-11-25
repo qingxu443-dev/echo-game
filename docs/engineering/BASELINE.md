@@ -12,7 +12,7 @@
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 17 |
-| 断言总数 | **642** |
+| 断言总数 | **651** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -24,7 +24,7 @@
 | `test_shared_ap.gd` | 19 | 队伍共享 AP 池（§4） |
 | `test_downed_and_revive.gd` | 30 | 倒地、复活与指令交接（§12） |
 | `test_damage_types.gd` | 13 | 伤害类型白名单（§10.2 / §10.6） |
-| `test_character_framework.gd` | 66 | 角色框架、誓刃、樱与行动归属（§15 / §19-24） |
+| `test_character_framework.gd` | 74 | 角色框架、誓刃、樱与行动归属（§15 / §19-24） |
 | `test_oathkeeper_v2_controller.gd` | 87 | V2 技能控制器 |
 | `test_turn_bookkeeping.gd` | 44 | 回合账本 |
 | `test_enemy_catalog.gd` | 41 | 敌人数据目录（M1） |
@@ -32,12 +32,12 @@
 | `test_level_catalog.gd` | 30 | 关卡数据 |
 | `test_battle_status.gd` | 25 | 状态容器 |
 | `test_diagonal_line_of_sight.gd` | 20 | 视线规则 |
-| `test_battle_view_skills.gd` | 42 | UI 到控制器集成（目标提示一致性、普攻黄圈、快捷键覆盖、终极能量门槛、切换提示） |
+| `test_battle_view_skills.gd` | 43 | UI 到控制器集成（目标提示一致性、普攻黄圈、快捷键覆盖、终极能量门槛、切换提示、空选点敌提示） |
 | `test_oathkeeper_v2_actor.gd` | 19 | 护盾与能量 |
 | `test_core_rules.gd` | 18 | 网格 / AP / 伤害 |
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 14 | 瑟弗林技能目录（含普攻） |
-| **合计** | **642** | |
+| **合计** | **651** | |
 
 ## 持续集成
 
@@ -72,6 +72,7 @@
 | 2026-11-25 | 修复普攻与樱技能不显示目标黄圈、第 5 项通灵缺快捷键 | 594 → 602（+8） |
 | 2026-11-25 | 行动归属改为当前角色（移动 / 技能归属校验 / 倒地可见 / 全队倒地判负 / 指令交接） | 602 → 617（+15） |
 | 2026-11-25 | 流风射程门槛失效（`not aligned and` 使判定成为死代码，越程施放照样扣 AP）、残香落在已死目标上、终极按钮在零能量时仍显示就绪（且只按 `absolute_guard` id 特判） | 617 → 639（+22）；切换提示改为角色名，+3 → 642 |
+| 2026-11-25 | 落英无射程与视线门槛（矩形只查边界，隔墙照样打出 273 伤害）、流风黄圈不查视线（亮圈后施放被拒）、空选点敌无提示 | 642 → 651（+9） |
 
 ## 如何复现
 

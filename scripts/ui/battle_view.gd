@@ -74,6 +74,7 @@ func _draw() -> void:
 	HudViewScript.draw_header(self, _current_level(), current_level, levels.size())
 	BoardViewScript.draw(self, controller, selected_skill, skill_bar)
 	HudViewScript.draw_status(self, controller, status_message)
+	HudViewScript.draw_party(self, controller)
 	SkillBarViewScript.draw(self, controller, skill_bar, selected_skill)
 	if controller.phase == ControllerScript.BattlePhase.FINISHED:
 		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level())
@@ -195,7 +196,7 @@ func _handle_tap(position: Vector2) -> void:
 	# which is how Oath Shield's revival reach gets a tap surface.
 	for actor_id in controller.actors:
 		var member = controller.actors[actor_id]
-		if member.team == "player" and (member.is_alive() or member.is_downed()) and member.cell == cell:
+		if member.team == "player" and (member.is_alive() or member.is_downed) and member.cell == cell:
 			if selected_skill >= 0:
 				var chosen: Dictionary = skill_bar[selected_skill]
 				if str(chosen["mode"]) == "ally":

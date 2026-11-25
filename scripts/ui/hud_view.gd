@@ -91,6 +91,34 @@ static func actor_name(actor_id: String) -> String:
 	return "未知单位"
 
 
+## The whole party at a glance, one row per member: with revival in play, the
+## inactive member's health is tactical information - whether Sakura can take
+## one more hit decides whether to shield her, reposition her or spend the
+## revival now. The stats panel above still shows the commanded member only.
+static func draw_party(canvas: CanvasItem, controller) -> void:
+	var font := ThemeDB.fallback_font
+	canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, 604.0), "队伍", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, P.GOLD)
+	var y := 628.0
+	for actor_id in controller.actors:
+		var actor = controller.actors[actor_id]
+		if actor.team != "player":
+			continue
+		var marker: String = "▸" if String(actor_id) == String(controller.active_character_id) else "　"
+		var name: String = String(actor.display_name_zh)
+		if name.is_empty():
+			name = String(actor.actor_id)
+		var row: String = "%s%s %s  %d/%d" % [marker, String(actor.glyph), name, actor.health, actor.max_health]
+		if actor.is_downed:
+			row += "  [倒地]"
+		elif actor.shield > 0:
+			row += "  盾%d" % actor.shield
+		if not actor.is_downed:
+			row += "  能%d/5" % actor.ultimate_energy
+		var color := P.TEXT_DISABLED if actor.is_downed else (P.GOLD_LIGHT if String(actor_id) == String(controller.active_character_id) else P.TEXT_BODY)
+		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, y), row, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, color)
+		y += 22.0
+
+
 static func action_name(action_id: String) -> String:
 	var names := {
 		"charged_strike": "蓄力重击",

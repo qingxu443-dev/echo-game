@@ -3,6 +3,7 @@ extends "res://tests/framework/test_case.gd"
 const MainScene = preload("res://scenes/main/main.tscn")
 const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
+const BoardViewScript = preload("res://scripts/ui/board_view.gd")
 
 
 func _run() -> void:
@@ -14,6 +15,7 @@ func _run() -> void:
 	await _test_hotkeys_cover_the_bar()
 	await _test_ultimate_needs_a_full_bar()
 	await _test_switch_announces_the_display_name()
+	await _test_oath_shield_revives_through_the_view()
 	_report()
 
 
@@ -254,3 +256,36 @@ func _tap_cell(view: Node, cell: Vector2i) -> void:
 	var rect: Rect2 = view.call("_cell_rect", cell)
 	view.call("_handle_tap", rect.position + rect.size * 0.5)
 
+
+
+## The revival path needs view-level coverage: the ally ring promises the
+## cast, and the tap surface is how a player actually revives someone. The
+## opening lesson deploys Sakura beside Sevrin, so the default scene carries
+## the whole case.
+func _test_oath_shield_revives_through_the_view() -> void:
+	var view: Node = MainScene.instantiate()
+	root.add_child(view)
+	await process_frame
+	var controller: Variant = view.get("controller")
+	var sakura = controller.get_actor("sakura")
+	_check(sakura != null, "the opening lesson deploys Sakura beside Sevrin")
+
+	controller._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
+	_check(sakura.is_downed, "Sakura is down on the field")
+	var bar: Array = view.get("skill_bar")
+	_check(BoardViewScript.can_target_ally(controller, bar, "oath_shield", "sakura"), "the downed member carries the green ally ring")
+
+	_tap_skill_by_id(view, "oath_shield")
+	_tap_cell(view, sakura.cell)
+	_check(sakura.is_alive() and not sakura.is_downed, "tapping a downed member with Oath Shield selected revives them")
+	_check(controller.get_actor("sevrin").shield > 0, "the caster keeps the self half of the shield")
+	_check(controller.ap.current == controller.ap.maximum - 1, "the revival cast spends one AP through the view")
+
+	# Down her again: the once-per-encounter rule must show on the ring, not
+	# only after a refused tap.
+	controller._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
+	_check(sakura.is_downed, "the revived member can go down again")
+	_check(not BoardViewScript.can_target_ally(controller, bar, "oath_shield", "sakura"), "a body already revived this encounter carries no ring")
+
+	view.queue_free()
+	await process_frame

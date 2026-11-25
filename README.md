@@ -131,11 +131,11 @@ godot --headless --path . --script res://tests/test_core_rules.gd
 test_battle_controller                 115 ok
 ...
 -----
-suites=13 assertions=483 failures=0 broken=0
+suites=17 assertions=696 failures=0 broken=0
 ```
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。
-* 当前基线为 **13 个套件、483 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
+* 当前基线为 **17 个套件、696 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
 * 任何代码改动均应重跑测试并以零失败为合并前提；无头测试不能替代 `F5` 主场景的交互与画面人工检查。
 
 ---

@@ -13,6 +13,7 @@ func _run() -> void:
 	await _test_normal_attack_ring()
 	await _test_hotkeys_cover_the_bar()
 	await _test_ultimate_needs_a_full_bar()
+	await _test_switch_announces_the_display_name()
 	_report()
 
 
@@ -200,6 +201,21 @@ func _test_ultimate_needs_a_full_bar() -> void:
 	controller.ap.clear()
 	_check(not SkillBarViewScript.is_affordable(controller, basic), "a 1 AP skill is dim with an empty pool")
 
+	view.queue_free()
+	await process_frame
+
+
+## The status line is the only feedback the switch gives, and it used to print
+## the actor id - "已切换到 sakura。" - in an otherwise Chinese screen.
+func _test_switch_announces_the_display_name() -> void:
+	var view: Node = MainScene.instantiate()
+	root.add_child(view)
+	await process_frame
+	view.call("_switch_character")
+	var message := str(view.get("status_message"))
+	_check("樱" in message, "the switch message names the character")
+	_check(not ("sakura" in message), "the switch message does not leak the actor id")
+	_check(int(view.get("selected_skill")) == -1, "switching clears the pending target selection")
 	view.queue_free()
 	await process_frame
 

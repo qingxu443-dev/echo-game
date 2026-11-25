@@ -138,7 +138,13 @@ func _switch_character() -> void:
 	if controller.set_active_character(next_id):
 		selected_skill = -1
 		skill_bar = SkillBarViewScript.build_entries(controller)
-		status_message = "已切换到 %s。" % next_id
+		# The rest of the screen is Chinese; the raw actor id ("sakura") is not
+		# what the player sees on the token or in the HUD.
+		var member = controller.get_actor(next_id)
+		var label: String = next_id
+		if member != null and not String(member.display_name_zh).is_empty():
+			label = String(member.display_name_zh)
+		status_message = "已切换到 %s。" % label
 	queue_redraw()
 
 

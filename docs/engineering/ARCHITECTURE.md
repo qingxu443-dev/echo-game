@@ -94,7 +94,7 @@ wc -l scripts/**/*.gd
 |---|---|---|
 | `battle_view.gd` | 260 | 编排：关卡流程、技能栏构建、点击分发、控制器信号 |
 | `board_view.gd` | 166 | 棋盘、障碍、单位与状态标记、意图预告、目标黄圈 |
-| `skill_bar_view.gd` | 153 | 五格技能栏、结束回合按钮、操作提示；`skill_rect()` 是唯一的按钮几何 |
+| `skill_bar_view.gd` | 173 | 五格技能栏、结束回合按钮、操作提示；`skill_rect()` 是唯一的按钮几何，`is_affordable()` 是唯一的按钮可用判据 |
 | `theme_palette.gd` | 121 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
 | `hud_view.gd` | 103 | 标题、回合与资源读数、战术提示、敌方行动顺序 |
 | `settlement_view.gd` | 71 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |

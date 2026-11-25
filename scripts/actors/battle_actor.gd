@@ -97,7 +97,12 @@ func apply_damage_with_result(
 	## damage instance reached this living actor, even if shield absorbs all of it.
 	if is_defeated or raw_damage <= 0:
 		return {"hit": false, "absorbed": 0, "health_damage": 0, "final_damage": 0}
-	var base_resistance: int = defense if damage_type == "physical" else (magic_resistance if damage_type == "magical" else 0)
+	# §10.6: an unknown type used to fall through to zero resistance, which let a
+	# typo hit at full strength. Reject it instead of resolving it.
+	if not DamageTypes.is_valid(damage_type):
+		push_error("BattleActor: unknown damage type '%s' (expected %s)" % [damage_type, DamageTypes.describe()])
+		return {"hit": false, "invalid_type": true, "absorbed": 0, "health_damage": 0, "final_damage": 0}
+	var base_resistance: int = DamageTypes.resistance_for(self, damage_type)
 	var resistance: int = maxi(0, base_resistance - maxi(0, resistance_penalty))
 	var mitigated: int = CombatMathScript.calculate_damage(raw_damage, resistance)
 	var final_damage: int = mitigated

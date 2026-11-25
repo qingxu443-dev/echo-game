@@ -11,8 +11,8 @@
 | 提交 | `e0ba84d`（main，M3 合并后）+ v1 移除分支 |
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
-| 套件数 | 15 |
-| 断言总数 | **525** |
+| 套件数 | 16 |
+| 断言总数 | **538** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -23,6 +23,7 @@
 | `test_battle_controller.gd` | 115 | 控制器场景 |
 | `test_shared_ap.gd` | 19 | 队伍共享 AP 池（§4） |
 | `test_downed_and_revive.gd` | 23 | 倒地与复活（§12） |
+| `test_damage_types.gd` | 13 | 伤害类型白名单（§10.2 / §10.6） |
 | `test_oathkeeper_v2_controller.gd` | 87 | V2 技能控制器 |
 | `test_turn_bookkeeping.gd` | 44 | 回合账本 |
 | `test_enemy_catalog.gd` | 41 | 敌人数据目录（M1） |
@@ -35,7 +36,7 @@
 | `test_core_rules.gd` | 18 | 网格 / AP / 伤害 |
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 12 | V2 技能目录 |
-| **合计** | **525** | |
+| **合计** | **538** | |
 
 ## 持续集成
 
@@ -61,6 +62,7 @@
 | 2026-11-25 | M4：`docs/` 分 design / engineering / archive 三层，21 篇文档全部就位，0 断链 | 483 → 483（不变） |
 | 2026-11-25 | 0.3 落地①：全队共享 5 AP，新增 `test_shared_ap` | 483 → 502（+19） |
 | 2026-11-25 | 0.3 落地②：倒地 / 复活状态，全队倒地才判负；新增 `test_downed_and_revive` | 502 → 525（+23） |
+| 2026-11-25 | 0.3 落地③：伤害类型改为封闭集合，未知类型拒绝而非静默绕过防御；新增 `test_damage_types` | 525 → 538（+13） |
 
 ## 如何复现
 

@@ -56,15 +56,18 @@ static func _draw_actors(canvas: CanvasItem, controller) -> void:
 		_draw_actor_badges(canvas, controller, actor_id, actor, center)
 
 
-## A downed party member: same footprint, drained palette, and a label, so the
-## cell being impassable is explained rather than looking like a glitch.
+## A downed party member: same footprint, drained palette, and a cross over the
+## token, so the cell being impassable is explained rather than looking like a
+## glitch. A text label does not fit: the cell is 64 px and the token already
+## takes 44 of them.
 static func _draw_downed_actor(canvas: CanvasItem, actor) -> void:
 	var center := P.cell_center(actor.cell)
 	canvas.draw_circle(center, 22.0, P.PLAYER_BODY_DOWNED)
 	canvas.draw_arc(center, 22.0, 0.0, TAU, 48, P.PLAYER_OUTLINE_DOWNED, 2.0)
 	var glyph: String = actor.glyph if not actor.glyph.is_empty() else "守"
 	canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, 7.0), glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.TEXT_DISABLED)
-	canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, 30.0), "倒", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.DOWNED_MARK)
+	canvas.draw_line(center + Vector2(-12.0, -12.0), center + Vector2(12.0, 12.0), P.DOWNED_MARK, 2.0)
+	canvas.draw_line(center + Vector2(12.0, -12.0), center + Vector2(-12.0, 12.0), P.DOWNED_MARK, 2.0)
 
 
 ## V2 status markers: shield/guard on Sevrin and the isolated mark on enemies.

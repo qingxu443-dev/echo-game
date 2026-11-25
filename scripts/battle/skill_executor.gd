@@ -84,7 +84,7 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 	if caster == null:
 		return false
 	var target = actors[target_actor_id]
-	var reviving: bool = target.is_downed
+	var reviving: bool = target.is_downed()
 	if not caster.is_alive() or target.team != "player" or not (target.is_alive() or reviving):
 		return false
 	if reviving and battle.oath_shield_revived.has(target_actor_id):

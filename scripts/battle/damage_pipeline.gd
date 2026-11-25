@@ -62,11 +62,11 @@ static func apply(
 
 	battle._emit_event("damage_applied", source_actor_id, target_actor_id, "action=%s type=%s public_intent=%s raw=%d absorbed=%d applied=%d health=%d shield=%d" % [action_id, damage_type, str(is_public_intent), amount, int(damage_result.get("absorbed", 0)), applied, target.health, target.shield])
 
-	if target.is_defeated:
+	if target.is_defeated():
 		var removed_statuses: int = statuses.clear_actor(target_actor_id)
 		if removed_statuses > 0:
 			battle._emit_event("statuses_cleared", target_actor_id, "", "reason=actor_defeated count=%d" % removed_statuses)
-	if target.is_defeated and target.team == "enemy":
+	if target.is_defeated() and target.team == "enemy":
 		if applied > 0:
 			battle.enemies_defeated += 1
 		for intent in battle.intents:

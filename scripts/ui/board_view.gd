@@ -37,7 +37,7 @@ static func _draw_grid(canvas: CanvasItem, controller) -> void:
 static func _draw_actors(canvas: CanvasItem, controller) -> void:
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]
-		if actor.is_downed:
+		if actor.is_downed():
 			_draw_downed_actor(canvas, actor)
 			continue
 		if not actor.is_alive():
@@ -172,7 +172,7 @@ static func can_target_ally(controller, skill_bar: Array, skill_id: String, acto
 	# A downed member is a legal Oath Shield target: §12 makes this the revival
 	# skill. The ring stays honest about the once-per-encounter count, so a body
 	# already revived this encounter is not offered again.
-	var revivable: bool = actor.is_downed and not controller.oath_shield_revived.has(actor_id)
+	var revivable: bool = actor.is_downed() and not controller.oath_shield_revived.has(actor_id)
 	if not (actor.is_alive() or revivable):
 		return false
 	var entry: Dictionary = _entry_for(skill_bar, skill_id)

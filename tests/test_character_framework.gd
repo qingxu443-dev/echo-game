@@ -396,7 +396,7 @@ func _test_a_dead_target_is_not_marked() -> void:
 	var enemy = battle.get_actor("vanguard_00")
 	enemy.health = 1
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the killing blow resolves")
-	_check(enemy.is_defeated, "the target is down")
+	_check(enemy.is_defeated(), "the target is down")
 	_check(not battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "a dead target carries no mark")
 
 	var survivor = battle.get_actor("vanguard_01")

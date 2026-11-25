@@ -108,13 +108,13 @@ static func draw_party(canvas: CanvasItem, controller) -> void:
 		if name.is_empty():
 			name = String(actor.actor_id)
 		var row: String = "%s%s %s  %d/%d" % [marker, String(actor.glyph), name, actor.health, actor.max_health]
-		if actor.is_downed:
+		if actor.is_downed():
 			row += "  [倒地]"
 		elif actor.shield > 0:
 			row += "  盾%d" % actor.shield
-		if not actor.is_downed:
+		if not actor.is_downed():
 			row += "  能%d/5" % actor.ultimate_energy
-		var color := P.TEXT_DISABLED if actor.is_downed else (P.GOLD_LIGHT if String(actor_id) == String(controller.active_character_id) else P.TEXT_BODY)
+		var color := P.TEXT_DISABLED if actor.is_downed() else (P.GOLD_LIGHT if String(actor_id) == String(controller.active_character_id) else P.TEXT_BODY)
 		canvas.draw_string(font, Vector2(P.LEFT_COLUMN_X, y), row, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, color)
 		y += 22.0
 

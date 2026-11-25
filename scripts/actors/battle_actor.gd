@@ -14,11 +14,15 @@ var health: int
 var attack: int
 var defense: int
 var magic_resistance: int
-var is_defeated: bool = false
+## Defeated / downed state is read through predicate methods, exactly like
+## is_alive(): every state query on this class takes parentheses - is_alive(),
+## is_defeated(), is_downed(), blocks_cell(). The property/method mix is how
+## the downed-tap break hid inside a green suite (#34), so it is gone.
+var _is_defeated: bool = false
 ## Design plan §12: a party member at zero health is downed, not gone. A downed
 ## unit cannot act and cannot be targeted, but it keeps its cell, so it still
 ## blocks movement until revived. Enemies have no downed state - they simply die.
-var is_downed: bool = false
+var _is_downed: bool = false
 var shield: int = 0
 ## Independent ultimate-energy pool; capped at five for each actor.
 var ultimate_energy: int = 0
@@ -106,7 +110,7 @@ func apply_damage_with_result(
 ) -> Dictionary:
 	## Detailed result for new combat systems. "hit" means a valid positive
 	## damage instance reached this living actor, even if shield absorbs all of it.
-	if is_defeated or raw_damage <= 0:
+	if _is_defeated or raw_damage <= 0:
 		return {"hit": false, "absorbed": 0, "health_damage": 0, "final_damage": 0}
 	# §10.6: an unknown type used to fall through to zero resistance, which let a
 	# typo hit at full strength. Reject it instead of resolving it.
@@ -132,9 +136,9 @@ func apply_damage_with_result(
 	health -= health_damage
 	if health <= 0:
 		health = 0
-		is_defeated = true
+		_is_defeated = true
 		if team == "player":
-			is_downed = true
+			_is_downed = true
 	return {
 		"hit": true,
 		"absorbed": absorbed,
@@ -143,7 +147,15 @@ func apply_damage_with_result(
 	}
 
 func is_alive() -> bool:
-	return not is_defeated and health > 0
+	return not _is_defeated and health > 0
+
+
+func is_defeated() -> bool:
+	return _is_defeated
+
+
+func is_downed() -> bool:
+	return _is_downed
 
 
 ## Class resource track (design plan §19: 剑意). Capped, never negative, and a
@@ -173,16 +185,16 @@ func is_resource_full() -> bool:
 ## Whether this unit still occupies its cell. A downed body does: §12 says the
 ## cell stays blocked until the unit is revived and moved.
 func blocks_cell() -> bool:
-	return is_alive() or is_downed
+	return is_alive() or is_downed()
 
 
 ## Bring a downed unit back at the given health. Reviving a unit that is not
 ## downed is a no-op, so a skill cannot top up a standing ally by accident.
 func revive(restored_health: int) -> bool:
-	if not is_downed:
+	if not is_downed():
 		return false
 	health = clampi(restored_health, 1, max_health)
-	is_defeated = false
-	is_downed = false
+	_is_defeated = false
+	_is_downed = false
 	return true
 

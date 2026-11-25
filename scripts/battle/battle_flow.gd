@@ -1,0 +1,166 @@
+class_name BattleFlow
+extends RefCounted
+
+## Turn boundaries, encounter setup and termination.
+##
+## Everything that decides "whose turn is it, is the fight over, what gets reset"
+## lives here. The phase enum and the battle_finished signal stay on the
+## controller because tests and the view read them from there.
+
+const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
+const BattleActorScript = preload("res://scripts/actors/battle_actor.gd")
+const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
+const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
+const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
+const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
+
+
+## Validates the whole setup before touching live state: a rejected call must
+## leave the previous encounter exactly as it was.
+static func start_encounter(
+	battle,
+	player_cell: Vector2i,
+	enemy_cells: Array[Vector2i],
+	obstacles: Array[Vector2i] = [],
+	enemy_archetypes: Array[String] = []
+) -> bool:
+	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.player_ap <= 0:
+		return false
+	if not GridRulesScript.is_inside_bounds(player_cell, battle.grid_size):
+		return false
+	if enemy_cells.is_empty():
+		return false
+	if not enemy_archetypes.is_empty() and enemy_archetypes.size() != enemy_cells.size():
+		return false
+	for archetype in enemy_archetypes:
+		if not EnemyCatalogScript.has_definition(archetype):
+			return false
+
+	var candidate_blockers: Dictionary = {}
+	for cell in obstacles:
+		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
+			return false
+		candidate_blockers[cell] = true
+	if candidate_blockers.has(player_cell):
+		return false
+
+	var candidate_enemy_cells: Dictionary = {}
+	for cell in enemy_cells:
+		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size) or cell == player_cell:
+			return false
+		if candidate_blockers.has(cell) or candidate_enemy_cells.has(cell):
+			return false
+		candidate_enemy_cells[cell] = true
+
+	battle.ap.maximum = battle.player_ap
+	battle.actors.clear()
+	battle.statuses.clear_all()
+	battle.area_effects.clear_all()
+	battle.oath_shield_expiry_turn.clear()
+	battle.oath_vow_triggered_intents.clear()
+	battle.absolute_guard_hit_intents.clear()
+	battle.absolute_guard_countered_enemies.clear()
+	battle.blocked_cells = candidate_blockers
+	battle.intents.clear()
+	battle.event_sequence = 0
+	battle.turn_number = 0
+	battle.battle_result = ""
+	battle.summon_last_used_turn = -1
+	battle.damage_dealt = 0
+	battle.damage_taken = 0
+	battle.enemies_defeated = 0
+
+	battle.actors["sevrin"] = BattleActorScript.new("sevrin", "player", player_cell, 12000, "oathkeeper", 2000, 650, 500)
+	for index in range(enemy_cells.size()):
+		var cell: Vector2i = enemy_cells[index]
+		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
+		var enemy_id := "%s_%02d" % [archetype, index]
+		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
+		battle.actors[enemy_id] = BattleActorScript.new(enemy_id, "enemy", cell, profile.health, archetype, profile.attack, profile.defense, profile.magic_resistance)
+
+	battle.phase = battle.BattlePhase.PLAYER
+	begin_player_turn(battle)
+	return true
+
+
+static func end_player_turn(battle) -> bool:
+	if battle.phase != battle.BattlePhase.PLAYER:
+		return false
+	expire_oath_shields_for_current_turn(battle)
+	var expired_statuses: int = battle.statuses.expire_all_boundary(&"player_phase_end")
+	if expired_statuses > 0:
+		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_end count=%d" % expired_statuses)
+	battle.ap.clear()
+	battle.phase = battle.BattlePhase.ENEMY
+	battle._emit_event("turn_ended", "sevrin", "", "turn=%d" % battle.turn_number)
+	IntentResolverScript.resolve_phase(battle)
+	return true
+
+
+static func expire_oath_shields_for_current_turn(battle) -> void:
+	var expired_ids: Array[String] = []
+	for actor_id in battle.oath_shield_expiry_turn.keys():
+		if int(battle.oath_shield_expiry_turn[actor_id]) <= battle.turn_number:
+			expired_ids.append(String(actor_id))
+	for actor_id in expired_ids:
+		if battle.actors.has(actor_id):
+			var actor = battle.actors[actor_id]
+			var removed: int = actor.shield
+			actor.shield = 0
+			battle._emit_event("oath_shield_expired", actor_id, actor_id, "removed=%d turn=%d" % [removed, battle.turn_number])
+		battle.oath_shield_expiry_turn.erase(actor_id)
+
+
+static func begin_player_turn(battle) -> void:
+	var expired_area_effects: int = battle.area_effects.expire_boundary(&"player_phase_start")
+	if expired_area_effects > 0:
+		battle._emit_event("area_effects_expired", "", "", "boundary=player_phase_start count=%d" % expired_area_effects)
+	var expired_statuses: int = battle.statuses.expire_all_boundary(&"player_phase_start")
+	if expired_statuses > 0:
+		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_start count=%d" % expired_statuses)
+	battle.turn_number += 1
+	battle.absolute_guard_countered_enemies.clear()
+	for actor_id in battle.actors.keys():
+		var player_actor = battle.actors[actor_id]
+		if player_actor.team != "player" or not player_actor.is_alive():
+			continue
+		var energy_before: int = player_actor.ultimate_energy
+		player_actor.gain_ultimate_energy(1)
+		if player_actor.ultimate_energy != energy_before:
+			battle._emit_event("ultimate_energy_gained", String(actor_id), String(actor_id), "source=player_turn_start energy=%d" % player_actor.ultimate_energy)
+	battle.ap.reset()
+	battle.phase = battle.BattlePhase.PLAYER
+	battle.intents = IntentPlannerScript.plan(battle)
+	battle._emit_event("player_turn_started", "sevrin", "", "turn=%d" % battle.turn_number)
+
+
+static func check_battle_end(battle) -> void:
+	if battle.phase == battle.BattlePhase.FINISHED:
+		return
+	if battle.actors.has("sevrin") and not battle.actors["sevrin"].is_alive():
+		finish_battle(battle, "defeat")
+		return
+	var living_enemies := 0
+	for actor in battle.actors.values():
+		if actor.team == "enemy" and actor.is_alive():
+			living_enemies += 1
+	if living_enemies == 0:
+		finish_battle(battle, "victory")
+
+
+static func finish_battle(battle, result: String) -> void:
+	if battle.phase == battle.BattlePhase.FINISHED:
+		return
+	battle.phase = battle.BattlePhase.FINISHED
+	battle.battle_result = result
+	for intent in battle.intents:
+		if intent.state == BattleIntentScript.IntentState.ACTIVE:
+			intent.cancel("battle_finished")
+	var removed_statuses: int = battle.statuses.clear_all()
+	var removed_area_effects: int = battle.area_effects.clear_all()
+	if removed_area_effects > 0:
+		battle._emit_event("area_effects_cleared", "", "", "reason=battle_finished count=%d" % removed_area_effects)
+	if removed_statuses > 0:
+		battle._emit_event("statuses_cleared", "", "", "reason=battle_finished count=%d" % removed_statuses)
+	battle.battle_finished.emit(result)
+	battle._emit_event("battle_" + result, "", "", result)

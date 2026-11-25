@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-25，`main` @ `e0ba84d` + v1 移除分支，Godot 4.7.2 导入零错误、十三个测试套件 483 条断言 0 失败。
+最后核对：2026-11-25，`main` @ `2afcb0c`（PR #33 合并后），Godot 4.7.2 导入零错误、**十七个测试套件 716 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -21,7 +21,7 @@
 │   ├── enemies/                      # 三种敌人的 .tres 属性档案（M1）
 │   └── levels/                       # 三关 .tres 关卡配置（M1）
 ├── assets/ui/summons/                # 猎人通灵的表现层图标
-├── tests/                            # 16 个无头套件 + framework/test_case.gd 公共基类 + run_all 一键回归
+├── tests/                            # 17 个无头套件 + framework/test_case.gd 公共基类 + run_all 一键回归
 └── docs/                             # 设计规范、状态记录、工程基线与验证清单
 ```
 

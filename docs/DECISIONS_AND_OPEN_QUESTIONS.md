@@ -55,6 +55,19 @@ The project owner delegated detailed Prototype 0.1 design and implementation dec
 - What is the final event-resolution order for damage, death, status effects, telegraph cancellation, and triggers?
 - What are the final damage, armor, health, and control formulas?
 
+## Proposed by `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` (Draft) — awaiting owner review
+
+The system-laws document is a Draft and proposes two changes to this file. Neither is applied below, because a draft cannot amend a confirmed rule on its own authority.
+
+- **Open — document interface clauses (§1.1).** Proposed split of responsibility: the world overview and prologue may produce atmosphere, art direction and marketing copy only, never world rules or mechanism explanations; the system-laws document may produce laws and mechanism explanations, never copy or scripts; on conflict the system-laws document wins, and the older text is void without being rewritten. Needs a decision before it constrains future writing.
+- **Open — reclassify the no-retarget family.** The entries above about "cancel instead of retarget / never reselect at execution time / terrain must not silently alter telegraphs" are currently **Confirmed** as independently approved rules. The proposal is that, once Law 1 (既定回响) is confirmed, these become **corollaries derived from it** rather than separately approved decisions. They stay Confirmed until Law 1 is confirmed; the reclassification is not applied yet.
+
+Two further notes from the same review, recorded here so they are not lost:
+
+- The laws document claims a "skill cooldown" mechanism for Law 2, but only the hunter summon has a cooldown; the four active skills have none. Either the law's wording or the skill design has to change.
+- Law 4 (per-level anomaly) assumes the mitigation constant `K` can be overridden per level. `K` is currently a literal inside `CombatMath.calculate_damage`, so no anomaly can be expressed until it becomes an injectable parameter. This is a prerequisite, not a detail.
+
+
 ## To test
 
 - Battlefield dimensions and camera scale.

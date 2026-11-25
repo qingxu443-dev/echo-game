@@ -103,7 +103,8 @@ static func _draw_telegraphs(canvas: CanvasItem, controller) -> void:
 ## needs a free cell beside the target as well as a ready cooldown, so a ring
 ## derived from distance alone used to promise a cast the controller refused.
 static func can_target(controller, skill_bar: Array, skill_id: String, actor_id: String) -> bool:
-	var player = controller.get_actor("sevrin")
+	# The active character, not Sevrin: switching to Sakura must move the ring too.
+	var player = controller.get_active_character()
 	if player == null:
 		return false
 	var actor = controller.get_actor(actor_id)
@@ -127,7 +128,10 @@ static func can_target(controller, skill_bar: Array, skill_id: String, actor_id:
 		return GridRulesScript.has_clear_line_of_sight(player.cell, actor.cell, controller.blocked_cells, controller.get_occupied_cells())
 	if skill_id.begins_with("summon:"):
 		return SummonServiceScript.can_summon(controller, StringName(skill_id.substr(7)), actor_id)
-	return false
+	# Only those two add a condition beyond range. Any other actor-targeted skill
+	# is legal once the range check passes; the cast re-validates on its own, so
+	# answering false here would only suppress the ring on a legal target.
+	return true
 
 
 static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: int, skill_bar: Array) -> void:

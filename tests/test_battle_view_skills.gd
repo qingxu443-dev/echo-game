@@ -1,17 +1,20 @@
 extends "res://tests/framework/test_case.gd"
 
 const MainScene = preload("res://scenes/main/main.tscn")
+const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 
 
 func _run() -> void:
-	await _test_no_default_basic_attack()
+	await _test_no_default_selection()
 	await _test_self_skill_controls()
 	await _test_target_skill_flow()
 	await _test_target_hint_matches_cast()
+	await _test_normal_attack_ring()
+	await _test_hotkeys_cover_the_bar()
 	_report()
 
 
-func _test_no_default_basic_attack() -> void:
+func _test_no_default_selection() -> void:
 	var view: Node = MainScene.instantiate()
 	root.add_child(view)
 	await process_frame
@@ -97,6 +100,56 @@ func _test_target_hint_matches_cast() -> void:
 	# The enemy's left neighbour is also the cell Sevrin's sight line crosses,
 	# so blocking the ring legitimately blocks the mark as well.
 	_check(not view.call("_can_target_actor", "oathkeeper_judgment_mark", enemy.actor_id), "blocking the neighbour on the sight line also drops the mark hint")
+
+	view.queue_free()
+	await process_frame
+
+
+## The normal attack is the primary way a player deals damage, so its ring must
+## track the one-cell range instead of silently never appearing.
+func _test_normal_attack_ring() -> void:
+	var view: Node = MainScene.instantiate()
+	root.add_child(view)
+	await process_frame
+	var controller: Variant = view.get("controller")
+	var sevrin = controller.get_actor("sevrin")
+	var enemy = controller.get_actor("vanguard_00")
+
+	enemy.cell = Vector2i(controller.grid_size.x - 1, controller.grid_size.y - 1)
+	_check(not view.call("_can_target_actor", "oathblade", "vanguard_00"), "the normal attack ring stays off beyond one cell")
+
+	for offset in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+		var cell: Vector2i = sevrin.cell + offset
+		if controller.get_occupied_cells().has(cell) or controller.blocked_cells.has(cell):
+			continue
+		enemy.cell = cell
+		_check(view.call("_can_target_actor", "oathblade", "vanguard_00"), "an adjacent enemy is highlighted for the normal attack")
+		break
+
+	view.queue_free()
+	await process_frame
+
+
+## Every button needs a key. The bar grew to five when the normal attack came
+## back, and the summon silently fell off the end of the key map.
+func _test_hotkeys_cover_the_bar() -> void:
+	var view: Node = MainScene.instantiate()
+	root.add_child(view)
+	await process_frame
+	var bar: Array = view.get("skill_bar")
+	for index in range(bar.size()):
+		var event := InputEventKey.new()
+		event.pressed = true
+		event.keycode = KEY_1 + index
+		var intent: Dictionary = InputRouterScript.translate(event)
+		_check(int(intent.get("index", -1)) == index, "key %d maps to skill bar slot %d" % [index + 1, index + 1])
+
+	# End to end: the last key must select the last button, not be swallowed.
+	var last_key := InputEventKey.new()
+	last_key.pressed = true
+	last_key.keycode = KEY_1 + bar.size() - 1
+	view.call("_input", last_key)
+	_check(int(view.get("selected_skill")) == bar.size() - 1, "the last hotkey selects the last skill bar entry")
 
 	view.queue_free()
 	await process_frame

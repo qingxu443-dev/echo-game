@@ -106,7 +106,7 @@ static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skil
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 22.0), "点格子移动，最多两格直线", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 40.0), "自身技能点一下即生效", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 58.0), "选中技能后，黄圈标出可打目标", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
-	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 76.0), "数字键 1–4 施放/选择技能", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
+	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 76.0), "数字键 1–5 施放/选择技能", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 94.0), "Esc / 右键取消目标选择", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 112.0), "Tab 切换角色", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 

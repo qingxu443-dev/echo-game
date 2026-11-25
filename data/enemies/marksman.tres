@@ -6,6 +6,7 @@
 script = ExtResource("1_def")
 archetype_id = &"marksman"
 display_name_zh = "神射手"
+glyph = "射"
 health = 2000
 attack = 1200
 defense = 350

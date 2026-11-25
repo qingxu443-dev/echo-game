@@ -47,6 +47,12 @@ func _test_profile_values() -> void:
 	_check(controller.defense == 450, "area controller defense matches the baseline")
 	_check(controller.magic_resistance == 650, "area controller magic resistance matches the baseline")
 
+	# The board token glyph comes from the profile, so three archetypes are
+	# distinguishable at a glance instead of every enemy rendering as 锋.
+	_check(vanguard.glyph == "锋", "vanguard carries its board glyph")
+	_check(marksman.glyph == "射", "marksman carries its board glyph")
+	_check(controller.glyph == "术", "area controller carries its board glyph")
+
 	_check(CatalogScript.get_definition("sorcerer") == null, "an unknown id returns null")
 	_check(not CatalogScript.has_definition("sorcerer"), "an unknown id is not reported as known")
 	_check(not CatalogScript.has_definition(""), "the empty id is not reported as known")
@@ -65,6 +71,7 @@ func _test_controller_uses_profiles() -> void:
 	_check(enemy.attack == profile.attack, "actor attack comes from the profile")
 	_check(enemy.defense == profile.defense, "actor defense comes from the profile")
 	_check(enemy.magic_resistance == profile.magic_resistance, "actor magic resistance comes from the profile")
+	_check(enemy.glyph == profile.glyph and enemy.glyph == "射", "the board token glyph comes from the profile")
 	battle.queue_free()
 
 

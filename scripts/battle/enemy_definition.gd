@@ -7,6 +7,9 @@ extends Resource
 
 @export var archetype_id: StringName = &""
 @export var display_name_zh: String = ""
+## Single character drawn on the board token, mirroring the character sheets
+## (锋 / 射 / 术) so the player can tell archetypes apart at a glance.
+@export var glyph: String = "锋"
 @export var health: int = 0
 @export var attack: int = 0
 @export var defense: int = 0

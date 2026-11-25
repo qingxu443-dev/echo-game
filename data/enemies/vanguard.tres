@@ -6,6 +6,7 @@
 script = ExtResource("1_def")
 archetype_id = &"vanguard"
 display_name_zh = "先锋"
+glyph = "锋"
 health = 3200
 attack = 1400
 defense = 700

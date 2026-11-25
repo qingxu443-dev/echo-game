@@ -72,7 +72,7 @@ static func _draw_downed_actor(canvas: CanvasItem, actor) -> void:
 	canvas.draw_line(center + Vector2(12.0, -12.0), center + Vector2(-12.0, 12.0), P.DOWNED_MARK, 2.0)
 
 
-## V2 status markers: shield/guard on Sevrin and the isolated mark on enemies.
+## V2 status markers: shield/guard on Sevrin; 残香 and the isolated mark on enemies.
 static func _draw_actor_badges(canvas: CanvasItem, controller, actor_id: String, actor, center: Vector2) -> void:
 	if actor.team == "player":
 		if actor.shield > 0:
@@ -80,6 +80,10 @@ static func _draw_actor_badges(canvas: CanvasItem, controller, actor_id: String,
 		if actor_id == "sevrin" and controller.statuses.has_status(actor_id, &"absolute_guard"):
 			canvas.draw_arc(center, 32.0, 0.0, TAU, 48, P.RING_GUARD, 3.0)
 		return
+	# Sakura's petal mark drives her automatic follow-up, so it must be visible.
+	if controller.statuses.has_status(actor_id, &"sakura_petal_mark"):
+		canvas.draw_arc(center, 32.0, 0.0, TAU, 48, P.RING_PETAL, 3.0)
+		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, -28.0), "香", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.PETAL_LABEL)
 	if controller.statuses.has_status(actor_id, &"oathkeeper_mark"):
 		canvas.draw_arc(center, 27.0, 0.0, TAU, 48, P.RING_MARK, 3.0)
 		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-7.0, -28.0), "印", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.MARK_LABEL)

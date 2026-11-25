@@ -48,6 +48,10 @@ const RING_SHIELD := Color("#7fb8d8")
 const RING_ACTIVE := Color("#e4d2aa")
 const RING_GUARD := Color("#e0b25c")
 const RING_MARK := Color("#c98be0")
+## Sakura's petal mark. Pink so it cannot be confused with the purple
+## Judgment Mark ring, and clearly visible: the mark drives her automatic
+## follow-up, so the player must see who carries it.
+const RING_PETAL := Color("#e89ab0")
 const RING_MELEE := Color("#e3a35d")
 const RING_WAIT := Color("#8c8b84")
 const RING_TARGET := Color(0.95, 0.85, 0.55, 0.55)
@@ -55,6 +59,7 @@ const RING_TARGET := Color(0.95, 0.85, 0.55, 0.55)
 ## enemy in reach.
 const RING_ALLY := Color(0.56, 0.78, 0.60, 0.70)
 const MARK_LABEL := Color("#e6c9f2")
+const PETAL_LABEL := Color("#f7d9e2")
 
 const TELEGRAPH_PULSE_FILL := Color(0.48, 0.35, 0.72, 0.24)
 const TELEGRAPH_PULSE_LINE := Color("#b49adf")

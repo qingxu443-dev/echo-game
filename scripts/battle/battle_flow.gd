@@ -133,7 +133,13 @@ static func begin_player_turn(battle) -> void:
 static func check_battle_end(battle) -> void:
 	if battle.phase == battle.BattlePhase.FINISHED:
 		return
-	if battle.actors.has("sevrin") and not battle.actors["sevrin"].is_alive():
+	# §12: defeat only when the whole party is down. A single downed member is
+	# still revivable while anyone else stands.
+	var living_party := 0
+	for actor in battle.actors.values():
+		if actor.team == "player" and actor.is_alive():
+			living_party += 1
+	if battle.actors.has("sevrin") and living_party == 0:
 		finish_battle(battle, "defeat")
 		return
 	var living_enemies := 0

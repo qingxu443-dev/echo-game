@@ -97,7 +97,8 @@ func get_occupied_cells(exclude_actor_id: String = "") -> Dictionary:
 	var occupied: Dictionary = {}
 	for actor_id in actors:
 		var actor = actors[actor_id]
-		if actor_id != exclude_actor_id and actor.is_alive():
+		# §12: a downed body still holds its cell, so it blocks movement.
+		if actor_id != exclude_actor_id and actor.blocks_cell():
 			occupied[actor.cell] = actor_id
 	return occupied
 

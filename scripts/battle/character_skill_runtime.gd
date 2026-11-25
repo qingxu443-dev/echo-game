@@ -141,6 +141,11 @@ static func _pierce_blossom(battle, skill, target_actor_id: String) -> bool:
 	if target.is_alive():
 		_apply_petal_mark(battle, caster, target)
 	gain_intent_from_action(battle, caster)
+	# §13 applies to every character's successful active action. This branch used
+	# to be the one skill that skipped it, so Pierce Blossom paid no ultimate
+	# energy while the dash and the rectangle did - same rule, different result
+	# depending on which button was pressed.
+	SkillExecutorScript.gain_active_energy(battle, caster.actor_id)
 	if was_marked:
 		_check_echo_return(battle, caster, target)
 	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_pierce_blossom ap=1")

@@ -33,6 +33,7 @@ func _run() -> void:
 	_test_oath_shield_reaches_a_party_member()
 	_test_a_dead_target_is_not_marked()
 	_test_active_skills_grant_ultimate_energy()
+	_test_every_sakura_action_grants_the_same_energy()
 	_test_cast_uses_the_commanded_character()
 	_test_movement_uses_the_commanded_character()
 	_test_oath_vow_follows_the_passive_not_the_character()
@@ -516,3 +517,38 @@ func _test_active_skills_grant_ultimate_energy() -> void:
 	_check(battle.request_skill(&"sakura_falling_petals", "vanguard_00"), "Falling Petals resolves on the new turn")
 	_check(sakura.ultimate_energy == 4, "the first active action of the new turn grants one energy")
 	battle.queue_free()
+
+
+## §13 grants one ultimate energy per character per turn for a successful active
+## action. Pierce Blossom was the one branch that skipped it, so which button the
+## player pressed decided whether they got energy. Written as a loop over the two
+## single-target skills plus the rectangle rather than as one call, because the
+## whole point is that the rule does not depend on which skill it was.
+func _test_every_sakura_action_grants_the_same_energy() -> void:
+	var cases := [
+		{"skill": &"sakura_pierce_blossom", "enemy": Vector2i(2, 1), "label": "Pierce Blossom"},
+		{"skill": &"sakura_flowing_wind", "enemy": Vector2i(2, 1), "label": "Flowing Wind"},
+	]
+	for entry in cases:
+		var battle = ControllerScript.new()
+		root.add_child(battle)
+		var ids: Array[String] = ["sakura"]
+		battle.start_encounter(Vector2i(1, 1), [entry["enemy"]], [], [], ids, [])
+		var sakura = battle.get_actor("sakura")
+		var before: int = sakura.ultimate_energy
+		_check(battle.request_skill(entry["skill"], "vanguard_00"), "%s resolves" % entry["label"])
+		_check(sakura.ultimate_energy == before + 1, "%s grants one ultimate energy" % entry["label"])
+		battle.queue_free()
+
+	# The once-per-turn cap applies across skills, not per skill: a second action
+	# in the same turn must not pay again.
+	var capped = ControllerScript.new()
+	root.add_child(capped)
+	var capped_ids: Array[String] = ["sakura"]
+	capped.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], capped_ids, [])
+	var capped_sakura = capped.get_actor("sakura")
+	_check(capped.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "first action resolves")
+	var after_first: int = capped_sakura.ultimate_energy
+	_check(capped.request_skill(&"sakura_flowing_wind", "vanguard_00"), "second action resolves")
+	_check(capped_sakura.ultimate_energy == after_first, "the second action in the same turn grants no further energy")
+	capped.queue_free()

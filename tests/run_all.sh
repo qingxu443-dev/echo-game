@@ -82,4 +82,13 @@ if [ -n "${EXPECTED_ASSERTIONS:-}" ] && [ "$total" -lt "$EXPECTED_ASSERTIONS" ];
 	echo "If the drop is intended, update docs/engineering/BASELINE.md and record why."
 	exit 1
 fi
+
+# The total also appears in prose in several documents. Three times a separate
+# pull request updated those copies while another raised the real number, and the
+# last to merge left the rest describing a state that no longer applied. The doc
+# check reads the baseline and fails on any stale copy.
+if ! bash "$(dirname "$0")/check_doc_numbers.sh"; then
+	echo "documentation disagrees with the baseline above"
+	exit 1
+fi
 exit 0

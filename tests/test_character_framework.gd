@@ -32,6 +32,7 @@ func _run() -> void:
 	_test_a_wall_stops_the_lane()
 	_test_oath_shield_reaches_a_party_member()
 	_test_a_dead_target_is_not_marked()
+	_test_active_skills_grant_ultimate_energy()
 	_report()
 
 
@@ -403,4 +404,25 @@ func _test_a_dead_target_is_not_marked() -> void:
 	battle.get_actor("sakura").cell = Vector2i(1, 1)
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_01"), "a second Pierce Blossom resolves")
 	_check(battle.statuses.has_status("vanguard_01", &"sakura_petal_mark"), "a surviving target is still marked")
+	battle.queue_free()
+
+
+## §13: a successful active action grants one ultimate energy per turn, for
+## every character. The two active skills honour it; the normal-attack slot
+## stays out pending the design adjudication, and the ultimate never grants
+## its own energy.
+func _test_active_skills_grant_ultimate_energy() -> void:
+	var battle = _sakura_battle()
+	var sakura = battle.get_actor("sakura")
+	_check(sakura.ultimate_energy == 1, "Sakura starts with the turn-start energy")
+
+	_check(battle.request_skill(&"sakura_flowing_wind", "vanguard_00"), "Flowing Wind resolves")
+	_check(sakura.ultimate_energy == 2, "the first active action of a turn grants one energy")
+	_check(battle.request_skill(&"sakura_falling_petals", "vanguard_00"), "Falling Petals resolves")
+	_check(sakura.ultimate_energy == 2, "a second action the same turn stays capped at one grant")
+
+	battle.end_player_turn()
+	_check(sakura.ultimate_energy == 3, "the next turn start adds one energy")
+	_check(battle.request_skill(&"sakura_falling_petals", "vanguard_00"), "Falling Petals resolves on the new turn")
+	_check(sakura.ultimate_energy == 4, "the first active action of the new turn grants one energy")
 	battle.queue_free()

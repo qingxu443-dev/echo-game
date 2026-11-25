@@ -170,6 +170,10 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	caster.cell = landing
 	battle._emit_event("actor_moved", caster.actor_id, "", str(landing))
 	gain_intent_from_action(battle, caster)
+	# §13: a successful active action grants one ultimate energy per turn, for
+	# every character. The dash resolves even without a strike, so the grant
+	# follows the action rather than the hit.
+	SkillExecutorScript.gain_active_energy(battle, caster.actor_id)
 
 	if GridRulesScript.manhattan_distance(caster.cell, target.cell) == 1:
 		var was_marked: bool = battle.statuses.has_status(target.actor_id, PETAL_MARK)
@@ -219,6 +223,8 @@ static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
 		if actor.is_alive():
 			_apply_petal_mark(battle, caster, actor)
 	gain_intent_from_action(battle, caster)
+	# §13: same per-turn ultimate-energy grant as every other active action.
+	SkillExecutorScript.gain_active_energy(battle, caster.actor_id)
 	for actor in targets:
 		if actor.is_alive() and bool(was_marked.get(actor.actor_id, false)):
 			_check_echo_return(battle, caster, actor)

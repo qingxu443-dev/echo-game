@@ -139,4 +139,4 @@
 - [x] 胜负一次性提交并阻止后续输入。
 - [x] 不创建战斗状态存档或检查点。
 
-*（现状注：以上清单已由 `tests/` 下 16 个套件、623 条断言覆盖，见 `docs/engineering/BASELINE.md`。）*
+*（现状注：以上清单已由 `tests/` 下现行套件覆盖，套件数与断言总数以 `docs/engineering/BASELINE.md` 为准（CI 亦从该文件读取基线）。）*

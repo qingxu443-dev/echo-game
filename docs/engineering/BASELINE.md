@@ -35,6 +35,14 @@
 | `test_oathkeeper_v2_skill_catalog.gd` | 12 | V2 技能目录 |
 | **合计** | **483** | |
 
+## 持续集成
+
+`.github/workflows/suites.yml` 在每次推送到 `main` 和每个 PR 上复跑本文件的套件。
+
+**断言数不写死在 workflow 里**：CI 从本文件的「断言总数」一行读取，因此基线仍只有一个维护点。脚本层面由 `EXPECTED_ASSERTIONS` 兜底——`tests/run_all.sh` 发现实际断言数低于声明值会直接退出 1。
+
+这条守卫是必需的：某个套件走到不存在的调用会**中途报错但整体仍退出 0、failures=0**，唯一能察觉的信号就是断言数变少。
+
 ## 变更记录
 
 | 日期 | 变更 | 断言变化 |

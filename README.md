@@ -15,7 +15,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 2D 回�
 | **开发与验证平台** | Windows 10/11（64 位），目标分辨率 `1280 × 720`（横屏） |
 | **移动端方向** | Android 横屏（本阶段优先完成 Windows 桌面验证，暂未验证 Android 导出） |
 | **技能组版本** | **守誓者 V2**（裁决印记 / 誓盾庇护 / 绝对守护 + 被动「不屈誓约」） |
-| **自动化验证** | 2026-11-25 完成 Godot 4.7.2 导入、13 个测试套件及主场景无头运行（**483 条断言，0 失败**，基线见 `docs/engineering/BASELINE.md`） |
+| **自动化验证** | 2026-11-25 完成 Godot 4.7.2 导入、13 个测试套件及主场景无头运行（**483 条断言，0 失败**，基线见 `docs/engineering/BASELINE.md`）；每次推送到 main 或开 PR 时由 GitHub Actions 复跑（`.github/workflows/suites.yml`） |
 | **待人工验证** | Windows 桌面交互与画面表现、Android 导出与真机表现 |
 
 ---

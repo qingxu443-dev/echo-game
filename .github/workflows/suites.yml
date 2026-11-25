@@ -71,6 +71,12 @@ jobs:
       - name: Run suites
         run: |
           set -euo pipefail
-          EXPECTED=$(grep -oP '\| 断言总数 \| \*\*\K[0-9]+' docs/engineering/BASELINE.md)
+          EXPECTED=$(grep -oP '\| 断言总数 \| \*\*\K[0-9]+' docs/engineering/BASELINE.md || true)
+          if [ -z "${EXPECTED:-}" ]; then
+            echo "::error::could not read 断言总数 from docs/engineering/BASELINE.md"
+            exit 1
+          fi
           echo "BASELINE.md declares at least $EXPECTED assertions"
-          GODOT="$GODOT_BIN" EXPECTED_ASSERTIONS="$EXPECTED" ./tests/run_all.sh
+          # Invoked through bash so the run does not depend on the executable bit
+          # surviving a checkout on any platform.
+          GODOT="$GODOT_BIN" EXPECTED_ASSERTIONS="$EXPECTED" bash ./tests/run_all.sh

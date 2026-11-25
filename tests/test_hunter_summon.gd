@@ -6,6 +6,7 @@ extends "res://tests/framework/test_case.gd"
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
+const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
 
 
 func _run() -> void:
@@ -15,7 +16,32 @@ func _run() -> void:
 	_check_invalid_targets()
 	_check_lethal_strike_ends_the_battle()
 
+	_test_summon_framework()
 	_report()
+
+
+## The summon is data now, not a controller constant with a view-side roster.
+func _test_summon_framework() -> void:
+	_check(SummonCatalogScript.has_definition(&"yu_bubble"), "the summon catalog exposes the starter summon")
+	var definition = SummonCatalogScript.get_definition(&"yu_bubble")
+	_check(definition.is_valid(), "the summon definition validates")
+	_check(definition.cooldown_turns == 2, "the cooldown comes from the definition")
+	_check(definition.ap_cost == 0, "the summon is free as the plan states")
+
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 4)])
+	_check(not battle.request_skill(&"summon:missing", "vanguard_00"), "an unknown summon id is refused")
+
+	# Summons belong to the player, so a character without one still offers it.
+	var sakura_ids: Array[String] = ["sakura"]
+	var sakura_battle = ControllerScript.new()
+	root.add_child(sakura_battle)
+	sakura_battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], sakura_ids, [])
+	_check(sakura_battle.request_skill(&"summon:yu_bubble", "vanguard_00"), "Sakura can call the summon")
+	_check(sakura_battle.summon_cooldown_remaining(&"yu_bubble") > 0, "the summon enters its cooldown for any character")
+	battle.queue_free()
+	sakura_battle.queue_free()
 
 
 func _check_ready_on_a_fresh_encounter() -> void:
@@ -40,10 +66,8 @@ func _check_strike_cost_and_cooldown() -> void:
 
 	# The strike magnitude is a prototype baseline; pin it so a silent change
 	# here cannot slip past the documentation.
-	var raw: int = CombatMathScript.calculate_raw_damage(
-		ControllerScript.HUNTER_SUMMON_ATTACK,
-		ControllerScript.HUNTER_SUMMON_MULTIPLIER
-	)
+	var definition = SummonCatalogScript.get_definition(&"yu_bubble")
+	var raw: int = CombatMathScript.calculate_raw_damage(definition.attack, definition.damage_multiplier)
 	_check(raw == 1260, "the summon raw strike is the documented baseline of 1260")
 
 	_check(battle.request_hunter_summon("vanguard_00"), "the hunter can be summoned on a living enemy")

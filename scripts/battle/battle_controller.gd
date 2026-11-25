@@ -27,14 +27,7 @@ const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 const DamagePipelineScript = preload("res://scripts/battle/damage_pipeline.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
-
-## Hunter summon: a free support strike on a cooldown. The hunter is not a
-## battlefield unit -- it appears next to the chosen enemy, strikes once and is
-## gone, so it never occupies a cell, never appears in the intent order and can
-## never be targeted. Values are prototype baselines pending playtesting.
-const HUNTER_SUMMON_ATTACK: int = 1400
-const HUNTER_SUMMON_MULTIPLIER: float = 0.9
-const HUNTER_SUMMON_COOLDOWN_TURNS: int = 2
+const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
 
 ## Maximum straight-line steps for one player move action. The UI reads this
 ## constant so the movement-range rule has a single source of truth.
@@ -60,8 +53,8 @@ var battle_result: String = ""
 var damage_dealt: int = 0
 var damage_taken: int = 0
 var enemies_defeated: int = 0
-## Turn number the hunter summon was last used on. -1 means "not yet used".
-var summon_last_used_turn: int = -1
+## summon_id -> the player turn it was last used on. Absent means "never used".
+var summon_last_used_turn: Dictionary = {}
 var statuses: BattleStatusCollection = StatusCollectionScript.new()
 ## actor_id -> player turn number after which the oath shield expires.
 var oath_shield_expiry_turn: Dictionary = {}
@@ -209,16 +202,16 @@ func request_skill(skill_id: StringName, target_actor_id: String = "") -> bool:
 
 # --- hunter summon -----------------------------------------------------------
 
-func summon_cooldown_remaining() -> int:
-	return SummonServiceScript.cooldown_remaining(self)
+func summon_cooldown_remaining(summon_id: StringName = SummonCatalogScript.DEFAULT_ID) -> int:
+	return SummonServiceScript.cooldown_remaining(self, summon_id)
 
 
-func can_summon(target_actor_id: String = "") -> bool:
-	return SummonServiceScript.can_summon(self, target_actor_id)
+func can_summon(target_actor_id: String = "", summon_id: StringName = SummonCatalogScript.DEFAULT_ID) -> bool:
+	return SummonServiceScript.can_summon(self, summon_id, target_actor_id)
 
 
 func request_hunter_summon(target_actor_id: String) -> bool:
-	return SummonServiceScript.request(self, target_actor_id)
+	return SummonServiceScript.request(self, SummonCatalogScript.DEFAULT_ID, target_actor_id)
 
 
 # --- internal surface used by the collaborators and by tests ------------------

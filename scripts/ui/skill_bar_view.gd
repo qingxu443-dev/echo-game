@@ -7,6 +7,7 @@ extends RefCounted
 const P = preload("res://scripts/ui/theme_palette.gd")
 const SkillDefinitionScript = preload("res://scripts/battle/skill_definition.gd")
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
+const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
 
 ## Short HUD hint lines. Rule-relevant numbers (AP cost, target ranges) are
 ## intentionally NOT written here: the entries are built from the V2 skill
@@ -16,17 +17,13 @@ const SKILL_HINTS := {
 	&"oathkeeper_judgment_mark": "1–4 格 · DEF×0.8 · 施加标记",
 	&"oath_shield": "自身 + 两格内友军 · 护盾",
 	&"absolute_guard": "2 AP + 5 能量 · 嘲讽反击",
-	&"hunter_summon": "任意敌人 · 现身一击 · 冷却 2 回合",
+	&"summon:yu_bubble": "任意敌人 · 现身一击",
+	&"oathblade": "相邻 · 100% ATK",
 	&"sakura_pierce_blossom": "相邻 · 100% ATK · 施加残香",
 	&"sakura_flowing_wind": "突进 2 格 · 80% ATK · 施加残香",
 	&"sakura_falling_petals": "面前 3×2 · 三段 · 每段 30% ATK",
 	&"sakura_endless_fragrance": "2 AP + 5 能量 · 十字四段",
 }
-## Display name for bar entries that are not part of the V2 catalog.
-const SKILL_FALLBACK_NAMES := {
-	&"hunter_summon": "猎人通灵",
-}
-
 
 ## The bar is built from the active character's sheet, so switching characters
 ## swaps the buttons. Costs, ranges and targeting all come from the skill
@@ -47,19 +44,24 @@ static func build_entries(controller) -> Array:
 			skill.max_range
 		))
 
-	# The hunter summon belongs to the player rather than to a character sheet, so
-	# it is appended here for the character it ships with instead of living in data.
-	if character_id == "sevrin":
-		var hunter_reach: int = controller.grid_size.x + controller.grid_size.y
-		entries.append(_entry(
-			&"hunter_summon",
-			String(SKILL_FALLBACK_NAMES[&"hunter_summon"]),
-			String(SKILL_HINTS[&"hunter_summon"]),
-			0,
+	# Summons belong to the player, not to a character sheet, so every character
+	# offers them. The list comes from data/summons/, and the id is prefixed so the
+	# runtime needs one branch for all summons rather than one per summon.
+	for summon in SummonCatalogScript.all_definitions():
+		var summon_key := StringName("summon:" + String(summon.summon_id))
+		var reach: int = controller.grid_size.x + controller.grid_size.y
+		var entry: Dictionary = _entry(
+			summon_key,
+			summon.display_name_zh,
+			String(SKILL_HINTS.get(summon_key, summon.description_zh)),
+			summon.ap_cost,
 			"actor",
 			1,
-			hunter_reach
-		))
+			reach
+		)
+		entry["summon_id"] = String(summon.summon_id)
+		entry["icon"] = summon.icon
+		entries.append(entry)
 	return entries
 
 
@@ -87,12 +89,12 @@ static func skill_rect(index: int) -> Rect2:
 	return Rect2(P.SKILL_PANEL_X, P.SKILL_FIRST_Y + float(index) * P.SKILL_BTN_STEP, P.SKILL_PANEL_W, P.SKILL_BTN_H)
 
 
-static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skill: int, summon_options: Array, selected_summon: int) -> void:
+static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skill: int) -> void:
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, 96), "技能", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, P.TEXT)
 
 	for index in range(skill_bar.size()):
-		_draw_skill(canvas, font, controller, skill_bar, index, selected_skill, summon_options, selected_summon)
+		_draw_skill(canvas, font, controller, skill_bar, index, selected_skill)
 
 	var end_color := P.BUTTON_BG if controller.phase == controller.BattlePhase.PLAYER else P.BUTTON_BG_DISABLED
 	canvas.draw_rect(P.END_TURN_RECT, end_color, true)
@@ -109,7 +111,7 @@ static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skil
 	canvas.draw_string(font, Vector2(P.SKILL_PANEL_X, hint_y + 112.0), "Tab 切换角色", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_HINT)
 
 
-static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: Array, index: int, selected_skill: int, summon_options: Array, selected_summon: int) -> void:
+static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: Array, index: int, selected_skill: int) -> void:
 	var skill: Dictionary = skill_bar[index]
 	var rect := skill_rect(index)
 	var affordable: bool = controller.ap != null and controller.ap.can_spend(int(skill["cost"]))
@@ -120,8 +122,8 @@ static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: A
 	var cost_label := "%d AP" % int(skill["cost"])
 	var cost_offset: float = 52.0
 	var cost_y: float = 30.0
-	if skill["id"] == "hunter_summon":
-		var summon_remaining: int = controller.summon_cooldown_remaining()
+	if skill.has("summon_id"):
+		var summon_remaining: int = controller.summon_cooldown_remaining(StringName(str(skill["summon_id"])))
 		affordable = controller.phase == controller.BattlePhase.PLAYER and summon_remaining <= 0
 		cost_label = "就绪" if summon_remaining <= 0 else "冷却 %d" % summon_remaining
 		cost_offset = 76.0
@@ -141,11 +143,9 @@ static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: A
 	var text_color := P.BUTTON_TEXT if affordable else P.TEXT_DISABLED
 	var skill_name: String = str(skill["name"])
 	var text_x: float = 14.0
-	if skill["id"] == "hunter_summon" and not summon_options.is_empty():
-		var summon_option: Dictionary = summon_options[selected_summon]
+	if skill.has("icon") and skill["icon"] != null:
 		var icon_modulate: Color = Color(1.0, 1.0, 1.0) if affordable else Color(1.0, 1.0, 1.0, 0.45)
-		canvas.draw_texture_rect(summon_option["icon"], Rect2(rect.position + Vector2(8.0, 8.0), Vector2(34.0, 34.0)), false, icon_modulate)
-		skill_name += " · " + str(summon_option["name"])
+		canvas.draw_texture_rect(skill["icon"], Rect2(rect.position + Vector2(8.0, 8.0), Vector2(34.0, 34.0)), false, icon_modulate)
 		text_x = 50.0
 
 	canvas.draw_string(font, rect.position + Vector2(text_x, 21.0), skill_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, text_color)

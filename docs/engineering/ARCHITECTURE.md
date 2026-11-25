@@ -43,7 +43,7 @@ wc -l scripts/**/*.gd
 | `battle_flow.gd` | 225 | 回合边界、遭遇构建、终止判定 | — |
 | `intent_planner.gd` | 129 | 敌方意图生成 | — |
 | `intent_resolver.gd` | 188 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
-| `skill_executor.gd` | 159 | 玩家技能校验与结算；AP 退款走账本 | — |
+| `skill_executor.gd` | 163 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
 | `damage_pipeline.gd` | 75 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
 | `summon_service.gd` | 98 | 猎人通灵 | — |
 
@@ -88,14 +88,14 @@ wc -l scripts/**/*.gd
 
 ### 表现层（`scripts/ui/`）
 
-表现层拆为六个文件，`battle_view.gd`（272 行）只做编排：保留遭遇生命周期、技能栏与玩家意图，绘制全部转发给下面的视图，原始输入转发给 `input_router`。
+表现层拆为六个文件，`battle_view.gd`（293 行）只做编排：保留遭遇生命周期、技能栏与玩家意图，绘制全部转发给下面的视图，原始输入转发给 `input_router`。
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `battle_view.gd` | 272 | 编排：关卡流程、技能栏构建、点击分发、控制器信号 |
-| `board_view.gd` | 174 | 棋盘、障碍、单位与状态标记、意图预告、目标黄圈（`can_target()` 转发 `can_aim()`） |
-| `skill_bar_view.gd` | 173 | 五格技能栏、结束回合按钮、操作提示；`skill_rect()` 是唯一的按钮几何，`is_affordable()` 是唯一的按钮可用判据 |
-| `theme_palette.gd` | 121 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
+| `battle_view.gd` | 293 | 编排：关卡流程、技能栏构建、点击分发（敌人 / 友军 / 空地）、控制器信号 |
+| `board_view.gd` | 199 | 棋盘、障碍、单位与状态标记、意图预告、目标圈（`can_target()` 转发 `can_aim()`，`can_target_ally()` 管友军） |
+| `skill_bar_view.gd` | 185 | 五格技能栏、结束回合按钮、操作提示；`mode` 分 actor / ally / self，`skill_rect()` 是唯一的按钮几何，`is_affordable()` 是唯一的按钮可用判据 |
+| `theme_palette.gd` | 124 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
 | `hud_view.gd` | 103 | 标题、回合与资源读数、战术提示、敌方行动顺序 |
 | `settlement_view.gd` | 71 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |
 | `input_router.gd` | 66 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` |

@@ -12,6 +12,8 @@ func _run() -> void:
 	_test_v2_judgment_mark_rejects_invalid_targets()
 	_test_oath_shield_validation_and_duration()
 	_test_absolute_guard_taunt_counter_and_energy()
+	_test_absolute_guard_redirects_distant_melee()
+	_test_absolute_guard_end_to_end_enemy_phase()
 	_report()
 
 
@@ -193,5 +195,48 @@ func _test_absolute_guard_cleans_up_on_sevrin_death() -> void:
 	battle._check_battle_end()
 	_check(battle.phase == ControllerScript.BattlePhase.FINISHED, "Sevrin defeat ends the encounter")
 	_check(not battle.statuses.has_status("sevrin", &"absolute_guard"), "Sevrin defeat clears Absolute Guard immediately")
+	battle.queue_free()
+
+
+## Regression guard for the unified melee redirect semantics: actor-locked
+## attacks are dodge-proof, so the taunt covers the whole two-cell radius.
+func _test_absolute_guard_redirects_distant_melee() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)]), "distant melee redirect encounter starts")
+	battle.statuses.apply_status(&"absolute_guard", "sevrin", "sevrin", 1, 1, -1, &"player_phase_start")
+	battle.actors["ally_test"] = ActorScript.new("ally_test", "player", Vector2i(1, 2), 1000, "support", 300, 100, 100)
+	var enemy = battle.get_actor("vanguard_00")
+	enemy.cell = Vector2i(3, 1)
+	var distant_melee = IntentScript.new("distant_melee_test", "vanguard_00", "basic_melee", IntentScript.TargetMode.ACTOR_LOCKED, "ally_test", Vector2i(1, 2), [Vector2i(1, 2)], 100, 0)
+	battle._redirect_single_target_intent_to_sevrin(distant_melee)
+	_check(distant_melee.target_actor_id == "sevrin" and distant_melee.target_cell == Vector2i(1, 1), "a melee inside the taunt radius redirects even when Sevrin is not adjacent")
+	enemy.cell = Vector2i(4, 1)
+	var far_melee = IntentScript.new("far_melee_test", "vanguard_00", "basic_melee", IntentScript.TargetMode.ACTOR_LOCKED, "ally_test", Vector2i(1, 2), [Vector2i(1, 2)], 100, 0)
+	battle._redirect_single_target_intent_to_sevrin(far_melee)
+	_check(far_melee.target_actor_id == "ally_test", "a melee beyond the taunt radius keeps its original target")
+	battle.queue_free()
+
+
+## End-to-end coverage for the wiring that the white-box tests cannot see:
+## a real enemy phase must register the public hits, fire the redirect and
+## resolve exactly one counter per attacker without any manual intervention.
+func _test_absolute_guard_end_to_end_enemy_phase() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1), Vector2i(1, 2)]), "Absolute Guard end-to-end encounter starts")
+	var sevrin = battle.get_actor("sevrin")
+	var first = battle.get_actor("vanguard_00")
+	var second = battle.get_actor("vanguard_01")
+	sevrin.ultimate_energy = 5
+	_check(battle.request_absolute_guard(), "Absolute Guard activates through the public API")
+	var telegraphs = battle.intents
+	_check(telegraphs.size() == 2 and telegraphs.all(func(intent): return intent.action_id == "basic_melee"), "two adjacent vanguards telegraph melee attacks")
+	_check(battle.end_player_turn(), "the real enemy phase resolves with Absolute Guard active")
+	_check(telegraphs.all(func(intent): return intent.state == IntentScript.IntentState.RESOLVED), "both melee intents resolve through the real enemy phase")
+	_check(sevrin.health == 12000 - 678 * 2, "both melee attacks land their mitigated damage on Sevrin")
+	_check(first.health == 3200 - 191 and second.health == 3200 - 191, "each attacker is countered exactly once by the real enemy-phase pipeline")
+	_check(battle.damage_taken == 678 * 2, "the settlement tally records only the real attrition")
+	_check(battle.phase == ControllerScript.BattlePhase.PLAYER, "the battle continues into the next player phase")
 	battle.queue_free()
 

@@ -41,6 +41,11 @@ func _check_ap_ledger() -> void:
 	ap.reset()
 	_check(ap.current == 3, "reset restores the maximum")
 
+	ap.spend(1)
+	_check(ap.refund(1) and ap.current == 3, "a refund restores a committed spend")
+	_check(not ap.refund(1) and ap.current == 3, "a refund beyond the maximum keeps the ledger untouched")
+	_check(not ap.refund(-1) and ap.current == 3, "a negative refund is rejected")
+
 	var clamped: APBudget = APBudgetScript.new(-2)
 	_check(clamped.maximum == 0 and clamped.current == 0, "a negative maximum is clamped to zero")
 

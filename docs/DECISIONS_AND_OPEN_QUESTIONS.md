@@ -1,77 +1,84 @@
-# ECHO — Decisions and Open Questions
+# ECHO — 决策记录与待决问题
 
-Use these labels consistently:
+> **现状核对（2026-11-25，`main` @ `3e4c83b`）**：本文件是决策记录，翻译时保留原始决策原文的语义。与当前实现的差异已按 `main` 最新增补直接核正进正文，其余差异标注如下：
+> - 「临时猎人伙伴」在实现中已演变为**猎人通灵技**——不占场的单次支援打击，两回合冷却，不生成战场单位（见 `docs/PROJECT_STATUS.md` 的 P0）。
+> - 「待决问题」中的事件结算顺序与伤害公式两项，已由 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/combat_stats_zh-CN.md` 分别落地。
 
-- **Confirmed** — explicitly approved by the project owner.
-- **Planning baseline** — current planning direction, not necessarily final.
-- **Open** — requires a decision.
-- **To test** — requires prototype evidence.
-- **Rejected** — explicitly ruled out.
+统一使用以下标签：
 
-## Confirmed foundations
+- **已确认（Confirmed）** — 项目所有者明确批准。
+- **规划基线（Planning baseline）** — 当前规划方向，不一定是最终方案。
+- **待决（Open）** — 需要做出决策。
+- **待测试（To test）** — 需要原型实机证据。
+- **已否决（Rejected）** — 已明确排除。
 
-- 2D turn-based tactical roguelite.
-- Android, landscape-first; single-player and offline.
-- Godot 4.x with GDScript.
-- Pure top-down square-grid battlefield.
-- Prototype movement costs 1 AP and moves up to two orthogonal cells.
-- Base player turn budget is 3 AP.
-- Actions resolve immediately and may only be canceled before target confirmation.
-- Enemy telegraphs are generated at the start of the player turn.
-- Telegraph targeting uses a mixed model: each action may lock to an actor, a grid cell, or an area according to its design; the telegraph must communicate the selected mode.
-- Actor-locked attacks continue tracking their designated actor; tile-locked attacks resolve at the originally marked cell; area-locked attacks resolve in the originally marked area.
-- If an actor-locked action's designated target is defeated before execution, that action is canceled, does not retarget another actor, and does not refund or compensate player AP; the enemy's action slot is considered resolved.
-- A successful control/interruption immediately cancels the affected enemy's current telegraph; a failed control leaves that telegraph unchanged. The effect does not alter other enemies' telegraphs.
-- Enemy execution order is fixed and visibly communicated: sort by predefined enemy action priority, then by stable battlefield position for ties; show the complete order before the enemy phase and keep it fixed for that phase.
-- Prototype 0.1 enemy intent selection uses deterministic priorities: eligible special actions first, ordinary attacks second, movement or waiting last; ties use a fixed deterministic rule, not a fresh random choice. Once telegraphed, the intent is not freely reselected at execution time.
-- Earlier enemy actions do not silently rewrite later enemies' telegraphed targets: actor locks continue tracking the same actor, tile locks resolve at the original cell, and area locks resolve in the original area. If a later action becomes genuinely impossible because the battlefield changed, cancel it rather than retargeting or generating a replacement attack.
-- Terrain changes do not silently alter existing telegraphs: if the original action remains possible, it resolves at its original target/area; if terrain makes it impossible, cancel it. Terrain changes cannot silently expand its area or change its target.
-- If an enemy's telegraphed action cannot legally execute at resolution time, cancel it without selecting a new target or switching skills, do not refund/compensate player AP, and record the cancellation reason in the battle log/debug event.
-- An enemy's telegraph is canceled immediately when that enemy dies.
-- Prototype companion actions are player-commanded, then automatically executed; the companion has one independent support action per player turn.
-- No mid-run saves, checkpoints, or run restoration. Out-of-run progression may persist.
-- ECHO and Shiguang must remain completely separate.
+## 已确认的基础规则
 
-## Prototype 0.1 scope baseline
+- 2D 回合制战术 Roguelite。
+- Android 平台，横屏优先；单机与离线运行。
+- Godot 4.x 与 GDScript。
+- 纯俯视正方形网格战场。
+- 原型移动消耗 1 AP，最多沿正交方向移动两格。
+- 玩家回合基础预算为 3 AP。
+- 动作立即结算；仅允许在目标确认前取消。
+- 敌方预告（telegraph）在玩家回合开始时生成。
+- 预告目标采用混合模型：每个动作按其设计可锁定角色（actor）、格子（tile）或区域（area）；预告必须向玩家传达所选定的模式。
+- 角色锁定的攻击持续追踪其指定角色；格子锁定的攻击在最初标记的格子结算；区域锁定的攻击在最初标记的区域结算。
+- 若角色锁定的动作所指定目标在执行前被击败，该动作取消，不重新选择其他目标，也不退还或补偿玩家 AP；该敌人的行动槽位视为已结算。
+- 一次成功的控制/打断会立即取消受影响敌人的当前预告；一次失败的控制不改变该预告。控制效果不改变其他敌人的预告。
+- 敌方执行顺序固定且对玩家可见：先按预定义的敌人行动优先级排序，同优先级再按稳定的战场位置排序；在敌方阶段开始前展示完整顺序，并在该阶段内保持不变。
+- Prototype 0.1 的敌方意图选择使用确定性优先级：先考虑符合条件的特殊动作，其次普通攻击，最后移动或待机；并列时使用固定的确定性规则，而不是重新随机选择。意图一经预告，执行时不得随意重选。
+- 先执行的敌方动作不得悄悄改写后续敌人已预告的目标：角色锁定继续追踪同一角色，格子锁定在原格结算，区域锁定在原区域结算。若后续动作因战场变化而确实无法执行，则取消该动作，而不是重新选目标或生成替代攻击。
+- 地形变化不得悄悄改动既有预告：若原动作仍可执行，则按原目标/区域结算；若地形使其无法执行，则取消。地形变化不得悄悄扩大其范围或更改其目标。
+- 若敌人的预告动作在结算时已无法合法执行，则取消之；不选择新目标、不切换技能、不退还/补偿玩家 AP，并在战斗日志/调试事件中记录取消原因。
+- 敌人阵亡时其预告立即取消。
+- 原型阶段的伙伴动作由玩家下令、随后自动执行；伙伴在每个玩家回合拥有一次独立支援动作。
+- 无局内存档、检查点或断点恢复。局外进度可以持久化。
+- ECHO 与「拾光」项目必须完全隔离。
 
-One playable Oathkeeper (Sevrin), one temporary Hunter companion, three ordinary enemy types, one battlefield, four player-facing skill slots plus the Oath Vow passive (verified against the shipped skill bar, 2026-11-25; the earlier "five to six skills" predates the V2 kit), the AP and telegraph systems, victory/defeat resolution, and Android touch interaction.
+## Prototype 0.1 范围基线
 
-Confirmed enemy battlefield roles: melee vanguard (close-range pressure), ranged marksman (long-range threat), and area controller (area denial). The melee vanguard's approved behavior direction is hybrid: normally pursues and applies steady melee pressure, then uses a charged strike when conditions are met. Exact trigger conditions and all action details remain open. Other identities, art, stats, exact actions, targeting assignments, and numerical values remain open.
+一名可操作的守誓者（瑟弗林）、一名临时猎人伙伴、三种普通敌人、一张战场、**四个玩家技能槽 + 不屈誓约被动**（已对照上线技能栏核正，2026-11-25；较早的「五到六个技能」早于 V2 技能组）、AP 与预告系统、胜负判定，以及 Android 触控交互。
 
-## Maintainer-selected planning baselines (delegated autonomy)
+已确认的敌方战场角色：近战先锋（近距离压迫）、远程神射手（远程威胁）、区域控制者（区域拒止）。先锋已批准的行为方向为混合式：平时持续追击施加近战压力，满足条件时使用蓄力重击。确切触发条件与全部动作细节仍待决。其余身份、美术、数值、确切动作、目标模式分配与具体数字均待决。
 
-The project owner delegated detailed Prototype 0.1 design and implementation decisions to the maintainer while unavailable. The following are selected implementation baselines, not claims of explicit owner review; numerical values remain subject to playtesting.
+> **现状标注**：范围基线中的「一名临时猎人伙伴」已按头部注记实现为猎人通灵技；当前技能组为守誓者 V2（三项主动 + 一项被动）加猎人通灵（见 `README.md`）。
 
-- Melee Vanguard (numbers verified against `data/enemies/vanguard.tres` and the intent planner, 2026-11-25): 3200 health, 1400 attack, 700 defense, 350 magic resistance. Pursuit up to 2 orthogonal cells; adjacent actor-locked basic melee at 0.8x attack; straight-line distance-2 tile-locked charged strike at 1.5x attack. Selection priority is charged strike (0), basic attack (1), pursuit (2), wait (3). Target and action are captured at telegraph generation; no execution-time retargeting.
-- Melee Vanguard target selection: the intent generator locks onto Sevrin only. There is no health-ratio or distance-based target choice, because the prototype has exactly one player-side actor. This supersedes the earlier "lowest health ratio, then stable actor ID" note, which described a roster the prototype does not have.
-- Pursuit pathfinding uses a deterministic neighbor order (up, right, down, left); no diagonal movement or traversal through blocked/occupied cells.
-- These values are first-pass encounter tuning, not final balance. The earlier numbers in this section (6 HP, 1 and 2 damage) predate the integer-stat model and are superseded by the values above.
+## 维护者选定的规划基线（授权自治）
 
-## Open questions — do not silently decide in code
+项目所有者在无法参与期间，将 Prototype 0.1 的详细设计与实现决策委托给维护者。以下为选定的实现基线，**并非**声称为所有者亲自审核的结果；数值仍以实机测试为准。
 
-- Which targeting mode (actor-locked, tile-locked, or area-locked) should each individual Prototype 0.1 enemy action use?
-- Do tile-locked or area-locked actions have additional range/line-of-sight invalidation conditions after telegraph generation?
-- How should overlapping telegraphs be layered and inspected on a phone screen?
-- What is the final event-resolution order for damage, death, status effects, telegraph cancellation, and triggers?
-- What are the final damage, armor, health, and control formulas?
+- 近战先锋（数值已对照 `data/enemies/vanguard.tres` 与意图规划器核正，2026-11-25）：生命 3200、攻击 1400、防御 700、法抗 350。最多追击 2 个正交格；对正交相邻目标进行角色锁定的普通近战，按攻击力 0.8× 结算；沿正交直线距离 2 的格子锁定蓄力重击，按攻击力 1.5× 结算。选择优先级为蓄力重击（0）、普通攻击（1）、追击（2）、待机（3）。目标与动作在预告生成时捕获；执行时不重新选目标。
+- 先锋目标选择：意图生成只锁定瑟弗林。不存在按生命比例或距离的目标选择，因为原型恰好只有一个玩家侧单位。本条取代较早的「生命比例最低、其次稳定角色 ID」注记——那条描述的是原型并不存在的多人名单。
+- 追击寻路使用确定性邻格顺序（上、右、下、左）；不允许对角移动，也不允许穿过阻挡或占用格。
+- 这些数值是首轮遭遇调参，不是最终平衡。本节较早的数字（6 生命、1 与 2 伤害）早于整数属性模型，已被上述数值取代。
 
-## Proposed by `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` (Draft) — awaiting owner review
+## 待决问题 — 不得在代码中擅自决定
 
-The system-laws document is a Draft and proposes two changes to this file. Neither is applied below, because a draft cannot amend a confirmed rule on its own authority.
+- Prototype 0.1 中每个敌方动作分别应使用角色锁定、格子锁定还是区域锁定？
+- 格子锁定与区域锁定的动作在预告生成之后，是否还有额外的射程/视线失效条件？
+- 手机屏幕上重叠的预告应如何分层与检视？
+- 伤害、死亡、状态效果、预告取消与触发的最终事件结算顺序是什么？
+- 最终的伤害、护甲、生命与控制公式是什么？
 
-- **Open — document interface clauses (§1.1).** Proposed split of responsibility: the world overview and prologue may produce atmosphere, art direction and marketing copy only, never world rules or mechanism explanations; the system-laws document may produce laws and mechanism explanations, never copy or scripts; on conflict the system-laws document wins, and the older text is void without being rewritten. Needs a decision before it constrains future writing.
-- **Open — reclassify the no-retarget family.** The entries above about "cancel instead of retarget / never reselect at execution time / terrain must not silently alter telegraphs" are currently **Confirmed** as independently approved rules. The proposal is that, once Law 1 (既定回响) is confirmed, these become **corollaries derived from it** rather than separately approved decisions. They stay Confirmed until Law 1 is confirmed; the reclassification is not applied yet.
+> **现状标注**：后两项已落地——事件结算顺序见 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md`；伤害公式见 `docs/combat_stats_zh-CN.md`（递减收益：`原始伤害 × 1000 ÷ (1000 + 对应抗性)`）。
 
-Two further notes from the same review, recorded here so they are not lost:
+## 由 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md`（Draft）提出的提案 — 待所有者评审
 
-- The laws document claims a "skill cooldown" mechanism for Law 2, but only the hunter summon has a cooldown; the four active skills have none. Either the law's wording or the skill design has to change.
-- Law 4 (per-level anomaly) assumes the mitigation constant `K` can be overridden per level. `K` is currently a literal inside `CombatMath.calculate_damage`, so no anomaly can be expressed until it becomes an injectable parameter. This is a prerequisite, not a detail.
+系统法则文档为 Draft 状态，向本文件提出两项变更。两者均未在下方生效，因为草案不能凭自身权威修改已确认规则。
 
+- **待决 — 文档接口条款（§1.1）。** 提议的职责划分：《世界观介绍》与《序章》只能产出氛围、美术方向与宣传文案，绝不产出世界规则或机制解释；系统法则文档只能产出法则与机制解释，绝不产出文案或演出脚本；冲突时以系统法则文档为准，较旧的表述作废且无需改写。在约束后续写作前需要一次决策。
+- **待决 — 重分类「绝不重选」规则族。** 上文中「取消而不重选 / 执行时不重新选择 / 地形不得悄悄改动预告」等条目目前作为各自独立批准的规则处于**已确认**状态。提案是：一旦法则一（既定回响）获确认，这些条目将成为由法则一**推导出的推论**，而非各自独立的批准决定。在法则一确认前它们保持已确认状态；重分类暂不生效。
 
-## To test
+同一次评审的另外两条注记，记录于此以免遗失：
 
-- Battlefield dimensions and camera scale.
-- Touch target sizes and long-press behavior.
-- Telegraph readability with multiple enemies.
-- Encounter pacing and skill balance.
-- Performance on target Android hardware.
+- 法则文档为法则二声称存在「技能冷却」机制，但只有猎人通灵有冷却；四个主动技能均无冷却。法则措辞与技能设计二者必改其一。
+- 法则四（每关异常）假定减伤常数 `K` 可按关卡覆写。`K` 目前是 `CombatMath.calculate_damage` 内的字面量，因此在它变成可注入参数之前无法表达任何关卡异常。这是前置条件，不是细节。
+
+## 待测试
+
+- 战场尺寸与相机缩放。
+- 触控目标大小与长按行为。
+- 多敌人同场时的预告可读性。
+- 遭遇节奏与技能平衡。
+- 目标 Android 硬件上的性能表现。

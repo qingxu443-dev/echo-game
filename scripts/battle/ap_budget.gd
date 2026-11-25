@@ -27,5 +27,14 @@ func spend(cost: int) -> bool:
 	return true
 
 
+## Explicit refund for a spend that was already committed. An invalid refund
+## keeps the ledger untouched; only the battle controller may call this.
+func refund(cost: int) -> bool:
+	if cost < 0 or current + cost > maximum:
+		return false
+	current += cost
+	return true
+
+
 func clear() -> void:
 	current = 0

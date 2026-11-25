@@ -81,7 +81,11 @@ static func redirect_to_sevrin(battle, intent) -> void:
 	var legal := false
 	match intent.action_id:
 		"basic_melee":
-			legal = distance == 1
+			# Actor-locked attacks are dodge-proof by design: they track their
+			# target without re-checking distance at resolve time. A melee is
+			# therefore legally redirected to Sevrin anywhere inside the
+			# two-cell taunt radius, not only when adjacent.
+			legal = distance <= 2
 		"charged_strike":
 			legal = distance == 2 and GridRulesScript.has_clear_orthogonal_line(source.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id))
 		_:

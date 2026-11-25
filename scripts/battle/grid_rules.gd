@@ -35,6 +35,48 @@ static func is_path_legal(
 	return true
 
 
+## Breadth-first candidate path generator for movement hints. Produces at most
+## max_steps orthogonal steps toward the goal, or an empty array when the goal
+## is unreachable, occupied or too far. The caller stays non-authoritative:
+## the battle controller re-validates any produced path through is_path_legal
+## before committing the move.
+static func find_path(
+	start: Vector2i,
+	goal: Vector2i,
+	grid_size: Vector2i,
+	blocked_cells: Dictionary,
+	occupied_cells: Dictionary,
+	max_steps: int = 2
+) -> Array[Vector2i]:
+	if start == goal:
+		return []
+	var queue: Array[Vector2i] = [start]
+	var came_from := {start: start}
+	var directions: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+	while not queue.is_empty():
+		var current: Vector2i = queue.pop_front()
+		if current == goal:
+			break
+		for direction in directions:
+			var next: Vector2i = current + direction
+			if not is_inside_bounds(next, grid_size):
+				continue
+			if blocked_cells.has(next) or occupied_cells.has(next) or came_from.has(next):
+				continue
+			came_from[next] = current
+			queue.append(next)
+	if not came_from.has(goal):
+		return []
+	var reversed_path: Array[Vector2i] = []
+	var cursor: Vector2i = goal
+	while cursor != start:
+		reversed_path.push_front(cursor)
+		cursor = came_from[cursor]
+	if reversed_path.size() > max_steps:
+		return []
+	return reversed_path
+
+
 static func has_clear_orthogonal_line(
 	start: Vector2i,
 	target: Vector2i,

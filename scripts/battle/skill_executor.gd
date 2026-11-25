@@ -143,7 +143,7 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 	for actor_id in actors.keys():
 		battle.statuses.remove_status(String(actor_id), &"oathkeeper_mark")
 	if not battle.statuses.apply_status(&"oathkeeper_mark", "sevrin", target_actor_id, 1, 1, -1, &"enemy_phase_end", &"replace"):
-		battle.ap.current += 1
+		battle.ap.refund(1)
 		return false
 	gain_active_energy(battle, "sevrin")
 	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.defense, JUDGMENT_MARK_DEFENSE_MULTIPLIER)
@@ -189,7 +189,7 @@ static func oathguard_stance(battle, caster_actor_id: String = "sevrin") -> bool
 	if not battle.ap.spend(1):
 		return false
 	if not battle.statuses.apply_status(&"oathguard", caster_actor_id, caster_actor_id, 1, 1, 1, &"enemy_phase_end"):
-		battle.ap.current += 1
+		battle.ap.refund(1)
 		return false
 	battle._emit_event("skill_resolved", caster_actor_id, caster_actor_id, "skill=oathguard_stance ap=1")
 	return true
@@ -205,7 +205,7 @@ static func echo_counter(battle, caster_actor_id: String = "sevrin") -> bool:
 	if not battle.ap.spend(1):
 		return false
 	if not battle.statuses.apply_status(&"echo_counter", caster_actor_id, caster_actor_id, 1, 1, 1, &"enemy_phase_end"):
-		battle.ap.current += 1
+		battle.ap.refund(1)
 		return false
 	battle._emit_event("skill_resolved", caster_actor_id, caster_actor_id, "skill=echo_counter ap=1")
 	return true
@@ -238,7 +238,7 @@ static func watchwall(battle) -> bool:
 	if not effect.is_valid() or not battle.ap.spend(1):
 		return false
 	if not battle.area_effects.apply_effect(effect):
-		battle.ap.current += 1
+		battle.ap.refund(1)
 		return false
 	battle._emit_event("area_effect_applied", caster.actor_id, "", "effect=watchwall center=%s cells=%d reduction=20%%" % [str(caster.cell), affected_cells.size()])
 	battle._emit_event("skill_resolved", caster.actor_id, "", "skill=watchwall ap=1")
@@ -263,7 +263,7 @@ static func judgment_mark(battle, target_actor_id: String) -> bool:
 	if not battle.ap.spend(JUDGMENT_MARK_AP):
 		return false
 	if not battle.statuses.apply_status(&"judgment_mark", "sevrin", target_actor_id, 1, 1, -1, &"enemy_phase_end"):
-		battle.ap.current += 1
+		battle.ap.refund(1)
 		return false
 	for intent in battle.intents:
 		if intent.source_actor_id == target_actor_id and intent.state == BattleIntentScript.IntentState.ACTIVE and intent.action_id in MARKABLE_ACTIONS:

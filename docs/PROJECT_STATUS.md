@@ -8,7 +8,11 @@
 
 ## 一、当前阶段
 
-**Prototype 0.1 的战斗闭环已完整：从进入关卡、执行回合、结算胜负到重开或进入下一关，全流程可运行，并已通过 15 个自动化测试套件（582 条断言，0 失败）。当前剩余重点是人工桌面操作检查与 Android 适配。**
+**Prototype 0.1 的战斗闭环已完整：从进入关卡、执行回合、结算胜负到重开或进入下一关，全流程可运行，并已通过 16 个自动化测试套件（649 条断言，0 失败）。当前剩余重点是人工桌面操作检查与 Android 适配。**
+
+2026-11-25 上游重构批（M0–M2，`main` @ `aa569bd`）：测试套件迁入公共基类并新增一键回归（`tests/run_all.*`）；敌人属性与三关配置外置为 `.tres`；936 行控制器拆为 234 行门面 + 6 个子系统（battle_flow / intent_planner / intent_resolver / skill_executor / damage_pipeline / summon_service）。断言 582 → 623。
+
+2026-11-25 审计修复批（分支 `fix/audit-p0-p1`）：统一"被命中"判据（护盾全吸收也算命中，`damage_pipeline`）；对齐近战嘲讽半径与 actor 锁定追踪语义（`intent_resolver`）；新增绝对守护真实敌方阶段端到端测试、护盾全吸收语义测试、近战距离重定向测试、AP 退款账本测试；技能栏数值下沉至 V2 catalog、棋盘尺寸/移动上限/寻路单一来源化；清理测试标签腐化。断言 623 → 649。回归 16 套件 0 失败，主场景无头冒烟零错误。
 
 已实现的主要内容包括：8×8 战场、行动点与移动、三种敌人、敌方行动预告与固定执行顺序、誓守者 V2 技能组（三项主动 + 一项被动 + 猎人通灵）、战斗界面、三关固定关卡配置、结算面板与重开/下一关流程。
 
@@ -50,7 +54,7 @@ Prototype 0.1 的目标内容：
 | 技能视线规则 | 已完成 | 同行、同列或对角直线且路径无遮挡 |
 | 战斗界面与桌面操作 | 已实现 | 技能栏、目标选择、状态标识、数字键 1–4 快捷键 |
 | 战斗胜负判定 | 已完成 | 胜利/失败终止逻辑，并接入结算流程 |
-| Godot 4.7.2 Windows 无头验证 | 已验证 | 导入零错误，15 套件 582 条断言 0 失败，主场景可运行 |
+| Godot 4.7.2 Windows 无头验证 | 已验证 | 导入零错误，16 套件 649 条断言 0 失败，主场景可运行 |
 
 ## 四、待办任务（按优先级）
 
@@ -156,20 +160,21 @@ Prototype 0.1 的目标内容：
 
 - 环境：Godot 4.7.2 Standard，Windows 10/11 x86_64。
 - 项目导入：通过，零解析错误。
-- 测试套件：15 个，共 582 条断言，0 失败。
+- 测试套件：16 个，共 649 条断言（运行时 PASS 口径，逐套件分表见 `docs/engineering/BASELINE.md`），0 失败。
 - 主场景：可启动并正常渲染，截图见仓库外的验证记录。
-- 关卡：三关配置通过数据校验，每关首回合的预告类型与教学设计一致。
+- 关卡：三关 `.tres` 配置通过数据校验，每关首回合的预告类型与教学设计一致。
 
-测试套件清单：
+测试套件清单（逐套件维护以 `docs/engineering/BASELINE.md` 为准）：
 
 | 套件 | 断言数 |
 |---|---:|
 | `test_battle_controller.gd` | 162 |
-| `test_oathkeeper_v2_controller.gd` | 75 |
-| `test_turn_bookkeeping.gd` | 49 |
+| `test_oathkeeper_v2_controller.gd` | 87 |
+| `test_turn_bookkeeping.gd` | 52 |
 | `test_battle_area_effects.gd` | 43 |
 | `test_hunter_summon.gd` | 39 |
-| `test_battle_echo_counter.gd` | 38 |
+| `test_battle_echo_counter.gd` | 49 |
+| `test_enemy_catalog.gd` | 41 |
 | `test_level_catalog.gd` | 30 |
 | `test_battle_status.gd` | 25 |
 | `test_diagonal_line_of_sight.gd` | 24 |
@@ -179,6 +184,7 @@ Prototype 0.1 的目标内容：
 | `test_battle_view_skills.gd` | 15 |
 | `test_battle_stats.gd` | 13 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 12 |
+| **合计** | **649** |
 
 **重要限制：**
 - 无头测试与脚本化点击不验证实际窗口绘制、鼠标键盘焦点、画面观感或 Android 触控。

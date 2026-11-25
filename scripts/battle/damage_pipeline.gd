@@ -59,6 +59,12 @@ static func apply(
 			battle.damage_dealt += applied
 		elif target.team == "player":
 			battle.damage_taken += applied
+	## Unified hit semantics: any damage instance that reached this living
+	## actor counts as a hit, even when a shield fully absorbs it. All
+	## defensive responses -- stance consumption, Echo charges, counter
+	## triggers -- follow this one rule. The settlement tallies above
+	## intentionally stay health-based so they report real attrition.
+	if was_hit:
 		for status_id in triggered_statuses:
 			statuses.consume_trigger(target_actor_id, status_id)
 			battle._emit_event("status_triggered", target_actor_id, source_actor_id, "status=%s reduction=%d%%" % [status_id, final_reduction_percent])
@@ -80,7 +86,7 @@ static func apply(
 				intent.cancel("source_defeated")
 		battle._emit_event("actor_defeated", target_actor_id, "", "enemy")
 
-	if applied > 0 and is_public_intent and target.is_alive():
+	if was_hit and is_public_intent and target.is_alive():
 		resolve_echo_counter(battle, target_actor_id, source_actor_id, resolving_intent_id)
 
 

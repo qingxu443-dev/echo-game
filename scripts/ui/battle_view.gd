@@ -4,9 +4,10 @@ const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const LevelCatalogScript = preload("res://scripts/battle/level_catalog.gd")
+const SkillDefinitionScript = preload("res://scripts/battle/skill_definition.gd")
+const OathkeeperV2CatalogScript = preload("res://scripts/battle/oathkeeper_v2_skill_catalog.gd")
 const CELL_SIZE: float = 64.0
 const BOARD_ORIGIN := Vector2(384.0, 72.0)
-const BOARD_SIZE := 8
 const END_TURN_RECT := Rect2(940.0, 620.0, 300.0, 60.0)
 const SKILL_PANEL_X: float = 940.0
 const SKILL_PANEL_W: float = 300.0
@@ -18,14 +19,25 @@ const SETTLEMENT_RECT := Rect2(330.0, 210.0, 620.0, 330.0)
 const RESTART_BTN := Rect2(390.0, 464.0, 220.0, 52.0)
 const NEXT_BTN := Rect2(640.0, 464.0, 220.0, 52.0)
 
+## Short HUD hint lines. Rule-relevant numbers (AP cost, target ranges) are
+## intentionally NOT written here: the skill bar is built from the V2 skill
+## catalog, the single source of truth, so a catalog change can never desync
+## the skill bar display.
+const SKILL_HINTS := {
+	&"oathkeeper_judgment_mark": "1–4 格 · DEF×0.8 · 施加标记",
+	&"oath_shield": "自身 + 两格内友军 · 护盾",
+	&"absolute_guard": "2 AP + 5 能量 · 嘲讽反击",
+	&"hunter_summon": "任意敌人 · 现身一击 · 冷却 2 回合",
+}
+## Display name for bar entries that are not part of the V2 catalog.
+const SKILL_FALLBACK_NAMES := {
+	&"hunter_summon": "猎人通灵",
+}
+
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
 ## Number keys 1–4 mirror the visible order; no default attack is selected.
-const SKILL_BAR := [
-	{"id": "oathkeeper_judgment_mark", "name": "裁决印记", "hint": "1–4 格 · DEF×0.8 · 施加标记", "cost": 1, "mode": "actor"},
-	{"id": "oath_shield", "name": "誓盾庇护", "hint": "自身 + 两格内友军 · 护盾", "cost": 1, "mode": "self"},
-	{"id": "absolute_guard", "name": "绝对守护", "hint": "2 AP + 5 能量 · 嘲讽反击", "cost": 2, "mode": "self"},
-	{"id": "hunter_summon", "name": "猎人通灵", "hint": "任意敌人 · 现身一击 · 冷却 2 回合", "cost": 0, "mode": "actor"},
-]
+## Built in _ready() from the V2 catalog.
+var skill_bar: Array = []
 
 ## Presentation-only summon roster. Future summons can be added here without changing
 ## the existing hunter_summon execution path. Selection currently affects the displayed icon/name only.
@@ -47,7 +59,55 @@ func _ready() -> void:
 	add_child(controller)
 	controller.battle_event.connect(_on_battle_event)
 	controller.battle_finished.connect(_on_battle_finished)
+	_build_skill_bar()
 	_start_level(0)
+
+
+## The skill bar's rule numbers (AP cost, target ranges) come from the V2
+## catalog. The hunter summon stays view-side presentation data because it is
+## a free action whose cooldown bookkeeping is owned by the controller.
+func _build_skill_bar() -> void:
+	skill_bar = []
+	for skill in OathkeeperV2CatalogScript.create_prototype_skills():
+		skill_bar.append(_make_bar_entry(
+			skill.skill_id,
+			skill.display_name_zh,
+			String(SKILL_HINTS.get(skill.skill_id, skill.description_zh)),
+			skill.ap_cost,
+			"actor" if skill.target_mode == SkillDefinitionScript.TARGET_ACTOR else "self",
+			skill.min_range,
+			skill.max_range
+		))
+	var hunter_reach: int = controller.grid_size.x + controller.grid_size.y
+	skill_bar.append(_make_bar_entry(
+		&"hunter_summon",
+		String(SKILL_FALLBACK_NAMES[&"hunter_summon"]),
+		String(SKILL_HINTS[&"hunter_summon"]),
+		0,
+		"actor",
+		1,
+		hunter_reach
+	))
+
+
+func _make_bar_entry(
+	skill_id: StringName,
+	display_name: String,
+	hint: String,
+	ap_cost: int,
+	mode: String,
+	min_range: int,
+	max_range: int
+) -> Dictionary:
+	return {
+		"id": String(skill_id),
+		"name": display_name,
+		"hint": hint,
+		"cost": ap_cost,
+		"mode": mode,
+		"min_range": min_range,
+		"max_range": max_range,
+	}
 
 
 func _start_level(index: int) -> void:
@@ -95,8 +155,8 @@ func _draw_header() -> void:
 
 
 func _draw_board() -> void:
-	for y in range(BOARD_SIZE):
-		for x in range(BOARD_SIZE):
+	for y in range(controller.grid_size.y):
+		for x in range(controller.grid_size.x):
 			var cell := Vector2i(x, y)
 			var rect := _cell_rect(cell)
 			var fill := Color("#292c31") if (x + y) % 2 == 0 else Color("#24272c")
@@ -180,21 +240,17 @@ func _draw_telegraphs() -> void:
 func _draw_target_hints() -> void:
 	if controller.phase != ControllerScript.BattlePhase.PLAYER:
 		return
-	if selected_skill < 0 or selected_skill >= SKILL_BAR.size():
+	if selected_skill < 0 or selected_skill >= skill_bar.size():
 		return
-	var skill: Dictionary = SKILL_BAR[selected_skill]
+	var skill: Dictionary = skill_bar[selected_skill]
 	if skill["mode"] != "actor":
 		return
 	var player = controller.get_actor("sevrin")
 	if player == null:
 		return
-	var range_min: int = 1
-	var range_max: int = 1
-	match skill["id"]:
-		"oathkeeper_judgment_mark":
-			range_max = 4
-		"hunter_summon":
-			range_max = 99
+	# Range limits come from the bar entry, which is built from the V2 catalog.
+	var range_min: int = int(skill["min_range"])
+	var range_max: int = int(skill["max_range"])
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]
 		if actor.team != "enemy" or not actor.is_alive():
@@ -234,8 +290,8 @@ func _draw_skill_panel() -> void:
 	var font = ThemeDB.fallback_font
 	draw_string(font, Vector2(SKILL_PANEL_X, 96), "技能", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#e4dfd3"))
 
-	for index in range(SKILL_BAR.size()):
-		var skill: Dictionary = SKILL_BAR[index]
+	for index in range(skill_bar.size()):
+		var skill: Dictionary = skill_bar[index]
 		var rect := _skill_rect(index)
 		var affordable: bool = controller.ap != null and controller.ap.can_spend(int(skill["cost"]))
 		if skill["id"] == "absolute_guard":
@@ -416,7 +472,7 @@ func _handle_tap(position: Vector2) -> void:
 	if controller.phase != ControllerScript.BattlePhase.PLAYER:
 		return
 
-	for index in range(SKILL_BAR.size()):
+	for index in range(skill_bar.size()):
 		if _skill_rect(index).has_point(position):
 			_on_skill_pressed(index)
 			return
@@ -429,7 +485,7 @@ func _handle_tap(position: Vector2) -> void:
 
 	var grid_position := (position - BOARD_ORIGIN) / CELL_SIZE
 	var cell := Vector2i(floori(grid_position.x), floori(grid_position.y))
-	if cell.x < 0 or cell.y < 0 or cell.x >= BOARD_SIZE or cell.y >= BOARD_SIZE:
+	if cell.x < 0 or cell.y < 0 or cell.x >= controller.grid_size.x or cell.y >= controller.grid_size.y:
 		return
 
 	for actor_id in controller.actors:
@@ -439,7 +495,7 @@ func _handle_tap(position: Vector2) -> void:
 				_use_skill_on(actor_id)
 			return
 
-	var path := _path_to_cell(controller.get_actor("sevrin").cell, cell)
+	var path := _path_to_cell(cell)
 	if path.is_empty():
 		status_message = "该位置无法到达，或超出两格移动范围。"
 	elif controller.request_player_move(path):
@@ -450,9 +506,9 @@ func _handle_tap(position: Vector2) -> void:
 
 
 func _on_skill_pressed(index: int) -> void:
-	if index < 0 or index >= SKILL_BAR.size():
+	if index < 0 or index >= skill_bar.size():
 		return
-	var skill: Dictionary = SKILL_BAR[index]
+	var skill: Dictionary = skill_bar[index]
 	if skill["mode"] == "self":
 		selected_skill = -1
 		var cast_ok := false
@@ -473,7 +529,7 @@ func _on_skill_pressed(index: int) -> void:
 
 
 func _use_skill_on(actor_id: String) -> void:
-	var skill: Dictionary = SKILL_BAR[selected_skill]
+	var skill: Dictionary = skill_bar[selected_skill]
 	var cast_ok := false
 	match skill["id"]:
 		"oathkeeper_judgment_mark":
@@ -500,33 +556,21 @@ func _use_skill_on(actor_id: String) -> void:
 	queue_redraw()
 
 
-func _path_to_cell(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
-	var queue: Array[Vector2i] = [start]
-	var came_from := {start: start}
-	var directions: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
-	var occupied: Dictionary = controller.get_occupied_cells("sevrin")
-	while not queue.is_empty():
-		var current: Vector2i = queue.pop_front()
-		if current == goal:
-			break
-		for direction in directions:
-			var next: Vector2i = current + direction
-			if next.x < 0 or next.y < 0 or next.x >= BOARD_SIZE or next.y >= BOARD_SIZE:
-				continue
-			if controller.blocked_cells.has(next) or occupied.has(next) or came_from.has(next):
-				continue
-			came_from[next] = current
-			queue.append(next)
-	if not came_from.has(goal) or goal == start:
+## Candidate path for a tap-to-move request. Purely advisory: the movement
+## range comes from the controller's PLAYER_MOVE_MAX_STEPS constant and the
+## controller re-validates the produced path before committing the move.
+func _path_to_cell(goal: Vector2i) -> Array[Vector2i]:
+	var player = controller.get_actor("sevrin")
+	if player == null:
 		return []
-	var reversed_path: Array[Vector2i] = []
-	var cursor: Vector2i = goal
-	while cursor != start:
-		reversed_path.push_front(cursor)
-		cursor = came_from[cursor]
-	if reversed_path.size() > 2:
-		return []
-	return reversed_path
+	return GridRulesScript.find_path(
+		player.cell,
+		goal,
+		controller.grid_size,
+		controller.blocked_cells,
+		controller.get_occupied_cells("sevrin"),
+		controller.PLAYER_MOVE_MAX_STEPS
+	)
 
 
 func _on_battle_event(_event: Dictionary) -> void:

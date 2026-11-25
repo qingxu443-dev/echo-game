@@ -16,7 +16,7 @@ func _test_no_default_basic_attack() -> void:
 	await process_frame
 	var controller: Variant = view.get("controller")
 	_check(int(view.get("selected_skill")) == -1, "battle view starts with no selected player skill")
-	var skill_bar: Array = view.get("SKILL_BAR")
+	var skill_bar: Array = view.get("skill_bar")
 	_check(skill_bar.size() == 4, "player skill bar exposes three V2 skills and Hunter Summon")
 	_check(skill_bar[0]["id"] == "oathkeeper_judgment_mark" and skill_bar[1]["id"] == "oath_shield" and skill_bar[2]["id"] == "absolute_guard" and skill_bar[3]["id"] == "hunter_summon", "skill bar order contains only V2 skills and the retained summon")
 	var enemy = controller.get_actor("vanguard_00")
@@ -72,18 +72,20 @@ func _test_target_skill_flow() -> void:
 
 	_tap_skill(view, 3)
 	_tap_cell(view, marksman.cell)
-	_check(controller.summon_cooldown_remaining() > 0, "Hunter Summon remains available after the V2 skill bar switch")
+	_check(controller.summon_cooldown_remaining() > 0, "Hunter Summon enters its two-turn cooldown after use")
 
 	view.queue_free()
 	await process_frame
 
 
+## Tap helpers resolve positions from the view's own layout methods so a
+## layout change can never silently desync the synthetic clicks.
 func _tap_skill(view: Node, index: int) -> void:
-	var position := Vector2(1090.0, 112.0 + float(index) * 56.0 + 25.0)
-	view.call("_handle_tap", position)
+	var rect: Rect2 = view.call("_skill_rect", index)
+	view.call("_handle_tap", rect.position + rect.size * 0.5)
 
 
 func _tap_cell(view: Node, cell: Vector2i) -> void:
-	var position := Vector2(384.0 + float(cell.x) * 64.0 + 32.0, 72.0 + float(cell.y) * 64.0 + 32.0)
-	view.call("_handle_tap", position)
+	var rect: Rect2 = view.call("_cell_rect", cell)
+	view.call("_handle_tap", rect.position + rect.size * 0.5)
 

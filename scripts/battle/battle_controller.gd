@@ -36,6 +36,10 @@ const HUNTER_SUMMON_ATTACK: int = 1400
 const HUNTER_SUMMON_MULTIPLIER: float = 0.9
 const HUNTER_SUMMON_COOLDOWN_TURNS: int = 2
 
+## Maximum straight-line steps for one player move action. The UI reads this
+## constant so the movement-range rule has a single source of truth.
+const PLAYER_MOVE_MAX_STEPS: int = 2
+
 enum BattlePhase { PLAYER, ENEMY, FINISHED }
 
 @export var grid_size: Vector2i = Vector2i(8, 8)
@@ -118,7 +122,7 @@ func request_player_move(path: Array[Vector2i]) -> bool:
 	var player = actors["sevrin"]
 	if not player.is_alive() or not ap.can_spend(1):
 		return false
-	if not GridRulesScript.is_path_legal(player.cell, path, grid_size, blocked_cells, get_occupied_cells("sevrin"), 2):
+	if not GridRulesScript.is_path_legal(player.cell, path, grid_size, blocked_cells, get_occupied_cells("sevrin"), PLAYER_MOVE_MAX_STEPS):
 		_emit_event("action_rejected", "sevrin", "", "invalid_move")
 		return false
 	if not ap.spend(1):

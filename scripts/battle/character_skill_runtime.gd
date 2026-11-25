@@ -121,6 +121,10 @@ static func _basic_attack(battle, skill, target_actor_id: String) -> bool:
 
 	_apply_segments(battle, caster, skill, [target], String(skill.skill_id))
 	gain_intent_from_action(battle, caster)
+	# §47 待决 9 option A: a normal attack is an active action, so it pays the
+	# §13 per-turn ultimate energy like every skill does. The per-turn cap lives
+	# in gain_active_energy, so this cannot be farmed by attacking repeatedly.
+	SkillExecutorScript.gain_active_energy(battle, caster.actor_id)
 	battle._emit_event("attack_resolved", caster.actor_id, target_actor_id, "%s ap=%d" % [String(skill.skill_id), skill.ap_cost])
 	battle._check_battle_end()
 	return true

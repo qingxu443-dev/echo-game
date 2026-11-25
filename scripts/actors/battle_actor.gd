@@ -111,30 +111,40 @@ func apply_damage_with_result(
 	damage_type: String = "physical",
 	final_reduction_percent: int = 0,
 	resistance_penalty: int = 0,
-	additional_reduction_percents: Array[int] = []
+	additional_reduction_percents: Array[int] = [],
+	crit_multiplier: float = 1.0
 ) -> Dictionary:
 	## Detailed result for new combat systems. "hit" means a valid positive
 	## damage instance reached this living actor, even if shield absorbs all of it.
+	##
+	## crit_multiplier is the §47 待决 4 hook: the pipeline has a place for a
+	## critical strike, but no skill in Prototype 0.1 feeds it anything but 1.0.
+	## The trigger condition belongs to the skill; this function only scales.
 	if _is_defeated or raw_damage <= 0:
-		return {"hit": false, "absorbed": 0, "health_damage": 0, "final_damage": 0}
+		return {"hit": false, "absorbed": 0, "health_damage": 0, "final_damage": 0, "was_critical": false}
 	# §10.6: an unknown type used to fall through to zero resistance, which let a
 	# typo hit at full strength. Reject it instead of resolving it.
 	if not DamageTypes.is_valid(damage_type):
 		push_error("BattleActor: unknown damage type '%s' (expected %s)" % [damage_type, DamageTypes.describe()])
-		return {"hit": false, "invalid_type": true, "absorbed": 0, "health_damage": 0, "final_damage": 0}
-	var base_resistance: int = DamageTypes.resistance_for(self, damage_type)
-	var resistance: int = maxi(0, base_resistance - maxi(0, resistance_penalty))
-	var mitigated: int = CombatMathScript.calculate_damage(raw_damage, resistance)
-	var final_damage: int = mitigated
-	# Contextual reductions (for example, area protection) resolve after resistance.
-	for reduction_percent in additional_reduction_percents:
-		var reduction: int = clampi(reduction_percent, 0, 100)
-		if reduction > 0 and final_damage > 0:
-			final_damage = maxi(1, floori(float(final_damage) * float(100 - reduction) / 100.0))
-	# Personal defensive states resolve last, preserving their existing precedence.
-	var personal_reduction: int = clampi(final_reduction_percent, 0, 100)
-	if personal_reduction > 0 and final_damage > 0:
-		final_damage = maxi(1, floori(float(final_damage) * float(100 - personal_reduction) / 100.0))
+		return {"hit": false, "invalid_type": true, "absorbed": 0, "health_damage": 0, "final_damage": 0, "was_critical": false}
+	var was_critical: bool = crit_multiplier > 1.0
+	if was_critical:
+		raw_damage = maxi(1, roundi(float(raw_damage) * crit_multiplier))
+	var final_damage: int = raw_damage
+	# §47 待决 3 option C: true damage keeps only the shield step below.
+	if not DamageTypes.ignores_mitigation(damage_type):
+		var base_resistance: int = DamageTypes.resistance_for(self, damage_type)
+		var resistance: int = maxi(0, base_resistance - maxi(0, resistance_penalty))
+		final_damage = CombatMathScript.calculate_damage(raw_damage, resistance)
+		# Contextual reductions (for example, area protection) resolve after resistance.
+		for reduction_percent in additional_reduction_percents:
+			var reduction: int = clampi(reduction_percent, 0, 100)
+			if reduction > 0 and final_damage > 0:
+				final_damage = maxi(1, floori(float(final_damage) * float(100 - reduction) / 100.0))
+		# Personal defensive states resolve last, preserving their existing precedence.
+		var personal_reduction: int = clampi(final_reduction_percent, 0, 100)
+		if personal_reduction > 0 and final_damage > 0:
+			final_damage = maxi(1, floori(float(final_damage) * float(100 - personal_reduction) / 100.0))
 	var absorbed: int = mini(shield, final_damage)
 	shield -= absorbed
 	var health_damage: int = mini(final_damage - absorbed, health)
@@ -148,7 +158,8 @@ func apply_damage_with_result(
 		"hit": true,
 		"absorbed": absorbed,
 		"health_damage": health_damage,
-		"final_damage": final_damage
+		"final_damage": final_damage,
+		"was_critical": was_critical
 	}
 
 func is_alive() -> bool:

@@ -7,6 +7,11 @@ const BattleStatusScript = preload("res://scripts/battle/battle_status.gd")
 var _statuses_by_actor: Dictionary = {}
 
 
+## §47 待决 15 option A: the shared default is replace - a second application
+## overwrites the first and restarts its duration. Skills that mean to keep the
+## existing stacks or extend a duration must say so explicitly ("refresh" /
+## "add"), and the per-character 15% shield cap is never promoted into a global
+## rule (§11 forbids it).
 func apply_status(
 	status_id: StringName,
 	source_actor_id: String,
@@ -15,7 +20,7 @@ func apply_status(
 	max_stacks: int = 1,
 	remaining_triggers: int = -1,
 	expiry_boundary: StringName = &"",
-	stack_policy: StringName = BattleStatusScript.STACK_REFRESH
+	stack_policy: StringName = BattleStatusScript.STACK_REPLACE
 ) -> bool:
 	if status_id == &"" or target_actor_id.is_empty():
 		return false

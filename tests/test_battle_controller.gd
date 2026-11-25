@@ -5,6 +5,7 @@ const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 
 
 func _run() -> void:
+	_test_normal_attack_pays_ultimate_energy()
 	var charge_battle = ControllerScript.new()
 	root.add_child(charge_battle)
 	_check(charge_battle.start_encounter(Vector2i(1, 1), [Vector2i(3, 1)]), "encounter starts with valid positions")
@@ -232,3 +233,20 @@ func _run() -> void:
 	validation_battle.queue_free()
 
 	_report()
+
+
+## §47 待决 9 option A: a normal attack is an active action, so it pays the §13
+## per-turn ultimate energy exactly like a skill does - once per turn, not once
+## per swing.
+func _test_normal_attack_pays_ultimate_energy() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)])
+	var sevrin = battle.get_actor("sevrin")
+	var before: int = sevrin.ultimate_energy
+	_check(battle.request_skill(&"oathblade", "vanguard_00"), "the normal attack resolves")
+	_check(sevrin.ultimate_energy == before + 1, "a normal attack pays one ultimate energy")
+	var after_attack: int = sevrin.ultimate_energy
+	if battle.request_skill(&"oathblade", "vanguard_00"):
+		_check(sevrin.ultimate_energy == after_attack, "the per-turn cap still pays only one point")
+	battle.queue_free()

@@ -14,6 +14,8 @@ func _run() -> void:
 	_test_absolute_guard_taunt_counter_and_energy()
 	_test_absolute_guard_redirects_distant_melee()
 	_test_absolute_guard_end_to_end_enemy_phase()
+	_test_absolute_guard_takes_over_from_the_previous_holder()
+	_test_one_action_grants_vow_per_carrier()
 	_report()
 
 
@@ -240,3 +242,49 @@ func _test_absolute_guard_end_to_end_enemy_phase() -> void:
 	_check(battle.phase == ControllerScript.BattlePhase.PLAYER, "the battle continues into the next player phase")
 	battle.queue_free()
 
+
+
+## The stance is singular: a second cast takes it over instead of leaving two
+## holders for the guardian query to pick between by deployment order.
+func _test_absolute_guard_takes_over_from_the_previous_holder() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sevrin", "sakura"]
+	var allies: Array[Vector2i] = [Vector2i(1, 2)]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], ids, allies)
+
+	var sevrin = battle.get_actor("sevrin")
+	var sakura = battle.get_actor("sakura")
+	sevrin.ultimate_energy = 5
+	_check(battle.request_absolute_guard(), "Sevrin takes the stance")
+	_check(battle.get_absolute_guardian() == "sevrin", "Sevrin is the guardian")
+
+	battle.set_active_character("sakura")
+	sakura.ultimate_energy = 5
+	_check(battle.request_absolute_guard(), "Sakura can take the stance over")
+	_check(battle.get_absolute_guardian() == "sakura", "the guardian is the new holder")
+	_check(not battle.statuses.has_status("sevrin", &"absolute_guard"), "the previous holder's stance is removed, so the taunt never has two names to choose between")
+	battle.queue_free()
+
+
+## One action grants one stack per carrier: the dedup key names the carrier as
+## well as the action, so a multi-target intent hitting two passive carriers
+## grants each of them their single stack.
+func _test_one_action_grants_vow_per_carrier() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var archetypes: Array[String] = ["area_controller"]
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 1)], [], archetypes), "vow-per-carrier encounter starts")
+	# A second unit carrying the same sheet: the passive follows the sheet, so a
+	# ground pulse covering both cells must grant each carrier one stack.
+	var fellow = ActorScript.new("fellow", "player", Vector2i(1, 2), 12000, "support", 2000, 650, 500)
+	fellow.character_id = &"sevrin"
+	battle.actors["fellow"] = fellow
+
+	var sevrin = battle.get_actor("sevrin")
+	_check(battle.has_passive("fellow", &"oath_vow"), "the fellow carries the vow passive through its sheet")
+
+	battle.end_player_turn()
+	_check(battle.get_oath_vow_stacks("sevrin") == 1, "the pulse grants Sevrin his single stack")
+	_check(battle.get_oath_vow_stacks("fellow") == 1, "the same pulse grants the fellow carrier its own stack")
+	battle.queue_free()

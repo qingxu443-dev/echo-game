@@ -38,6 +38,16 @@ static func absolute_guard(battle) -> bool:
 	var caster_id: String = caster.actor_id
 	if not caster.is_alive() or not battle.ap.can_spend(ABSOLUTE_GUARD_AP) or caster.ultimate_energy < ABSOLUTE_GUARD_ENERGY:
 		return false
+	# The stance is singular: a new cast takes it over from any other holder, so
+	# the guardian query never has two names to choose between. Without this, a
+	# second holder (the direct status surface can create one) would leave the
+	# taunt and the counter aimed by deployment order rather than by intent.
+	for other_id in actors:
+		if String(other_id) == caster_id:
+			continue
+		var other = actors[other_id]
+		if other.team == "player":
+			battle.statuses.remove_status(String(other_id), &"absolute_guard")
 	if not battle.statuses.apply_status(&"absolute_guard", caster_id, caster_id, 1, 1, -1, &"player_phase_start", &"replace"):
 		return false
 	# Both spends are guarded above, but revert whichever one landed: spending AP

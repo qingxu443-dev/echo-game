@@ -52,6 +52,10 @@ static func translate(event: InputEvent) -> Dictionary:
 				return {"action": ACTION_SKILL, "index": 2}
 			KEY_4:
 				return {"action": ACTION_SKILL, "index": 3}
+			KEY_5:
+				return {"action": ACTION_SKILL, "index": 4}
+			KEY_6:
+				return {"action": ACTION_SKILL, "index": 5}
 			KEY_ESCAPE:
 				return {"action": ACTION_CANCEL}
 			KEY_ENTER, KEY_SPACE:

@@ -176,7 +176,7 @@ Prototype 0.1 的目标内容：
 
 ### 历史验证记录
 
-`docs/GODOT_ENGINE_VALIDATION_zh-CN.md` 记录了更早的两轮 Linux 无头运行（修复前 `dbfbbeb` 导入失败；PR #2 合并后 `906d585` 导入零错误、300 条断言 0 失败）。该记录保留作为历史参考，当前有效数据以上一节的 15 套件 582 断言为准。
+`docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md` 记录了更早的两轮 Linux 无头运行（修复前 `dbfbbeb` 导入失败；PR #2 合并后 `906d585` 导入零错误、300 条断言 0 失败）。该记录保留作为历史参考，当前有效数据以上一节的 13 套件 483 断言为准。
 
 ## 七、协作与提交要求
 

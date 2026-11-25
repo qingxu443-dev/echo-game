@@ -1,8 +1,8 @@
 # ECHO — 决策记录与待决问题
 
 > **现状核对（2026-11-25，`main` @ `3e4c83b`）**：本文件是决策记录，翻译时保留原始决策原文的语义。与当前实现的差异已按 `main` 最新增补直接核正进正文，其余差异标注如下：
-> - 「临时猎人伙伴」在实现中已演变为**猎人通灵技**——不占场的单次支援打击，两回合冷却，不生成战场单位（见 `docs/PROJECT_STATUS.md` 的 P0）。
-> - 「待决问题」中的事件结算顺序与伤害公式两项，已由 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/combat_stats_zh-CN.md` 分别落地。
+> - 「临时猎人伙伴」在实现中已演变为**猎人通灵技**——不占场的单次支援打击，两回合冷却，不生成战场单位（见 `docs/engineering/PROJECT_STATUS.md` 的 P0）。
+> - 「待决问题」中的事件结算顺序与伤害公式两项，已由 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/design/combat_stats_zh-CN.md` 分别落地。
 
 统一使用以下标签：
 
@@ -75,7 +75,7 @@
 - 伤害、死亡、状态效果、预告取消与触发的最终事件结算顺序是什么？
 - 最终的伤害、护甲、生命与控制公式是什么？
 
-> **现状标注**：后两项已落地——事件结算顺序见 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md`；伤害公式见 `docs/combat_stats_zh-CN.md`（递减收益：`原始伤害 × 1000 ÷ (1000 + 对应抗性)`）。
+> **现状标注**：后两项已落地——事件结算顺序见 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md`；伤害公式见 `docs/design/combat_stats_zh-CN.md`（递减收益：`原始伤害 × 1000 ÷ (1000 + 对应抗性)`）。
 
 ## 由 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md`（Draft）提出的提案 — 待所有者评审
 

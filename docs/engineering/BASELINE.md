@@ -48,6 +48,7 @@
 | 2026-11-25 | 审计修复批：`damage_pipeline` 命中判据统一为 `was_hit`；`intent_resolver` 近战嘲讽半径与 actor 锁定追踪语义对齐；新增绝对守护真实敌方阶段端到端测试（+8）、护盾全吸收语义测试（+11）、近战距离重定向测试（+4）、AP 退款账本测试（+3） | 628 → 654（+26） |
 | 2026-11-25 | M3：界面拆为 6 个视图 + 调色板，625 → 编排层；像素级零差异 | 654 → 654（不变） |
 | 2026-11-25 | **移除 v1 技能组及其独占子系统**（区域效果、回响反击、誓盾架势、印记破绽），删除 3 个套件 | 654 → 483（**−171，已批准**） |
+| 2026-11-25 | M4：`docs/` 分 design / engineering / archive 三层，21 篇文档全部就位，0 断链 | 483 → 483（不变） |
 
 ## 如何复现
 
@@ -70,7 +71,7 @@ RESULT test_core_rules assertions=18 failures=0
 
 ## 与重构计划的关系
 
-- `docs/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md` 的 M0–M4 每一步，合并前都必须与本表对比。
+- `docs/engineering/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md` 的 M0–M4 每一步，合并前都必须与本表对比。
 - M2（拆控制器）期间**不允许修改测试文件**；若某步必须改测试，说明对外行为变了，应回退。
 - v1 技能废弃会减少 `test_battle_echo_counter`、`test_skill_definitions` 以及部分 `test_battle_controller` 用例，届时本表需同步下调，并在变更说明中列出删除的用例清单。
 

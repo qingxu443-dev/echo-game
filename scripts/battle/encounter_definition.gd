@@ -4,7 +4,7 @@ extends Resource
 ## Data-only level configuration. Runtime state stays in BattleController.
 ## A level fixes the player cell, the enemy roster, and the obstacle layout so
 ## the same decisions always produce the same battle, per the level design
-## principles in docs/skill_design_principles_zh-CN.md.
+## principles in docs/design/skill_design_principles_zh-CN.md.
 
 @export var level_id: StringName = &""
 @export var display_name_zh: String = ""

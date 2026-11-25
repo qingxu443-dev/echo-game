@@ -71,6 +71,8 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 			return _pierce_blossom(battle, skill, target_actor_id)
 		"sakura_flowing_wind":
 			return _flowing_wind(battle, skill, target_actor_id)
+		"sakura_falling_petals":
+			return _falling_petals(battle, skill, target_actor_id)
 		"sakura_endless_fragrance":
 			return _endless_fragrance(battle, skill)
 	return false
@@ -139,6 +141,70 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_flowing_wind ap=1 from=%s to=%s" % [str(from_cell), str(landing)])
 	battle._check_battle_end()
 	return true
+
+
+## §23 落英: a rectangle in front of the caster - three cells deep and two wide
+## by owner decision on 2026-11-25, replacing the undecided fan. Three segments of
+## 30% each; the mark lands on hit, and targets already marked take a follow-up.
+static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
+	var caster = battle.get_active_character()
+	if not _can_cast(battle, caster, skill):
+		return false
+	var target = battle.actors.get(target_actor_id)
+	if target == null or target.team != "enemy" or not target.is_alive():
+		return false
+
+	var direction: Vector2i = _direction_toward(caster.cell, target.cell)
+	if direction == Vector2i.ZERO:
+		return false
+	var cells: Dictionary = _rectangle_cells(battle, caster.cell, direction, skill.shape_width, skill.shape_depth)
+	var targets: Array = _actors_in_cells(battle, cells)
+	if targets.is_empty():
+		return false
+	if not battle.ap.spend(skill.ap_cost):
+		return false
+
+	var was_marked: Dictionary = {}
+	for actor in targets:
+		was_marked[actor.actor_id] = battle.statuses.has_status(actor.actor_id, PETAL_MARK)
+
+	_apply_segments(battle, caster, skill, targets, "sakura_falling_petals")
+	for actor in targets:
+		if actor.is_alive():
+			_apply_petal_mark(battle, caster, actor)
+	gain_intent_from_action(battle, caster)
+	for actor in targets:
+		if actor.is_alive() and bool(was_marked.get(actor.actor_id, false)):
+			_check_echo_return(battle, caster, actor)
+	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_falling_petals cells=%d targets=%d" % [cells.size(), targets.size()])
+	battle._check_battle_end()
+	return true
+
+
+## The orthogonal direction the cast is aimed at; ties go to the larger axis.
+static func _direction_toward(from: Vector2i, to: Vector2i) -> Vector2i:
+	var delta: Vector2i = to - from
+	if delta == Vector2i.ZERO:
+		return Vector2i.ZERO
+	if absi(delta.x) >= absi(delta.y):
+		return Vector2i(signi(delta.x), 0)
+	return Vector2i(0, signi(delta.y))
+
+
+## Rectangular footprint in front of the caster. With an even width the cast axis
+## is the first column rather than the middle, because a two-wide block cannot be
+## centred on a single line - documented so the asymmetry is deliberate.
+static func _rectangle_cells(battle, origin: Vector2i, direction: Vector2i, width: int, depth: int) -> Dictionary:
+	var cells: Dictionary = {}
+	var perpendicular := Vector2i(direction.y, direction.x)
+	var start: int = -int((width - 1) / 2)
+	for step in range(1, depth + 1):
+		var row_origin: Vector2i = origin + direction * step
+		for offset in range(start, start + width):
+			var cell: Vector2i = row_origin + perpendicular * offset
+			if GridRulesScript.is_inside_bounds(cell, battle.grid_size):
+				cells[cell] = true
+	return cells
 
 
 ## §24 无尽芳华: cross around the caster, three 20% cuts and a 40% finisher that
@@ -229,6 +295,11 @@ static func _cross_targets(battle, caster, reach: int) -> Array:
 			if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
 				break
 			cells[cell] = true
+	return _actors_in_cells(battle, cells)
+
+
+static func _actors_in_cells(battle, cells: Dictionary) -> Array:
+	var targets: Array = []
 	for actor_id in battle.actors:
 		var actor = battle.actors[actor_id]
 		if actor.team == "enemy" and actor.is_alive() and cells.has(actor.cell):

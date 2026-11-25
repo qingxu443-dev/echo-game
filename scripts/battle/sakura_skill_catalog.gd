@@ -46,13 +46,18 @@ static func create_skills() -> Array[SkillDefinition]:
 	# 落英 - three segments of 30% each.
 	var falling := _make(
 		&"sakura_falling_petals", "落英",
-		"消耗 2 AP；扇形范围三段攻击，每段 30% ATK，命中后施加残香。",
-		2, SkillDefinitionScript.TARGET_AREA, 1, 2,
+		"消耗 2 AP；对面前横 3 格、纵 2 格区域内敌人三段攻击，每段 30% ATK，命中后施加残香。",
+		2, SkillDefinitionScript.TARGET_ACTOR, 1, 3,
 		SkillDefinitionScript.DAMAGE_PHYSICAL, 0.9, &"sakura_falling_petals",
 		CharacterScript.SLOT_ACTIVE_TWO)
 	falling.hits = 3
 	falling.hit_multipliers = [0.3, 0.3, 0.3]
 	falling.shape = SkillDefinitionScript.SHAPE_FAN
+	# Owner decision 2026-11-25: the fan became a rectangle in front of Sakura -
+	# three cells across and two cells deep. Kept as data so flipping the footprint
+	# is an edit rather than a code change.
+	falling.shape_width = 3
+	falling.shape_depth = 2
 	skills.append(falling)
 
 	# 无尽芳华 - cross around Sakura, three 20% cuts and a 40% finisher. Each

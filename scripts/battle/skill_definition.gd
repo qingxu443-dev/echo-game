@@ -42,6 +42,10 @@ const SHAPE_SINGLE: StringName = &"single"
 const SHAPE_CROSS: StringName = &"cross"
 const SHAPE_FAN: StringName = &"fan"
 @export var shape: StringName = SHAPE_SINGLE
+## Rectangle footprint in front of the caster, used by SHAPE_FAN.
+## depth is how many cells it reaches forward, width how many it spans across.
+@export var shape_width: int = 0
+@export var shape_depth: int = 0
 
 
 func is_valid() -> bool:
@@ -61,6 +65,8 @@ func is_valid() -> bool:
 		if hit_multiplier < 0.0:
 			return false
 	if shape != SHAPE_SINGLE and shape != SHAPE_CROSS and shape != SHAPE_FAN:
+		return false
+	if shape == SHAPE_FAN and (shape_width <= 0 or shape_depth <= 0):
 		return false
 	if damage_multiplier > 0.0:
 		if damage_type != DAMAGE_PHYSICAL and damage_type != DAMAGE_MAGICAL:

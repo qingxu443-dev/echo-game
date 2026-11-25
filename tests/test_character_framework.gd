@@ -25,7 +25,7 @@ func _run() -> void:
 	_test_blade_intent_accumulates_and_caps()
 	_test_petal_mark_lasts_three_enemy_turns()
 	_test_endless_fragrance_scales_with_intent()
-	_test_falling_petals_is_not_castable()
+	_test_falling_petals_covers_the_rectangle_in_front()
 	_report()
 
 
@@ -156,10 +156,33 @@ func _test_endless_fragrance_scales_with_intent() -> void:
 	battle.queue_free()
 
 
-func _test_falling_petals_is_not_castable() -> void:
-	var battle = _sakura_battle()
+func _test_falling_petals_covers_the_rectangle_in_front() -> void:
+	# Owner decision 2026-11-25: the fan became a rectangle in front of Sakura,
+	# three cells across and two deep. Aiming right from (1,1) covers x=2..3
+	# across y=0..2.
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sakura"]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1), Vector2i(3, 2), Vector2i(1, 6), Vector2i(4, 1)], [], [], ids, [])
+
+	var near = battle.get_actor("vanguard_00")
+	var side = battle.get_actor("vanguard_01")
+	var outside = battle.get_actor("vanguard_02")
+	var beyond_depth = battle.get_actor("vanguard_03")
+	var near_before: int = near.health
+	var side_before: int = side.health
+	var outside_before: int = outside.health
+	var beyond_before: int = beyond_depth.health
+
 	var skill = SkillRegistryScript.get_skill(&"sakura_falling_petals")
-	_check(skill != null, "the skill exists as data")
-	_check(skill.hits == 3 and skill.hit_multipliers.size() == 3, "its three segments are described")
-	_check(not battle.request_skill(&"sakura_falling_petals", "vanguard_00"), "it cannot be cast until the fan shape is approved")
+	_check(skill.shape_width == 3 and skill.shape_depth == 2, "the footprint is three across and two deep")
+	_check(battle.request_skill(&"sakura_falling_petals", "vanguard_00"), "Falling Petals resolves")
+
+	# Three segments of 30%: floor(156 * 1000 / 1700) = 91 each, so 273.
+	_check(near_before - near.health == 273, "the aimed target takes all three segments")
+	_check(side_before - side.health == 273, "a target beside the axis is inside the block and also takes three")
+	_check(outside.health == outside_before, "an enemy outside the block is untouched")
+	_check(beyond_depth.health == beyond_before, "an enemy four cells ahead is beyond the two-cell depth")
+	_check(battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the block applies the mark")
+	_check(battle.statuses.has_status("vanguard_01", &"sakura_petal_mark"), "the mark lands on every enemy in the block")
 	battle.queue_free()

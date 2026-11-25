@@ -19,7 +19,7 @@ const SKILL_HINTS := {
 	&"hunter_summon": "任意敌人 · 现身一击 · 冷却 2 回合",
 	&"sakura_pierce_blossom": "相邻 · 100% ATK · 施加残香",
 	&"sakura_flowing_wind": "突进 2 格 · 80% ATK · 施加残香",
-	&"sakura_falling_petals": "扇形三段 · 每段 30% ATK",
+	&"sakura_falling_petals": "面前 3×2 · 三段 · 每段 30% ATK",
 	&"sakura_endless_fragrance": "2 AP + 5 能量 · 十字四段",
 }
 ## Display name for bar entries that are not part of the V2 catalog.

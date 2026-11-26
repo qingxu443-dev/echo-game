@@ -5,6 +5,7 @@ const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
+const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 
 
 func _run() -> void:
@@ -260,6 +261,7 @@ func _run() -> void:
 	_check(validation_battle.blocked_cells.has(Vector2i(3, 3)), "invalid setup preserves existing blockers")
 	validation_battle.queue_free()
 
+	_test_enemy_chest_buffs_follow_the_catalogue()
 	_report()
 
 
@@ -293,7 +295,7 @@ func _test_relic_chest_enemy_steal_and_equipment_drop() -> void:
 		"health": 500,
 		"max_health": 500,
 		"opened": false,
-		"loot": {"id": "test_blade", "name": "测试长刃", "kind": "weapon", "attack": 200},
+		"loot": {"id": "test_blade", "name": "测试长刃", "kind": "weapon", "enemy_attack": 200},
 	}
 	var atk_before: int = enemy.attack
 	battle.damage_beacon_at(chest_cell, 600, enemy.actor_id, "charged_strike")
@@ -308,4 +310,48 @@ func _test_relic_chest_enemy_steal_and_equipment_drop() -> void:
 	_check(rs.equip_from_backpack(0) and not rs.equipped_weapon.is_empty(), "player can equip the recovered weapon from backpack")
 	rs.reset()
 	_check(rs.backpack.is_empty() and rs.equipped_weapon.is_empty(), "RunState.reset clears equipment and backpack on run end")
+	battle.queue_free()
+
+
+## Chest buffs follow the catalogue's enemy_* columns, not the player-side
+## stats: the dusk blade's enemy variant carries no defense penalty, armor
+## becomes shield, and every skill upgrade carries its own numbers instead of
+## one hard-coded bonus. Weapons and armor ride the thief until death.
+func _test_enemy_chest_buffs_follow_the_catalogue() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)])
+	battle.beacons.clear()
+	var enemy = battle.get_actor("vanguard_00")
+
+	var dusk = LootCatalogScript.get_item(&"weapon_dusk_blade")
+	battle.call("_grant_chest_buff_to_enemy", "vanguard_00", {"id": "chest_dusk", "loot": dusk})
+	_check(enemy.attack == 1400 + 320, "the dusk blade's enemy variant adds its declared 320 attack")
+	_check(enemy.defense == 450, "the enemy variant carries no defense penalty")
+	_check(enemy.stolen_equipment.size() == 1, "an equipped weapon rides the thief until death")
+
+	var bulwark = LootCatalogScript.get_item(&"armor_iron_bulwark")
+	var atk_before: int = enemy.attack
+	var def_before: int = enemy.defense
+	battle.call("_grant_chest_buff_to_enemy", "vanguard_00", {"id": "chest_bulwark", "loot": bulwark})
+	_check(enemy.defense == def_before, "armor on an enemy is shield, not defense")
+	_check(enemy.shield == 650, "the bulwark's declared enemy shield lands")
+	_check(enemy.attack == atk_before, "the bulwark adds no attack")
+
+	var shock = LootCatalogScript.get_item(&"upg_shock_shield")
+	var atk_again: int = enemy.attack
+	battle.call("_grant_chest_buff_to_enemy", "vanguard_00", {"id": "chest_shock", "loot": shock})
+	_check(enemy.attack == atk_again, "the shock shield upgrade adds no attack")
+	_check(enemy.shield == 650 + 700, "the upgrade's declared enemy shield lands")
+
+	# Weapons and armor drop back to the ground when the wearer dies.
+	battle.call("drop_enemy_equipment", enemy)
+	_check(battle.dropped_loot.has(Vector2i(2, 1)), "the stolen equipment lands on the thief's cell")
+	_check(battle.dropped_loot[Vector2i(2, 1)].size() == 2, "two equipped pieces dropped")
+	_check(enemy.stolen_equipment.is_empty(), "the drop clears the thief's equipment list")
+
+	var hourglass = LootCatalogScript.get_item(&"item_echo_hourglass")
+	enemy.skill_charge = 0
+	battle.call("_grant_chest_buff_to_enemy", "vanguard_00", {"id": "chest_hourglass", "loot": hourglass})
+	_check(enemy.skill_charge == enemy.skill_charge_max, "the hourglass's declared enemy charge fills the bar")
 	battle.queue_free()

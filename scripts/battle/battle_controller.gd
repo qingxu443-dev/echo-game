@@ -191,38 +191,28 @@ func _grant_chest_buff_to_enemy(source_actor_id: String, chest: Dictionary) -> v
 
 	var kind: String = str(loot.get("kind", ""))
 	var item_name: String = str(loot.get("name", "宝箱物品"))
+	# The catalogue's enemy_* columns are the single authority for what a
+	# chest gives an enemy (the catalogue is where numbers live, not a code
+	# path). The player-side stats are deliberately not reused: the enemy
+	# variants are tuned separately - armor becomes shield, the dusk blade
+	# loses its defense penalty, and each upgrade carries its own numbers.
+	recipient.attack = maxi(1, recipient.attack + int(loot.get("enemy_attack", 0)))
+	var add_shield: int = int(loot.get("enemy_shield", 0))
+	if add_shield > 0:
+		recipient.shield = mini(recipient.max_health, recipient.shield + add_shield)
+	var add_heal: int = int(loot.get("enemy_heal", 0))
+	if add_heal > 0:
+		recipient.health = mini(recipient.max_health, recipient.health + add_heal)
+	if bool(loot.get("enemy_charge", false)) and recipient.skill_charge_max > 0:
+		recipient.skill_charge = recipient.skill_charge_max
+	var verb: String = "吸收了"
 	if kind == "weapon" or kind == "armor":
-		# Enemy equips the exact same weapon/armor stats as the player, and will drop it on death
-		var add_atk: int = int(loot.get("attack", 0))
-		var add_def: int = int(loot.get("defense", 0))
-		var add_mres: int = int(loot.get("magic_resistance", 0))
-		var add_hp: int = int(loot.get("max_health", 0))
-		recipient.attack = maxi(1, recipient.attack + add_atk)
-		recipient.defense = maxi(0, recipient.defense + add_def)
-		recipient.magic_resistance = maxi(0, recipient.magic_resistance + add_mres)
-		if add_hp > 0:
-			recipient.max_health += add_hp
-			recipient.health += add_hp
+		# Equipped pieces drop back onto the ground when the wearer dies.
 		recipient.stolen_equipment.append(loot.duplicate(true))
-		_emit_event("chest_stolen_by_enemy", recipient.actor_id, str(chest.get("id", "")), "装备「%s」" % item_name)
+		verb = "装备了"
 	elif kind == "consumable":
-		# Enemy consumes the exact same consumable effect immediately (not dropped on death)
-		var heal: int = int(loot.get("heal", 0))
-		if heal > 0:
-			recipient.health = mini(recipient.max_health, recipient.health + heal)
-		var sh_gain: int = int(loot.get("shield_gain", 0))
-		if sh_gain > 0:
-			recipient.shield = mini(recipient.max_health, recipient.shield + sh_gain)
-		if int(loot.get("ap_gain", 0)) > 0 or int(loot.get("energy_gain", 0)) > 0:
-			if recipient.skill_charge_max > 0:
-				recipient.skill_charge = recipient.skill_charge_max
-		_emit_event("chest_stolen_by_enemy", recipient.actor_id, str(chest.get("id", "")), "使用了「%s」" % item_name)
-	else:
-		# Skill upgrade absorbed by the enemy (not dropped on death)
-		recipient.attack += 180
-		if recipient.skill_charge_max > 0:
-			recipient.skill_charge = recipient.skill_charge_max
-		_emit_event("chest_stolen_by_enemy", recipient.actor_id, str(chest.get("id", "")), "吸收了「%s」" % item_name)
+		verb = "使用了"
+	_emit_event("chest_stolen_by_enemy", recipient.actor_id, str(chest.get("id", "")), "%s「%s」" % [verb, item_name])
 
 
 ## Only weapon/armor equipment drops onto the ground when an enemy is defeated.

@@ -30,6 +30,7 @@ const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skil
 const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
+const RunStateScript = preload("res://scripts/battle/run_state.gd")
 
 ## Maximum straight-line steps for one player move action. The UI reads this
 ## constant so the movement-range rule has a single source of truth.
@@ -41,12 +42,16 @@ enum BattlePhase { PLAYER, ENEMY, FINISHED }
 ## Team-wide AP pool (design plan §4): five points shared by the whole party per
 ## player turn, not five per character. One ledger, drawn down by whichever
 ## character acts. Unspent points are discarded at end of turn.
-@export var team_ap: int = 5
+@export var team_ap: int = 3
 
 var phase: BattlePhase = BattlePhase.FINISHED
 var ap: APBudget
 var actors: Dictionary = {}
 var blocked_cells: Dictionary = {}
+## Destructible Relic Chests: cell -> {"id", "cell", "health", "max_health", "opened", "loot"}
+var beacons: Dictionary = {}
+## Equipment dropped onto tiles when an enemy carrying stolen gear dies: cell -> Array[Dictionary]
+var dropped_loot: Dictionary = {}
 var intents: Array = []
 var event_sequence: int = 0
 var turn_number: int = 0
@@ -78,10 +83,27 @@ var active_character_id: String = ""
 var resource_gain_turn: Dictionary = {}
 var resource_gain_count: Dictionary = {}
 var echo_return_gain_turn: Dictionary = {}
+## Optional roguelite RunState attached by BattleView (persists HP & mods across levels).
+var run_state: RunStateScript = null
+var free_move_used_turn: int = -1
 
 
 func _ready() -> void:
 	ap = APBudgetScript.new(team_ap)
+	ap.on_spend = Callable(self, "_on_ap_spent")
+
+
+func _on_ap_spent(amount: int) -> void:
+	if phase != BattlePhase.PLAYER or amount <= 0:
+		return
+	for actor_id in actors:
+		var unit = actors[actor_id]
+		if unit.team != "enemy" or not unit.is_alive() or unit.skill_charge_max <= 0:
+			continue
+		var before: int = unit.skill_charge
+		unit.skill_charge = mini(unit.skill_charge_max, unit.skill_charge + amount)
+		if unit.skill_charge != before:
+			_emit_event("enemy_skill_charged", String(actor_id), "", "charge=%d/%d" % [unit.skill_charge, unit.skill_charge_max])
 
 
 # --- encounter ---------------------------------------------------------------
@@ -110,7 +132,163 @@ func get_occupied_cells(exclude_actor_id: String = "") -> Dictionary:
 		# §12: a downed body still holds its cell, so it blocks movement.
 		if actor_id != exclude_actor_id and actor.blocks_cell():
 			occupied[actor.cell] = actor_id
+	for b_cell in beacons:
+		var b: Dictionary = beacons[b_cell]
+		if int(b.get("health", 0)) > 0:
+			occupied[b_cell] = str(b["id"])
 	return occupied
+
+
+func alive_beacons() -> Array[Dictionary]:
+	var list: Array[Dictionary] = []
+	for b_cell in beacons:
+		var b: Dictionary = beacons[b_cell]
+		if int(b.get("health", 0)) > 0:
+			list.append(b)
+	return list
+
+
+func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, action_id: String) -> bool:
+	if not beacons.has(cell):
+		return false
+	var b: Dictionary = beacons[cell]
+	if int(b.get("health", 0)) <= 0:
+		return false
+	var dmg: int = maxi(1, amount)
+	b["health"] = maxi(0, int(b["health"]) - dmg)
+	beacons[cell] = b
+	_emit_event("beacon_damaged", source_actor_id, str(b["id"]), "action=%s cell=%s applied=%d health=%d" % [action_id, str(cell), dmg, int(b["health"])])
+	if int(b["health"]) <= 0:
+		_emit_event("beacon_destroyed", source_actor_id, str(b["id"]), "cell=%s" % str(cell))
+		var breaker = get_actor(source_actor_id)
+		if breaker != null and breaker.team == "player":
+			# Player slammed an enemy into the chest and cracked it open -> drop loot on the tile!
+			var loot: Dictionary = b.get("loot", {})
+			if not loot.is_empty():
+				if not dropped_loot.has(cell):
+					dropped_loot[cell] = []
+				dropped_loot[cell].append(loot.duplicate(true))
+				_emit_event("loot_dropped", source_actor_id, str(b["id"]), "撞开掉落「%s」" % str(loot.get("name", "战利品")))
+		else:
+			_grant_chest_buff_to_enemy(source_actor_id, b)
+	return true
+
+
+func _grant_chest_buff_to_enemy(source_actor_id: String, chest: Dictionary) -> void:
+	var loot: Dictionary = chest.get("loot", {})
+	if loot.is_empty():
+		return
+	var recipient = get_actor(source_actor_id)
+	if recipient == null or recipient.team != "enemy" or not recipient.is_alive():
+		for aid in actors:
+			var a = actors[aid]
+			if a.team == "enemy" and a.is_alive():
+				recipient = a
+				break
+	if recipient == null:
+		return
+
+	var kind: String = str(loot.get("kind", ""))
+	var item_name: String = str(loot.get("name", "宝箱物品"))
+	if kind == "weapon" or kind == "armor":
+		# Enemy equips the exact same weapon/armor stats as the player, and will drop it on death
+		var add_atk: int = int(loot.get("attack", 0))
+		var add_def: int = int(loot.get("defense", 0))
+		var add_mres: int = int(loot.get("magic_resistance", 0))
+		var add_hp: int = int(loot.get("max_health", 0))
+		recipient.attack = maxi(1, recipient.attack + add_atk)
+		recipient.defense = maxi(0, recipient.defense + add_def)
+		recipient.magic_resistance = maxi(0, recipient.magic_resistance + add_mres)
+		if add_hp > 0:
+			recipient.max_health += add_hp
+			recipient.health += add_hp
+		recipient.stolen_equipment.append(loot.duplicate(true))
+		_emit_event("chest_stolen_by_enemy", recipient.actor_id, str(chest.get("id", "")), "装备「%s」" % item_name)
+	elif kind == "consumable":
+		# Enemy consumes the exact same consumable effect immediately (not dropped on death)
+		var heal: int = int(loot.get("heal", 0))
+		if heal > 0:
+			recipient.health = mini(recipient.max_health, recipient.health + heal)
+		var sh_gain: int = int(loot.get("shield_gain", 0))
+		if sh_gain > 0:
+			recipient.shield = mini(recipient.max_health, recipient.shield + sh_gain)
+		if int(loot.get("ap_gain", 0)) > 0 or int(loot.get("energy_gain", 0)) > 0:
+			if recipient.skill_charge_max > 0:
+				recipient.skill_charge = recipient.skill_charge_max
+		_emit_event("chest_stolen_by_enemy", recipient.actor_id, str(chest.get("id", "")), "使用了「%s」" % item_name)
+	else:
+		# Skill upgrade absorbed by the enemy (not dropped on death)
+		recipient.attack += 180
+		if recipient.skill_charge_max > 0:
+			recipient.skill_charge = recipient.skill_charge_max
+		_emit_event("chest_stolen_by_enemy", recipient.actor_id, str(chest.get("id", "")), "吸收了「%s」" % item_name)
+
+
+## Only weapon/armor equipment drops onto the ground when an enemy is defeated.
+func drop_enemy_equipment(enemy) -> void:
+	if enemy == null or enemy.stolen_equipment.is_empty():
+		return
+	var cell: Vector2i = enemy.cell
+	if not dropped_loot.has(cell):
+		dropped_loot[cell] = []
+	var names: Array[String] = []
+	for item in enemy.stolen_equipment:
+		var kind: String = str(item.get("kind", ""))
+		if kind == "weapon" or kind == "armor":
+			dropped_loot[cell].append(item.duplicate(true))
+			names.append(str(item.get("name", "装备")))
+	enemy.stolen_equipment.clear()
+	if not names.is_empty():
+		_emit_event("loot_dropped", enemy.actor_id, "", "掉落「%s」" % "、".join(names))
+
+
+func pickup_dropped_loot_at(cell: Vector2i) -> Array[Dictionary]:
+	if not dropped_loot.has(cell):
+		return []
+	var items: Array = dropped_loot[cell]
+	dropped_loot.erase(cell)
+	var picked: Array[Dictionary] = []
+	for item in items:
+		if run_state != null:
+			run_state.add_to_backpack(item)
+		picked.append(item)
+		_emit_event("loot_picked_up", active_character_id, "", str(item.get("name", "装备")))
+	return picked
+
+
+## Collect any intact chests and uncollected ground equipment on victory.
+func collect_remaining_chests() -> Array[Dictionary]:
+	var claimed: Array[Dictionary] = []
+	for cell in beacons:
+		var b: Dictionary = beacons[cell]
+		if int(b.get("health", 0)) > 0 and not bool(b.get("opened", false)):
+			b["health"] = 0
+			b["opened"] = true
+			beacons[cell] = b
+			var loot: Dictionary = b.get("loot", {})
+			if not loot.is_empty():
+				if run_state != null:
+					run_state.add_to_backpack(loot)
+				claimed.append(loot)
+	for drop_cell in dropped_loot.keys():
+		for item in dropped_loot[drop_cell]:
+			if run_state != null:
+				run_state.add_to_backpack(item)
+			claimed.append(item)
+	dropped_loot.clear()
+	return claimed
+
+
+func start_enemy_phase_stepped() -> bool:
+	return BattleFlowScript.start_enemy_phase_stepped(self)
+
+
+func resolve_next_enemy_intent() -> bool:
+	return BattleFlowScript.resolve_next_enemy_intent(self)
+
+
+func finish_enemy_phase_stepped() -> void:
+	BattleFlowScript.finish_enemy_phase_stepped(self)
 
 
 func get_actor(actor_id: String):
@@ -202,20 +380,22 @@ func get_oathkeeper_marked_target() -> String:
 # --- player actions ----------------------------------------------------------
 
 func request_player_move(path: Array[Vector2i]) -> bool:
-	# The active character moves, not Sevrin: the view builds the candidate path
-	# from whoever is being commanded, so validating from a fixed actor id made
-	# every move by anyone else fail the adjacency check on the first step.
 	var mover = get_active_character()
 	if phase != BattlePhase.PLAYER or mover == null:
 		return false
-	if not mover.is_alive() or not ap.can_spend(1):
+	var free_stride: bool = run_state != null and run_state.has_mod(&"echo_stride") and free_move_used_turn != turn_number
+	var move_cost: int = 0 if free_stride else 1
+	if not mover.is_alive() or not ap.can_spend(move_cost):
 		return false
 	if not GridRulesScript.is_path_legal(mover.cell, path, grid_size, blocked_cells, get_occupied_cells(mover.actor_id), PLAYER_MOVE_MAX_STEPS):
 		_emit_event("action_rejected", mover.actor_id, "", "invalid_move")
 		return false
-	if not ap.spend(1):
+	if move_cost > 0 and not ap.spend(move_cost):
 		return false
+	if free_stride:
+		free_move_used_turn = turn_number
 	mover.cell = path[path.size() - 1]
+	pickup_dropped_loot_at(mover.cell)
 	SkillExecutorScript.gain_active_energy(self, mover.actor_id)
 	CharacterSkillRuntimeScript.gain_intent_from_action(self, mover)
 	_emit_event("actor_moved", mover.actor_id, "", str(mover.cell))

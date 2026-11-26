@@ -1,0 +1,317 @@
+class_name RunState
+extends RefCounted
+
+## Single-hero roguelite run state for Sevrin:
+## - Persists HP, skill mods, equipped weapon/armor, and backpack across stages.
+## - Supports equipping, swapping, unequipping back to backpack, and using items.
+## - reset() wipes everything cleanly at the end of a run.
+
+const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
+
+var base_max_health: int = 3600
+var base_attack: int = 1150
+var base_defense: int = 350
+var base_magic_resistance: int = 250
+
+var bonus_max_health: int = 0
+var hero_max_health: int = 3600
+var hero_health: int = 3600
+var mods: Array[StringName] = []
+var equipped_weapon: Dictionary = {}
+var equipped_armor: Dictionary = {}
+var backpack: Array[Dictionary] = []
+var initialized: bool = false
+
+const REWARD_POOL: Array[Dictionary] = [
+	{
+		"id": &"heavy_push",
+		"kind": "技能铭文",
+		"name": "重盾冲击",
+		"desc": "「誓刃」击退距离提升至 2 格，更容易撞墙破招。",
+		"repeatable": false,
+	},
+	{
+		"id": &"shatter_slam",
+		"kind": "技能铭文",
+		"name": "碎石震荡",
+		"desc": "击退撞墙 / 撞怪造成的真实伤害翻倍（450 → 900）。",
+		"repeatable": false,
+	},
+	{
+		"id": &"deep_judgment",
+		"kind": "技能铭文",
+		"name": "贯通裁决",
+		"desc": "「裁决印记」附加的易伤从 +30% 提升至 +55%。",
+		"repeatable": false,
+	},
+	{
+		"id": &"shock_shield",
+		"kind": "技能铭文",
+		"name": "震荡誓盾",
+		"desc": "「誓盾庇护」护盾 +350，且开盾时震退周围 1 格敌人。",
+		"repeatable": false,
+	},
+	{
+		"id": &"wide_verdict",
+		"kind": "技能铭文",
+		"name": "大裁决域",
+		"desc": "终极技「绝对裁决」范围扩大至自身周围 2 格。",
+		"repeatable": false,
+	},
+	{
+		"id": &"echo_stride",
+		"kind": "回声遗物",
+		"name": "余响迅步",
+		"desc": "每回合首次移动不消耗 AP，且不会为敌人充能。",
+		"repeatable": false,
+	},
+	{
+		"id": &"dusk_elixir",
+		"kind": "黄昏休整",
+		"name": "黄昏秘药",
+		"desc": "立刻回复 1200 生命，并将最大生命提升 +400。",
+		"repeatable": true,
+	},
+]
+
+
+func reset(p_max_health: int = 3600, p_attack: int = 1150, p_defense: int = 350, p_mres: int = 250) -> void:
+	base_max_health = maxi(1, p_max_health)
+	base_attack = maxi(1, p_attack)
+	base_defense = maxi(0, p_defense)
+	base_magic_resistance = maxi(0, p_mres)
+	bonus_max_health = 0
+	hero_max_health = base_max_health
+	hero_health = base_max_health
+	mods.clear()
+	equipped_weapon = {}
+	equipped_armor = {}
+	backpack.clear()
+	initialized = true
+
+
+func has_mod(mod_id: StringName) -> bool:
+	return mods.has(mod_id)
+
+
+func knockback_steps() -> int:
+	return 2 if has_mod(&"heavy_push") else 1
+
+
+func collision_damage() -> int:
+	var base_dmg: int = 900 if has_mod(&"shatter_slam") else 450
+	if not equipped_weapon.is_empty():
+		base_dmg += int(equipped_weapon.get("collision_bonus", 0))
+	return base_dmg
+
+
+func mark_vulnerability_multiplier() -> float:
+	return 1.55 if has_mod(&"deep_judgment") else 1.30
+
+
+func shield_bonus() -> int:
+	return 350 if has_mod(&"shock_shield") else 0
+
+
+func ultimate_radius() -> int:
+	return 2 if has_mod(&"wide_verdict") else 1
+
+
+# --- equipment & backpack API -----------------------------------------------
+
+func add_to_backpack(item: Dictionary) -> void:
+	if item.is_empty():
+		return
+	backpack.append(item.duplicate(true))
+
+
+func effective_max_health() -> int:
+	var mh: int = base_max_health + bonus_max_health
+	if not equipped_weapon.is_empty():
+		mh += int(equipped_weapon.get("max_health", 0))
+	if not equipped_armor.is_empty():
+		mh += int(equipped_armor.get("max_health", 0))
+	return maxi(1, mh)
+
+
+func effective_attack() -> int:
+	var val: int = base_attack
+	if not equipped_weapon.is_empty():
+		val += int(equipped_weapon.get("attack", 0))
+	if not equipped_armor.is_empty():
+		val += int(equipped_armor.get("attack", 0))
+	return maxi(1, val)
+
+
+func effective_defense() -> int:
+	var val: int = base_defense
+	if not equipped_weapon.is_empty():
+		val += int(equipped_weapon.get("defense", 0))
+	if not equipped_armor.is_empty():
+		val += int(equipped_armor.get("defense", 0))
+	return maxi(0, val)
+
+
+func effective_magic_resistance() -> int:
+	var val: int = base_magic_resistance
+	if not equipped_weapon.is_empty():
+		val += int(equipped_weapon.get("magic_resistance", 0))
+	if not equipped_armor.is_empty():
+		val += int(equipped_armor.get("magic_resistance", 0))
+	return maxi(0, val)
+
+
+func equip_from_backpack(index: int, actor = null) -> String:
+	if index < 0 or index >= backpack.size():
+		return ""
+	var item: Dictionary = backpack[index]
+	var kind: String = str(item.get("kind", ""))
+	if kind != LootCatalogScript.KIND_WEAPON and kind != LootCatalogScript.KIND_ARMOR:
+		return ""
+
+	var old_max: int = effective_max_health()
+	backpack.remove_at(index)
+	if kind == LootCatalogScript.KIND_WEAPON:
+		if not equipped_weapon.is_empty():
+			backpack.append(equipped_weapon)
+		equipped_weapon = item
+	else:
+		if not equipped_armor.is_empty():
+			backpack.append(equipped_armor)
+		equipped_armor = item
+
+	_recompute_stats(actor, old_max)
+	return "已装备「%s」。" % str(item.get("name", ""))
+
+
+func unequip_slot(slot: String, actor = null) -> String:
+	var old_max: int = effective_max_health()
+	if slot == LootCatalogScript.KIND_WEAPON and not equipped_weapon.is_empty():
+		var removed: Dictionary = equipped_weapon
+		equipped_weapon = {}
+		backpack.append(removed)
+		_recompute_stats(actor, old_max)
+		return "已卸下「%s」并放回背包。" % str(removed.get("name", ""))
+	if slot == LootCatalogScript.KIND_ARMOR and not equipped_armor.is_empty():
+		var removed: Dictionary = equipped_armor
+		equipped_armor = {}
+		backpack.append(removed)
+		_recompute_stats(actor, old_max)
+		return "已卸下「%s」并放回背包。" % str(removed.get("name", ""))
+	return ""
+
+
+func use_backpack_item(index: int, battle, actor) -> String:
+	if index < 0 or index >= backpack.size():
+		return ""
+	var item: Dictionary = backpack[index]
+	var kind: String = str(item.get("kind", ""))
+	if kind == LootCatalogScript.KIND_WEAPON or kind == LootCatalogScript.KIND_ARMOR:
+		return equip_from_backpack(index, actor)
+
+	if kind == LootCatalogScript.KIND_SKILL_UPGRADE:
+		var mid: StringName = item.get("mod_id", &"")
+		backpack.remove_at(index)
+		if mid != &"" and not mods.has(mid):
+			mods.append(mid)
+		return "已激活技能升级「%s」！" % str(item.get("name", ""))
+
+	if kind == LootCatalogScript.KIND_CONSUMABLE:
+		if actor == null or not actor.is_alive():
+			return "当前无法使用道具。"
+		backpack.remove_at(index)
+		var heal: int = int(item.get("heal", 0))
+		if heal > 0:
+			actor.health = mini(actor.max_health, actor.health + heal)
+			hero_health = actor.health
+		var ap_gain: int = int(item.get("ap_gain", 0))
+		if ap_gain > 0 and battle != null and battle.ap != null:
+			battle.ap.current = mini(battle.ap.maximum + 2, battle.ap.current + ap_gain)
+		var sh_gain: int = int(item.get("shield_gain", 0))
+		if sh_gain > 0:
+			actor.grant_shield(actor.shield + sh_gain)
+		var en_gain: int = int(item.get("energy_gain", 0))
+		if en_gain > 0:
+			actor.gain_ultimate_energy(en_gain)
+		return "已使用「%s」！" % str(item.get("name", ""))
+
+	return ""
+
+
+func _recompute_stats(actor, old_max: int) -> void:
+	var new_max: int = effective_max_health()
+	var delta_hp: int = new_max - old_max
+	hero_max_health = new_max
+	if actor != null:
+		actor.max_health = new_max
+		if delta_hp > 0:
+			actor.health = mini(new_max, actor.health + delta_hp)
+		else:
+			actor.health = clampi(actor.health, 1, new_max)
+		actor.attack = effective_attack()
+		actor.defense = effective_defense()
+		actor.magic_resistance = effective_magic_resistance()
+		hero_health = actor.health
+	else:
+		if delta_hp > 0:
+			hero_health = mini(new_max, hero_health + delta_hp)
+		else:
+			hero_health = clampi(hero_health, 1, new_max)
+
+
+func sync_from_actor(actor) -> void:
+	if actor == null:
+		return
+	hero_max_health = effective_max_health()
+	hero_health = clampi(actor.health, 1, hero_max_health)
+	initialized = true
+
+
+func apply_to_actor(actor) -> void:
+	if actor == null:
+		return
+	if not initialized:
+		reset(actor.max_health, actor.attack, actor.defense, actor.magic_resistance)
+		return
+	hero_max_health = effective_max_health()
+	actor.max_health = hero_max_health
+	actor.health = clampi(hero_health, 1, hero_max_health)
+	actor.attack = effective_attack()
+	actor.defense = effective_defense()
+	actor.magic_resistance = effective_magic_resistance()
+
+
+func roll_rewards(count: int = 3) -> Array[Dictionary]:
+	var candidates: Array[Dictionary] = []
+	for item in REWARD_POOL:
+		var mid: StringName = item["id"]
+		if bool(item["repeatable"]) or not has_mod(mid):
+			candidates.append(item)
+	candidates.shuffle()
+	var result: Array[Dictionary] = []
+	for i in range(mini(count, candidates.size())):
+		result.append(candidates[i])
+	return result
+
+
+func apply_reward(mod_id: StringName) -> Dictionary:
+	for item in REWARD_POOL:
+		if item["id"] == mod_id:
+			if mod_id == &"dusk_elixir":
+				bonus_max_health += 400
+				hero_max_health = effective_max_health()
+				hero_health = mini(hero_max_health, hero_health + 1200)
+			elif not mods.has(mod_id):
+				mods.append(mod_id)
+			return item
+	return {}
+
+
+func active_mod_names() -> Array[String]:
+	var names: Array[String] = []
+	for mid in mods:
+		for item in REWARD_POOL:
+			if item["id"] == mid:
+				names.append(String(item["name"]))
+				break
+	return names

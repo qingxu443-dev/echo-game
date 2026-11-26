@@ -5,11 +5,11 @@
 [resource]
 script = ExtResource("1_lv")
 level_id = &"lesson_charge"
-display_name_zh = "第一课 · 蓄力"
-tactical_hint_zh = "先锋在正前方两格时会锁定你脚下的格子蓄力。看清预兆，移动一格就能让它落空。"
-player_cell = Vector2i(1, 3)
-enemy_cells = Array[Vector2i]([Vector2i(3, 3)])
-enemy_archetypes = Array[String](["vanguard"])
-character_ids = Array[String](["sevrin", "sakura"])
-ally_cells = Array[Vector2i]([Vector2i(1, 4)])
-obstacles = Array[Vector2i]([])
+display_name_zh = "第一关 · 遗迹宝箱"
+tactical_hint_zh = "护住地图上的「遗迹宝箱」至通关即可开出装备/道具！若被怪拆毁，怪物会立刻吃掉增益！"
+player_cell = Vector2i(2, 3)
+enemy_cells = Array[Vector2i]([Vector2i(4, 3), Vector2i(5, 1)])
+enemy_archetypes = Array[String](["vanguard", "marksman"])
+character_ids = Array[String](["sevrin"])
+ally_cells = Array[Vector2i]([])
+obstacles = Array[Vector2i]([Vector2i(3, 5)])

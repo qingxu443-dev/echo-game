@@ -26,14 +26,15 @@ const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 ## Ultimate energy is not one of them any more. Releasing an ultimate spends the
 ## caster's whole pool, and the pool's size lives on the character sheet, so
 ## neither this file nor the bar needs a number.
-const OATH_SHIELD_DEFENSE_RATIO: float = 0.3
-const OATH_SHIELD_VOW_BONUS: float = 0.1
+const OATH_SHIELD_BASE: int = 650
+const OATH_SHIELD_VOW_FLAT: int = 100
+const KNOCKBACK_COLLISION_DMG: int = 450
 
 
 static func absolute_guard(battle) -> bool:
-	## Ultimate: taunt eligible single-target attacks and counter once per enemy.
-	## The guardian is the commanded character, so the stance belongs to whoever
-	## can actually cast it rather than to one fixed id.
+	## Ultimate (绝对裁决): consumes 2 AP and full ultimate energy (4) to slam
+	## every enemy within Chebyshev distance 1 (8 surrounding tiles) for 130% ATK
+	## and knock them back 1 tile (with wall/unit collision bonus).
 	var actors = battle.actors
 	if battle.phase != battle.BattlePhase.PLAYER:
 		return false
@@ -47,20 +48,6 @@ static func absolute_guard(battle) -> bool:
 	var energy_cost: int = caster.ultimate_energy_max
 	if not caster.is_alive() or not battle.ap.can_spend(skill.ap_cost) or caster.ultimate_energy < energy_cost:
 		return false
-	# The stance is singular: a new cast takes it over from any other holder, so
-	# the guardian query never has two names to choose between. Without this, a
-	# second holder (the direct status surface can create one) would leave the
-	# taunt and the counter aimed by deployment order rather than by intent.
-	for other_id in actors:
-		if String(other_id) == caster_id:
-			continue
-		var other = actors[other_id]
-		if other.team == "player":
-			battle.statuses.remove_status(String(other_id), &"absolute_guard")
-	if not battle.statuses.apply_status(&"absolute_guard", caster_id, caster_id, 1, 1, -1, &"player_phase_start", &"replace"):
-		return false
-	# Both spends are guarded above, but revert whichever one landed: spending AP
-	# and then failing on energy used to lose the AP silently.
 	var spent_energy: bool = caster.spend_ultimate_energy(energy_cost)
 	var spent_ap: bool = battle.ap.spend(skill.ap_cost)
 	if not (spent_energy and spent_ap):
@@ -68,11 +55,92 @@ static func absolute_guard(battle) -> bool:
 			caster.gain_ultimate_energy(energy_cost)
 		if spent_ap:
 			battle.ap.refund(skill.ap_cost)
-		battle.statuses.remove_status(caster_id, &"absolute_guard")
 		return false
-	gain_active_energy(battle, caster_id)
-	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=%d energy=%d radius=%d expires=next_player_phase_start" % [skill.ap_cost, energy_cost, skill.max_range])
+
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, skill.damage_multiplier)
+	var radius: int = battle.run_state.ultimate_radius() if battle.run_state != null else 1
+	var col_dmg: int = battle.run_state.collision_damage() if battle.run_state != null else KNOCKBACK_COLLISION_DMG
+	var hit_targets: Array = []
+	for actor_id in actors.keys():
+		var enemy = actors[actor_id]
+		if enemy.team != "enemy" or not enemy.is_alive():
+			continue
+		var dx: int = absi(enemy.cell.x - caster.cell.x)
+		var dy: int = absi(enemy.cell.y - caster.cell.y)
+		if maxi(dx, dy) <= radius:
+			hit_targets.append(enemy)
+
+	for enemy in hit_targets:
+		battle._apply_damage(enemy.actor_id, raw_damage, caster_id, "absolute_guard", "physical")
+		if enemy.is_alive():
+			_knockback_one(battle, caster, enemy, enemy.cell - caster.cell, col_dmg)
+
+	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=%d energy=%d hits=%d" % [skill.ap_cost, energy_cost, hit_targets.size()])
+	battle._check_battle_end()
 	return true
+
+
+static func _knockback_one(battle, caster, target, direction: Vector2i, collision_damage: int) -> void:
+	if direction == Vector2i.ZERO:
+		return
+	var step := Vector2i(signi(direction.x), signi(direction.y))
+	var dest: Vector2i = target.cell + step
+	var out_of_bounds: bool = dest.x < 0 or dest.y < 0 or dest.x >= battle.grid_size.x or dest.y >= battle.grid_size.y
+	if out_of_bounds or battle.blocked_cells.has(dest):
+		battle._apply_damage(target.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
+		return
+	if battle.beacons.has(dest) and int(battle.beacons[dest].get("health", 0)) > 0:
+		battle._apply_damage(target.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
+		battle.damage_beacon_at(dest, collision_damage, caster.actor_id, "knockback_collision")
+		return
+	for other_id in battle.actors:
+		var other = battle.actors[other_id]
+		if other.actor_id == target.actor_id:
+			continue
+		if (other.is_alive() or other.is_downed()) and other.cell == dest:
+			battle._apply_damage(target.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
+			if other.is_alive():
+				battle._apply_damage(other.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
+			return
+	target.cell = dest
+	for intent in battle.intents:
+		if intent.source_actor_id != target.actor_id or intent.state != 0:
+			continue
+		if intent.action_id not in ["charged_strike", "aimed_shot", "light_shot", "ground_pulse", "echo_bolt", "basic_melee"]:
+			continue
+		intent.target_cell = intent.target_cell + step
+		if intent.action_id == "charged_strike":
+			var forward := Vector2i(signi(intent.target_cell.x - target.cell.x), signi(intent.target_cell.y - target.cell.y))
+			var perp := Vector2i(-forward.y, forward.x)
+			var rebuilt: Array[Vector2i] = []
+			for depth in [1, 2]:
+				var row_center: Vector2i = target.cell + forward * depth
+				for side in [-1, 0, 1]:
+					var c: Vector2i = row_center + perp * side
+					if GridRulesScript.is_inside_bounds(c, battle.grid_size) and not battle.blocked_cells.has(c) and c != target.cell:
+						rebuilt.append(c)
+			intent.affected_cells = rebuilt
+		elif intent.action_id == "aimed_shot":
+			var astep := Vector2i(signi(intent.target_cell.x - target.cell.x), signi(intent.target_cell.y - target.cell.y))
+			var rebuilt: Array[Vector2i] = []
+			for offset in [-1, 0, 1]:
+				var c: Vector2i = intent.target_cell + astep * offset
+				if GridRulesScript.is_inside_bounds(c, battle.grid_size) and not battle.blocked_cells.has(c) and c != target.cell:
+					rebuilt.append(c)
+			intent.affected_cells = rebuilt
+		elif intent.action_id == "ground_pulse":
+			var rebuilt: Array[Vector2i] = []
+			for offset in [Vector2i.ZERO, Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+				var c: Vector2i = intent.target_cell + offset
+				if GridRulesScript.is_inside_bounds(c, battle.grid_size):
+					rebuilt.append(c)
+			intent.affected_cells = rebuilt
+		else:
+			var shifted: Array[Vector2i] = []
+			if GridRulesScript.is_inside_bounds(intent.target_cell, battle.grid_size) and not battle.blocked_cells.has(intent.target_cell):
+				shifted.append(intent.target_cell)
+			intent.affected_cells = shifted
+	battle._emit_event("actor_moved", target.actor_id, caster.actor_id, "knockback dest=%s" % str(dest))
 
 
 static func gain_active_energy(battle, actor_id: String) -> void:
@@ -89,55 +157,46 @@ static func gain_active_energy(battle, actor_id: String) -> void:
 		battle._emit_event("ultimate_energy_gained", actor_id, actor_id, "source=active_action energy=%d" % actor.ultimate_energy)
 
 
-static func oath_shield(battle, target_actor_id: String) -> bool:
-	## Applies a DEF-scaled shield to Sevrin and one selected allied actor.
-	## The caster comes from the active character, not from a fixed id: this was
-	## the last skill that read actors["sevrin"] for both the caster and the
-	## shield list, which is why a party member could never be shielded.
-	##
-	## §12 promised that "a specific skill can revive" a downed member; this is
-	## that skill. A downed ally within range is a legal target: revival restores
-	## health equal to the shield's raw value (one source, DEF-scaled), returns
-	## the member to its own cell and then shields it like any living target.
-	## Per §12 the count is the skill's to define: once per member per
-	## encounter, so a body cannot be resurrected in a loop.
+static func oath_shield(battle, target_actor_id: String = "") -> bool:
 	var actors = battle.actors
-	if battle.phase != battle.BattlePhase.PLAYER or not actors.has(target_actor_id):
+	if battle.phase != battle.BattlePhase.PLAYER:
 		return false
 	var caster = battle.get_active_character()
-	if caster == null:
+	if caster == null or not caster.is_alive():
+		return false
+	var resolved_target_id: String = target_actor_id if not target_actor_id.is_empty() else caster.actor_id
+	if not actors.has(resolved_target_id):
 		return false
 	var skill := SkillRegistryScript.get_skill(&"oath_shield")
 	if skill == null:
 		return false
-	var target = actors[target_actor_id]
+	var target = actors[resolved_target_id]
 	var reviving: bool = target.is_downed()
-	if not caster.is_alive() or target.team != "player" or not (target.is_alive() or reviving):
+	if target.team != "player" or not (target.is_alive() or reviving):
 		return false
-	if reviving and battle.oath_shield_revived.has(target_actor_id):
+	if reviving and battle.oath_shield_revived.has(resolved_target_id):
 		return false
-	if GridRulesScript.manhattan_distance(caster.cell, target.cell) > skill.max_range:
+	if resolved_target_id != caster.actor_id and GridRulesScript.manhattan_distance(caster.cell, target.cell) > skill.max_range:
 		return false
 	if not battle.ap.can_spend(skill.ap_cost):
 		return false
 	var caster_id: String = caster.actor_id
 	var vow_stacks: int = battle.get_oath_vow_stacks(caster_id)
-	var raw_shield: int = floori(float(caster.defense) * OATH_SHIELD_DEFENSE_RATIO * (1.0 + OATH_SHIELD_VOW_BONUS * float(vow_stacks)))
+	var mod_bonus: int = battle.run_state.shield_bonus() if battle.run_state != null else 0
+	var raw_shield: int = OATH_SHIELD_BASE + vow_stacks * OATH_SHIELD_VOW_FLAT + mod_bonus
 	var shielded_ids: Array[String] = [caster_id]
-	if target_actor_id != caster_id:
-		shielded_ids.append(target_actor_id)
+	if resolved_target_id != caster_id:
+		shielded_ids.append(resolved_target_id)
 	if not battle.ap.spend(skill.ap_cost):
 		return false
 	if reviving:
 		target.revive(raw_shield)
-		battle.oath_shield_revived[target_actor_id] = true
-		battle._emit_event("member_revived", caster_id, target_actor_id, "skill=oath_shield restored=%d" % raw_shield)
+		battle.oath_shield_revived[resolved_target_id] = true
+		battle._emit_event("member_revived", caster_id, resolved_target_id, "skill=oath_shield restored=%d" % raw_shield)
 	for shielded_id in shielded_ids:
 		var shielded = actors[shielded_id]
 		var previous_shield: int = shielded.shield
 		var final_shield: int = shielded.grant_shield(raw_shield)
-		# Reapplication refreshes the two-player-turn duration even when the
-		# retained shield amount is stronger than the newly calculated amount.
 		battle.oath_shield_expiry_turn[shielded_id] = battle.turn_number + 1
 		battle._emit_event(
 			"oath_shield_applied",
@@ -147,7 +206,7 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 				raw_shield,
 				previous_shield,
 				final_shield,
-				floori(float(shielded.max_health) * 0.15),
+				floori(float(shielded.max_health) * 0.30),
 				battle.turn_number + 1
 			]
 		)
@@ -155,7 +214,15 @@ static func oath_shield(battle, target_actor_id: String) -> bool:
 	if vow_stacks > 0:
 		battle.statuses.remove_status(caster_id, &"oath_vow")
 		battle._emit_event("status_consumed", caster_id, caster_id, "status=oath_vow stacks=%d" % vow_stacks)
-	battle._emit_event("skill_resolved", caster_id, target_actor_id, "skill=oath_shield ap=%d vow_stacks=%d shield=%d" % [skill.ap_cost, vow_stacks, raw_shield])
+	# Shock Shield roguelite mod: activating Oath Shield pushes adjacent enemies back 1 tile
+	if battle.run_state != null and battle.run_state.has_mod(&"shock_shield"):
+		var col_dmg: int = battle.run_state.collision_damage()
+		for eid in actors.keys():
+			var e = actors[eid]
+			if e.team == "enemy" and e.is_alive() and GridRulesScript.manhattan_distance(caster.cell, e.cell) == 1:
+				_knockback_one(battle, caster, e, e.cell - caster.cell, col_dmg)
+	battle._emit_event("skill_resolved", caster_id, resolved_target_id, "skill=oath_shield ap=%d vow_stacks=%d shield=%d" % [skill.ap_cost, vow_stacks, raw_shield])
+	battle._check_battle_end()
 	return true
 
 
@@ -197,7 +264,7 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 		battle.ap.refund(skill.ap_cost)
 		return false
 	gain_active_energy(battle, caster_id)
-	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.defense, skill.damage_multiplier)
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, skill.damage_multiplier)
 	battle._apply_damage(target_actor_id, raw_damage, caster_id, "oathkeeper_judgment_mark", "physical")
 	battle._emit_event(
 		"skill_resolved",

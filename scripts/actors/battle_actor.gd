@@ -42,8 +42,14 @@ var role_label_zh: String = ""
 ## Class resource (design plan §19: 剑意). Empty id means the unit has none.
 var resource_id: StringName = &""
 var resource_name_zh: String = ""
-var resource_current: int = 0
 var resource_max: int = 0
+var resource_current: int = 0
+
+## Enemy signature-skill charge bar: fills whenever the player spends AP.
+var skill_charge: int = 0
+var skill_charge_max: int = 3
+## Weapons/armors stolen from destroyed Relic Chests; dropped onto the ground on death.
+var stolen_equipment: Array[Dictionary] = []
 
 
 func _init(
@@ -80,9 +86,8 @@ func spend_ultimate_energy(amount: int) -> bool:
 
 
 func grant_shield(requested_amount: int) -> int:
-	## Reapplication never lowers a stronger remaining shield; each actor has
-	## an independent cap of 15% max health.
-	var shield_cap: int = floori(float(max_health) * 0.15)
+	## Reapplication never lowers a stronger remaining shield; cap at 30% max HP.
+	var shield_cap: int = floori(float(max_health) * 0.30)
 	var new_shield: int = clampi(requested_amount, 0, shield_cap)
 	shield = maxi(shield, new_shield)
 	return shield

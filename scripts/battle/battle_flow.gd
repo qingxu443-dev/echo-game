@@ -14,6 +14,7 @@ const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
+const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 
 
 ## Validates the whole setup before touching live state: a rejected call must
@@ -79,6 +80,8 @@ static func start_encounter(
 
 	battle.ap.maximum = battle.team_ap
 	battle.actors.clear()
+	battle.beacons.clear()
+	battle.dropped_loot.clear()
 	battle.statuses.clear_all()
 	battle.oath_shield_expiry_turn.clear()
 	battle.oath_shield_revived.clear()
@@ -111,8 +114,11 @@ static func start_encounter(
 		unit.resource_max = sheet.resource_max
 		unit.ultimate_energy_max = maxi(1, sheet.ultimate_energy_max)
 		unit.resource_current = 0
+		if index == 0 and battle.run_state != null:
+			battle.run_state.apply_to_actor(unit)
 		battle.actors[character_id] = unit
 	battle.active_character_id = roster[0]
+	battle.free_move_used_turn = -1
 	for index in range(enemy_cells.size()):
 		var cell: Vector2i = enemy_cells[index]
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
@@ -120,11 +126,72 @@ static func start_encounter(
 		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
 		var enemy_unit = BattleActorScript.new(enemy_id, "enemy", cell, profile.health, archetype, profile.attack, profile.defense, profile.magic_resistance)
 		enemy_unit.glyph = profile.glyph
+		enemy_unit.skill_charge_max = 3
+		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
+		enemy_unit.skill_charge = 3
 		battle.actors[enemy_id] = enemy_unit
+
+	# Spawn 2 Relic Beacons as stationary defense objectives (Into-the-Breach style)
+	_spawn_default_beacons(battle, spawn_cells, enemy_cells, candidate_blockers)
 
 	battle.phase = battle.BattlePhase.PLAYER
 	begin_player_turn(battle)
 	return true
+
+
+static func _spawn_default_beacons(battle, spawn_cells: Array[Vector2i], enemy_cells: Array[Vector2i], blockers: Dictionary) -> void:
+	var preferred: Array[Vector2i] = [
+		Vector2i(1, 5),
+		Vector2i(3, 1),
+		Vector2i(2, 6),
+		Vector2i(5, 2),
+		Vector2i(1, 2),
+		Vector2i(4, 1),
+	]
+	var used: Dictionary = {}
+	for c in spawn_cells:
+		used[c] = true
+	for c in enemy_cells:
+		used[c] = true
+	for c in blockers:
+		used[c] = true
+	var placed: int = 0
+	for c in preferred:
+		if placed >= 2:
+			break
+		if not GridRulesScript.is_inside_bounds(c, battle.grid_size) or used.has(c):
+			continue
+		placed += 1
+		used[c] = true
+		battle.beacons[c] = {
+			"id": "beacon_%02d" % placed,
+			"cell": c,
+			"health": 2000,
+			"max_health": 2000,
+			"opened": false,
+			"loot": LootCatalogScript.roll_random_item(),
+		}
+
+
+static func start_enemy_phase_stepped(battle) -> bool:
+	if battle.phase != battle.BattlePhase.PLAYER:
+		return false
+	expire_oath_shields_for_current_turn(battle)
+	var expired_statuses: int = battle.statuses.expire_all_boundary(&"player_phase_end")
+	if expired_statuses > 0:
+		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_end count=%d" % expired_statuses)
+	battle.ap.clear()
+	battle.phase = battle.BattlePhase.ENEMY
+	battle._emit_event("turn_ended", battle.active_character_id, "", "turn=%d" % battle.turn_number)
+	return true
+
+
+static func resolve_next_enemy_intent(battle) -> bool:
+	return IntentResolverScript.resolve_one_active(battle)
+
+
+static func finish_enemy_phase_stepped(battle) -> void:
+	IntentResolverScript.finish_phase(battle)
 
 
 static func end_player_turn(battle) -> bool:

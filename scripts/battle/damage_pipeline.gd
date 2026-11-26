@@ -35,7 +35,15 @@ static func apply(
 		push_error("DamagePipeline: unknown target '%s'" % target_actor_id)
 		return
 
-	var damage_result: Dictionary = target.apply_damage_with_result(amount, damage_type)
+	var effective_amount: int = amount
+	# Judgment Mark vulnerability: next hit on a marked enemy deals +30% (or +55% with Deep Judgment mod) and consumes the mark.
+	if target.team == "enemy" and action_id != "oathkeeper_judgment_mark" and statuses.has_status(target_actor_id, &"oathkeeper_mark"):
+		var vuln_mult: float = battle.run_state.mark_vulnerability_multiplier() if battle.run_state != null else 1.30
+		effective_amount = roundi(float(amount) * vuln_mult)
+		statuses.remove_status(target_actor_id, &"oathkeeper_mark")
+		battle._emit_event("status_consumed", source_actor_id, target_actor_id, "status=oathkeeper_mark mult=%.2f" % vuln_mult)
+
+	var damage_result: Dictionary = target.apply_damage_with_result(effective_amount, damage_type)
 	var applied: int = int(damage_result.get("health_damage", 0))
 	var was_hit: bool = bool(damage_result.get("hit", false))
 
@@ -78,6 +86,7 @@ static func apply(
 	if target.is_defeated() and target.team == "enemy":
 		if applied > 0:
 			battle.enemies_defeated += 1
+		battle.drop_enemy_equipment(target)
 		for intent in battle.intents:
 			if intent.source_actor_id == target_actor_id and intent.intent_id != resolving_intent_id:
 				intent.cancel("source_defeated")

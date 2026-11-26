@@ -22,12 +22,9 @@ const DAMAGE_MAGICAL: StringName = &"magical"
 @export var max_range: int = 0
 @export var damage_type: StringName = DAMAGE_NONE
 @export var damage_multiplier: float = 0.0
-@export var effect_id: StringName = &""
-## Which runtime branch resolves this skill. Kept separate from effect_id, which
-## names the status the skill applies - the two are not the same thing and
-## conflating them made dispatch guess.
+## Which runtime branch resolves this skill. Assigning it is the catalogue's
+## job; a skill without one fails loudly in the runtime instead of doing nothing.
 @export var executor_id: StringName = &""
-@export var duration_player_phases: int = 0
 @export var is_passive: bool = false
 ## Design plan §15: which of the five slots this skill occupies.
 @export var slot: StringName = &""
@@ -54,7 +51,7 @@ func is_valid() -> bool:
 		return false
 	if target_mode != TARGET_SELF and target_mode != TARGET_SELF_AND_ALLY and target_mode != TARGET_ACTOR and target_mode != TARGET_CELL and target_mode != TARGET_AREA:
 		return false
-	if damage_multiplier < 0.0 or duration_player_phases < 0:
+	if damage_multiplier < 0.0:
 		return false
 	if hits <= 0:
 		return false
@@ -71,7 +68,5 @@ func is_valid() -> bool:
 		if damage_type != DAMAGE_PHYSICAL and damage_type != DAMAGE_MAGICAL:
 			return false
 	elif damage_type != DAMAGE_NONE:
-		return false
-	if effect_id == &"":
 		return false
 	return true

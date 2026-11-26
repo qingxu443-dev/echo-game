@@ -175,11 +175,11 @@ func _test_oath_shield_revives_a_downed_member() -> void:
 
 	_check(battle.request_oath_shield("sakura"), "Oath Shield revives the downed member")
 	_check(sakura.is_alive() and not sakura.is_downed(), "the revived member is standing again")
-	# Sevrin DEF 650, no vow stacks: floor(650 * 0.3) = 195 as shield and health.
-	_check(sakura.health == 195, "revival restores shield-strength health")
+	# OATH_SHIELD_BASE = 650, no vow stacks; Sakura shield cap is 30% of 1800 max_health = 540.
+	_check(sakura.health == 650, "revival restores shield-strength health")
 	_check(sakura.cell == cell, "revival returns the member to its own cell")
-	_check(sakura.shield == 195, "the revived member also carries the shield")
-	_check(battle.ap.current == 4, "the revival cast spends one AP from the shared pool")
+	_check(sakura.shield == 540, "the revived member also carries the shield up to its 30% cap")
+	_check(battle.ap.current == 2, "the revival cast spends one AP from the shared pool")
 
 	battle.set_active_character("sakura")
 	_check(battle.request_player_move([Vector2i(2, 2)]), "the revived member can act again")
@@ -199,7 +199,7 @@ func _test_revival_is_once_per_member_per_encounter() -> void:
 	battle._apply_damage("sakura", 999999, "vanguard_00", "test_strike", "physical")
 	_check(sakura.is_downed(), "the revived member can go down again")
 	_check(not battle.request_oath_shield("sakura"), "a second revival of the same member this encounter is refused")
-	_check(battle.ap.current == 4, "the refused re-revival spends nothing")
+	_check(battle.ap.current == 2, "the refused re-revival spends nothing")
 
 	var distant = ControllerScript.new()
 	root.add_child(distant)

@@ -31,22 +31,22 @@ func _test_catalog_contents() -> void:
 
 func _test_profile_values() -> void:
 	var vanguard = CatalogScript.get_definition("vanguard")
-	_check(vanguard.health == 3200, "vanguard health matches the baseline")
+	_check(vanguard.health == 3000, "vanguard health matches the baseline")
 	_check(vanguard.attack == 1400, "vanguard attack matches the baseline")
-	_check(vanguard.defense == 700, "vanguard defense matches the baseline")
-	_check(vanguard.magic_resistance == 350, "vanguard magic resistance matches the baseline")
+	_check(vanguard.defense == 450, "vanguard defense matches the baseline")
+	_check(vanguard.magic_resistance == 250, "vanguard magic resistance matches the baseline")
 
 	var marksman = CatalogScript.get_definition("marksman")
-	_check(marksman.health == 2000, "marksman health matches the baseline")
+	_check(marksman.health == 1800, "marksman health matches the baseline")
 	_check(marksman.attack == 1200, "marksman attack matches the baseline")
-	_check(marksman.defense == 350, "marksman defense matches the baseline")
-	_check(marksman.magic_resistance == 250, "marksman magic resistance matches the baseline")
+	_check(marksman.defense == 250, "marksman defense matches the baseline")
+	_check(marksman.magic_resistance == 200, "marksman magic resistance matches the baseline")
 
 	var controller = CatalogScript.get_definition("area_controller")
-	_check(controller.health == 2600, "area controller health matches the baseline")
-	_check(controller.attack == 1100, "area controller attack matches the baseline")
-	_check(controller.defense == 450, "area controller defense matches the baseline")
-	_check(controller.magic_resistance == 650, "area controller magic resistance matches the baseline")
+	_check(controller.health == 2200, "area controller health matches the baseline")
+	_check(controller.attack == 1150, "area controller attack matches the baseline")
+	_check(controller.defense == 300, "area controller defense matches the baseline")
+	_check(controller.magic_resistance == 450, "area controller magic resistance matches the baseline")
 
 	# The board token glyph comes from the profile, so three archetypes are
 	# distinguishable at a glance instead of every enemy rendering as 锋.
@@ -109,23 +109,23 @@ func _test_actions_come_from_data() -> void:
 	var area = CatalogScript.get_definition("area_controller")
 
 	_check(vanguard.actions == [&"charged_strike", &"basic_melee", &"pursuit"], "the vanguard's action list and its order come from data")
-	_check(marksman.actions == [&"aimed_shot"], "the marksman knows exactly one action")
-	_check(area.actions == [&"ground_pulse"], "the area controller knows exactly one action")
+	_check(marksman.actions == [&"aimed_shot", &"light_shot", &"pursuit"], "the marksman's action list and its order come from data")
+	_check(area.actions == [&"ground_pulse", &"echo_bolt", &"pursuit"], "the area controller's action list and its order come from data")
 
-	# The planner reads that list, so the melee-range case must pick the vanguard's
-	# second entry and the marksman must have nothing to pick at the same range.
+	# The planner reads that list: a full-charge adjacent vanguard uses charged_strike,
+	# and a marksman at melee range repositions via pursuit.
 	var melee = ControllerScript.new()
 	root.add_child(melee)
 	_check(melee.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], ["vanguard"]), "adjacent vanguard encounter starts")
-	_check(melee.intents[0].action_id == "basic_melee", "an adjacent vanguard falls through to its melee action")
+	_check(melee.intents[0].action_id == "charged_strike", "an adjacent vanguard with full charge telegraphs charged_strike")
 	melee.queue_free()
 
 	var ranged = ControllerScript.new()
 	root.add_child(ranged)
 	_check(ranged.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], ["marksman"]), "adjacent marksman encounter starts")
-	_check(ranged.intents[0].action_id == "wait", "a marksman at melee range waits, because aimed_shot is its only action")
+	_check(ranged.intents[0].action_id == "pursuit", "a marksman at melee range repositions via pursuit")
 
-	# Each action keeps its own reach: the marksman's shot needs three cells.
+	# Each action keeps its own reach: the marksman's shot needs two to six cells on an 8-way line.
 	var aligned = ControllerScript.new()
 	root.add_child(aligned)
 	_check(aligned.start_encounter(Vector2i(1, 3), [Vector2i(5, 3)], [], ["marksman"]), "aligned marksman encounter starts")

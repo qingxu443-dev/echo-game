@@ -70,9 +70,11 @@ func _check_strike_cost_and_cooldown() -> void:
 	var raw: int = CombatMathScript.calculate_raw_damage(definition.attack, definition.damage_multiplier)
 	_check(raw == 1260, "the summon raw strike is the documented baseline of 1260")
 
+	var expected_damage: int = CombatMathScript.calculate_damage(raw, enemy.defense)
+	var enemy_health_before: int = enemy.health
 	_check(battle.request_hunter_summon("vanguard_00"), "the hunter can be summoned on a living enemy")
 	_check(battle.ap.current == ap_before, "the summon does not spend action points", "ap %d -> %d" % [ap_before, battle.ap.current])
-	_check(enemy.health == 3200 - 741, "the strike deals defence-mitigated damage", "health=%d" % enemy.health)
+	_check(enemy.health == enemy_health_before - expected_damage, "the strike deals defence-mitigated damage", "health=%d" % enemy.health)
 	_check(battle.actors.size() == actors_before, "the hunter is not added as a battlefield unit")
 	_check(battle.get_occupied_cells().size() == occupied_before, "the hunter does not occupy a cell")
 	_check(battle.intents.size() == intents_before, "the hunter does not enter the intent order")

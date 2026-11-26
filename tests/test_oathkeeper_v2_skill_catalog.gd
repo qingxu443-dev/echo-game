@@ -27,9 +27,9 @@ func _run() -> void:
 	_check(shield != null and shield.is_valid(), "Oath Shield is present and valid")
 	_check(guard != null and guard.is_valid(), "Absolute Guard is present and valid")
 
-	_check(judgment.ap_cost == 1 and judgment.damage_multiplier == 0.8 and judgment.max_range == 4, "Judgment Mark data matches the V2 baseline")
-	_check(shield.ap_cost == 1 and guard.ap_cost == 2, "Oath Shield and Absolute Guard AP costs match the V2 baseline")
-	_check(shield.target_mode == SkillDefinitionScript.TARGET_SELF_AND_ALLY and shield.min_range == 0 and shield.max_range == 2, "Oath Shield metadata represents Sevrin plus one ally within two cells")
+	_check(judgment.ap_cost == 1 and judgment.damage_multiplier == 0.55 and judgment.max_range == 4, "Judgment Mark data matches the solo rework baseline")
+	_check(shield.ap_cost == 1 and guard.ap_cost == 2, "Oath Shield and Absolute Verdict AP costs match the baseline")
+	_check(shield.target_mode == SkillDefinitionScript.TARGET_SELF and shield.min_range == 0 and shield.max_range == 0, "Oath Shield metadata represents an instant self-cast shield")
 
 	var passive: SkillDefinition = CatalogScript.create_passive_skill()
 	_check(passive.is_passive and passive.ap_cost == 0, "Oath Vow is represented as a zero-AP passive")

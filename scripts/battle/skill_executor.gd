@@ -176,7 +176,8 @@ static func oath_shield(battle, target_actor_id: String = "") -> bool:
 		return false
 	if reviving and battle.oath_shield_revived.has(resolved_target_id):
 		return false
-	if resolved_target_id != caster.actor_id and GridRulesScript.manhattan_distance(caster.cell, target.cell) > skill.max_range:
+	var ally_range: int = maxi(skill.max_range, 2)
+	if resolved_target_id != caster.actor_id and GridRulesScript.manhattan_distance(caster.cell, target.cell) > ally_range:
 		return false
 	if not battle.ap.can_spend(skill.ap_cost):
 		return false

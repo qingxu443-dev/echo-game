@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #44 与 PR #46 合并后），Godot 4.7.2 导入零错误、**十八个测试套件 839 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main`（PR #55 2.5D 单人重构与测试基线对齐后），Godot 4.7.2 导入零错误、**十八个测试套件 788 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -41,12 +41,12 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `battle_controller.gd` | 307 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
-| `battle_flow.gd` | 232 | 回合边界、遭遇构建、终止判定 | — |
-| `intent_planner.gd` | 197 | 敌方意图生成 | — |
-| `intent_resolver.gd` | 190 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
-| `skill_executor.gd` | 210 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
-| `damage_pipeline.gd` | 84 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
+| `battle_controller.gd` | 487 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
+| `battle_flow.gd` | 299 | 回合边界、遭遇构建、终止判定 | — |
+| `intent_planner.gd` | 419 | 敌方意图生成 | — |
+| `intent_resolver.gd` | 223 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
+| `skill_executor.gd` | 278 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
+| `damage_pipeline.gd` | 93 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
 | `summon_service.gd` | 98 | 猎人通灵 | — |
 
 #### 数据与规则件
@@ -54,13 +54,13 @@ wc -l scripts/**/*.gd
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
 | `grid_rules.gd` | 137 | 纯网格校验、路径合法性、候选寻路（`find_path`，仅供 UI 提示）、曼哈顿距离；正交视线与玩家侧直线视线 | 无状态，不持有战斗数据；寻路产物须由 controller 复验 |
-| `ap_budget.gd` | 42 | 确定性 AP 账本：重置、消耗、退款、回合结束清零 | 仅在动作确认后扣除；退款走 `refund()`，不绕过账本 |
+| `ap_budget.gd` | 46 | 确定性 AP 账本：重置、消耗、退款、回合结束清零 | 仅在动作确认后扣除；退款走 `refund()`，不绕过账本 |
 | `combat_math.gd` | 26 | 共享伤害公式，防御采用递减收益 | 物理走防御、法术走法抗 |
 | `battle_intent.gd` | 59 | 敌方意图快照，actor / tile / area 三种锁定模式与 active→resolved/canceled 单向生命周期 | **预告展示与敌方执行使用同一份快照** |
 | `battle_status.gd` | 48 | 单个状态实例：触发次数（-1 为无限）、到期边界、叠层策略 | — |
 | `battle_status_collection.gd` | 218 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 延迟接口保留，当前无调用方 |
 | `skill_definition.gd` | 77 | 技能纯数据规格（Resource） | 不含执行逻辑 |
-| `oathkeeper_v2_skill_catalog.gd` | 60 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
+| `oathkeeper_v2_skill_catalog.gd` | 57 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
 | `enemy_definition.gd` / `enemy_catalog.gd` | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres`；`actions` 列表决定该原型按优先级尝试哪些行动 |
 | `intent_planner.gd` | 按 `actions` 顺序挑第一个可用的行动，生成意图预告 | 行动的合法性判定在代码，行动的组合在数据 |
 | `encounter_definition.gd` | 58 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
@@ -77,7 +77,7 @@ wc -l scripts/**/*.gd
 | `skill_registry.gd` | 78 | 跨角色技能解析（id → 定义） | 角色只写 skill id，不关心来自哪个目录 |
 | `character_skill_runtime.gd` | 111 | 唯一入口：召唤前缀、技能归属校验、自目标补齐，再按 `executor_id` 分派；`can_aim()` 与剑意入账转发到效果层 | 执行器表是唯一分派点，缺登记即 `push_error` 并返回 false |
 | `combat_geometry.gd` | 138 | 纯网格查询：射程、视线、矩形与十字落点、突进落点 | 不认识角色、机制或设计数值；极意的范围加成由调用方以参数传入 |
-| `skill_effects.gd` | 455 | 各技能的结算分支：樱的剑意 / 极意 / 残香 / 回锋、通用普攻、守誓者三技的包装，以及伤害分段与剑意预算的公共记账 | 只按 `executor_id` 被调用；不算格子，几何一律问 `CombatGeometry` |
+| `skill_effects.gd` | 565 | 各技能的结算分支：樱的剑意 / 极意 / 残香 / 回锋、通用普攻、守誓者三技的包装，以及伤害分段与剑意预算的公共记账 | 只按 `executor_id` 被调用；不算格子，几何一律问 `CombatGeometry` |
 | `summon_definition.gd` / `summon_catalog.gd` | 通灵数据（`data/summons/*.tres`）与名册 | 通灵属于玩家，不属于角色面板 |
 | `summon_service.gd` | 98 | 通灵的可用性、现身格与冷却 | 数值全部来自 `SummonDefinition` |
 
@@ -104,7 +104,7 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `battle_actor.gd` | 216 | 单位身份、阵营、格位、整数血量、护盾、终极能量、承伤与阵亡状态 | 终段减伤在防御/抗性之后应用 |
+| `battle_actor.gd` | 221 | 单位身份、阵营、格位、整数血量、护盾、终极能量、承伤与阵亡状态 | 终段减伤在防御/抗性之后应用 |
 
 ### 表现层（`scripts/ui/`）
 
@@ -112,14 +112,14 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `battle_view.gd` | 295 | 编排：关卡流程、技能栏构建、点击分发（敌人 / 友军 / 空地）、控制器信号 |
-| `board_view.gd` | 210 | 棋盘、障碍、单位与状态标记、意图预告、目标圈（`can_target()` 转发 `can_aim()`，`can_target_ally()` 管友军） |
-| `skill_bar_view.gd` | 185 | 五格技能栏、结束回合按钮、操作提示；`mode` 分 actor / ally / self，`skill_rect()` 是唯一的按钮几何，`is_affordable()` 是唯一的按钮可用判据 |
-| `theme_palette.gd` | 128 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
-| `hud_view.gd` | 158 | 标题、回合与资源读数、剑意与极意状态、战术提示、敌方行动顺序、队伍状态栏（含倒地标记） |
-| `settlement_view.gd` | 71 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |
-| `input_router.gd` | 66 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` |
-| `main_menu.gd` | 139 | 启动菜单：开始游戏 / 退出、键盘与点击选中、背景图等比铺满并居中裁切、未选中行压暗；保存与设置仅为占位 |
+| `battle_view.gd` | 695 | 编排：关卡流程、技能栏构建、点击分发（敌人 / 友军 / 空地）、控制器信号 |
+| `board_view.gd` | 837 | 棋盘、障碍、单位与状态标记、意图预告、目标圈（`can_target()` 转发 `can_aim()`，`can_target_ally()` 管友军） |
+| `skill_bar_view.gd` | 154 | 五格技能栏、结束回合按钮、操作提示；`mode` 分 actor / ally / self，`skill_rect()` 是唯一的按钮几何，`is_affordable()` 是唯一的按钮可用判据 |
+| `theme_palette.gd` | 244 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
+| `hud_view.gd` | 353 | 标题、回合与资源读数、剑意与极意状态、战术提示、敌方行动顺序、队伍状态栏（含倒地标记） |
+| `settlement_view.gd` | 151 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |
+| `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` |
+| `main_menu.gd` | 184 | 启动菜单：开始游戏 / 退出、键盘与点击选中、背景图等比铺满并居中裁切、未选中行压暗；保存与设置仅为占位 |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 

@@ -9,11 +9,11 @@
 | 项目 | 值 |
 |---|---|
 | 分支 | `main` |
-| 提交 | `main`（§47 裁决批 + 击杀剑意入账（含回锋击杀）+ 主菜单，本机实测复核 839/0） |
+| 提交 | `main`（2.5D 等距单人瑟弗林肉鸽重构与 18 套件对齐，本机实测复核 788/0） |
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 18 |
-| 断言总数 | **839** |
+| 断言总数 | **788** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -21,25 +21,25 @@
 
 | 套件 | 断言 | 归属 |
 |---|---:|---|
-| `test_battle_controller.gd` | 118 | 控制器场景 |
-| `test_shared_ap.gd` | 19 | 队伍共享 AP 池（§4） |
+| `test_battle_controller.gd` | 123 | 控制器场景（含 AP 充能驱动、区域锁定闪避、遗物宝箱偷取与装备掉落） |
+| `test_shared_ap.gd` | 19 | 队伍共享 AP 池（单人重构 3 AP） |
 | `test_downed_and_revive.gd` | 44 | 倒地、复活与指令交接（§12） |
 | `test_damage_types.gd` | 24 | 伤害类型白名单、真实伤害语义、暴击钩子、抗性换算（§10.2 / §10.6 / §47） |
-| `test_character_framework.gd` | 185 | 角色框架、誓刃、樱与行动归属（§15 / §19-24），含回锋击杀的剑意对照 |
-| `test_oathkeeper_v2_controller.gd` | 96 | V2 技能控制器 |
-| `test_turn_bookkeeping.gd` | 44 | 回合账本 |
-| `test_enemy_catalog.gd` | 54 | 敌人数据目录（M1） |
+| `test_character_framework.gd` | 183 | 角色框架、誓刃（含击退）、樱与行动归属（§15 / §19-24），含回锋击杀的剑意对照 |
+| `test_oathkeeper_v2_controller.gd` | 67 | 瑟弗林重做技能控制器（誓约、易伤印记、650 基础护盾、4 能量绝对裁决 AoE 击退） |
+| `test_turn_bookkeeping.gd` | 44 | 回合账本（含遗物宝箱占格） |
+| `test_enemy_catalog.gd` | 54 | 敌人数据目录（M1，三职业新数值与充能/普攻/走位动作清单） |
 | `test_hunter_summon.gd` | 46 | 通灵（含数据驱动框架） |
-| `test_level_catalog.gd` | 30 | 关卡数据 |
+| `test_level_catalog.gd` | 30 | 关卡数据（3 关 2.5D 遗迹宝箱教学编排） |
 | `test_battle_status.gd` | 29 | 状态容器 |
-| `test_diagonal_line_of_sight.gd` | 20 | 视线规则 |
-| `test_battle_view_skills.gd` | 52 | UI 到控制器集成（目标提示一致性、普攻黄圈、快捷键覆盖、终极能量门槛、切换提示、空选点敌提示） |
-| `test_oathkeeper_v2_actor.gd` | 19 | 护盾与能量 |
+| `test_diagonal_line_of_sight.gd` | 20 | 视线规则（含神射手 8 向斜线射击） |
+| `test_battle_view_skills.gd` | 31 | UI 到控制器集成（4 技能栏、即时护盾、4 能量大招、`Q/E` 视角与 `B` 背包快捷键） |
+| `test_oathkeeper_v2_actor.gd` | 19 | 护盾（30% 上限）与能量 |
 | `test_core_rules.gd` | 18 | 网格 / AP / 伤害 |
 | `test_battle_stats.gd` | 13 | 结算统计 |
-| `test_oathkeeper_v2_skill_catalog.gd` | 14 | 瑟弗林技能目录（含普攻） |
-| `test_main_menu.gd` | 14 | 主菜单选中、回车确认与点击区几何 |
-| **合计** | **839** | |
+| `test_oathkeeper_v2_skill_catalog.gd` | 14 | 瑟弗林技能目录（单人重做版 4 技能） |
+| `test_main_menu.gd` | 10 | 主菜单选中、回车确认与点击区几何 |
+| **合计** | **788** | |
 
 ## 持续集成
 
@@ -101,6 +101,7 @@
 | 2026-11-26 | 基线守卫改为「必须相等」：实际断言数高于声明值也退出 1，堵住「断言已涨、基线未改」的绿灯合入路径 | 808 → 808（不变） |
 | 2026-11-26 | 运行时拆成三层：`combat_geometry.gd`（纯网格查询）、`skill_effects.gd`（技能结算）、`character_skill_runtime.gd`（入口与分派，641 → 111 行）；行数表 31 → 33 行 | 808 → 808（不变） |
 | 2026-11-26 | 流风补 31 条断言：击杀入账（含极意击杀）、尸体不留残香、射程内 24 格逐格验证「亮圈承诺即可打到」；顺带修掉一条假绿——单敌人击杀后战斗结束会清空全部状态，使「尸体无残香」在无守卫时也能通过 | 808 → 839（+31） |
+| 2026-11-26 | **2.5D 等距单人瑟弗林肉鸽重构与测试基线对齐**：PR #55 将战斗重构为单人 3 AP 瑟弗林 + 击退位移 + AP 充能驱动敌人意图 + 遗物宝箱/装备背包系统，旧版嘲讽反击型「绝对守护」改为 4 能量范围击退「绝对裁决」，旧版多角色切换栏 UI 简化为单人 4 技能栏。对齐 18 个测试套件并新增击退/易伤消耗/遗物宝箱偷取与掉落/背包重置断言，同时移除已被新机制取代的旧嘲讽反击与双人技能栏 UI 断言 | 839 → 788（−51，新机制替代旧断言） |
 
 ## 如何复现
 

@@ -89,21 +89,22 @@ func _check_occupied_cells() -> void:
 	var battle = ControllerScript.new()
 	root.add_child(battle)
 	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(5, 5), Vector2i(6, 6)]), "occupied-cell encounter starts")
+	var beacon_count: int = battle.beacons.size()
 
 	var occupied: Dictionary = battle.get_occupied_cells()
-	_check(occupied.size() == 3, "every living actor occupies its cell")
+	_check(occupied.size() == 3 + beacon_count, "every living actor and relic chest occupies its cell")
 	_check(occupied.get(Vector2i(1, 1)) == "sevrin", "the player cell maps to the player")
 	_check(occupied.get(Vector2i(5, 5)) == "vanguard_00", "an enemy cell maps to that enemy")
 	_check(not occupied.has(Vector2i(0, 0)), "an empty cell is not reported as occupied")
 
 	var without_player: Dictionary = battle.get_occupied_cells("sevrin")
-	_check(without_player.size() == 2, "excluding one actor removes exactly one entry")
+	_check(without_player.size() == 2 + beacon_count, "excluding one actor removes exactly one entry")
 	_check(not without_player.has(Vector2i(1, 1)), "the excluded actor does not hold its cell")
 	_check(without_player.has(Vector2i(5, 5)), "other actors keep their cells when one is excluded")
 
 	battle.get_actor("vanguard_00").health = 0
 	var after_defeat: Dictionary = battle.get_occupied_cells()
-	_check(after_defeat.size() == 2, "a defeated actor stops occupying its cell")
+	_check(after_defeat.size() == 2 + beacon_count, "a defeated actor stops occupying its cell")
 	_check(not after_defeat.has(Vector2i(5, 5)), "the defeated actor cell becomes free")
 	_check(after_defeat.has(Vector2i(6, 6)), "surviving actors keep their cells")
 

@@ -13,8 +13,8 @@ func _run() -> void:
 
 func _test_shield_cap_and_reapplication() -> void:
 	var actor = ActorScript.new("ally", "player", Vector2i.ZERO, 1000)
-	_check(actor.grant_shield(300) == 150, "shield is capped at 15 percent of max health")
-	_check(actor.grant_shield(80) == 150, "reapplying a weaker shield preserves the stronger remaining shield")
+	_check(actor.grant_shield(500) == 300, "shield is capped at 30 percent of max health")
+	_check(actor.grant_shield(80) == 300, "reapplying a weaker shield preserves the stronger remaining shield")
 	actor.shield = 40
 	_check(actor.grant_shield(100) == 100, "reapplying a stronger shield replaces the lower remaining shield")
 	_check(actor.grant_shield(-10) == 100, "negative shield values cannot reduce an existing shield")

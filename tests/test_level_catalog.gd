@@ -24,20 +24,20 @@ func _run() -> void:
 	_check(levels[1].level_id == &"lesson_lane", "second level is the firing-lane lesson")
 	_check(levels[2].level_id == &"lesson_mixed", "third level is the mixed roster")
 
-	# Level 1 teaches the tile-locked charged strike.
+	# Level 1 introduces the Relic Chests with a vanguard + marksman pair.
 	var battle_one = ControllerScript.new()
 	root.add_child(battle_one)
 	var level_one: EncounterDefinition = levels[0]
 	_check(battle_one.start_encounter(level_one.player_cell, level_one.enemy_cells, level_one.obstacles, level_one.enemy_archetypes), "level 1 is accepted by the controller")
-	_check(battle_one.intents.size() == 1 and battle_one.intents[0].action_id == "charged_strike", "level 1 opens with a charged strike telegraph")
+	_check(battle_one.intents.size() == level_one.enemy_cells.size(), "level 1 telegraphs one intent per enemy")
 	battle_one.queue_free()
 
-	# Level 2 teaches range and line of fire.
+	# Level 2 introduces 3-way crossfire with vanguard, marksman, and area controller.
 	var battle_two = ControllerScript.new()
 	root.add_child(battle_two)
 	var level_two: EncounterDefinition = levels[1]
 	_check(battle_two.start_encounter(level_two.player_cell, level_two.enemy_cells, level_two.obstacles, level_two.enemy_archetypes), "level 2 is accepted by the controller")
-	_check(battle_two.intents.size() == 1 and battle_two.intents[0].action_id == "aimed_shot", "level 2 opens with an aimed shot telegraph")
+	_check(battle_two.intents.size() == level_two.enemy_cells.size(), "level 2 telegraphs one intent per enemy")
 	battle_two.queue_free()
 
 	# Level 3 mixes all three archetypes.

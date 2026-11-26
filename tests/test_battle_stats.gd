@@ -1,12 +1,15 @@
 extends "res://tests/framework/test_case.gd"
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
+const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 
 
 func _run() -> void:
 	var battle = ControllerScript.new()
 	root.add_child(battle)
 	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)])
+	battle.beacons.clear()
+	battle.intents = IntentPlannerScript.plan(battle)
 
 	_check(battle.damage_dealt == 0, "damage dealt starts at zero")
 	_check(battle.damage_taken == 0, "damage taken starts at zero")

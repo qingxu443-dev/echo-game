@@ -2,6 +2,7 @@ extends "res://tests/framework/test_case.gd"
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
+const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 
 
 func _run() -> void:
@@ -79,8 +80,10 @@ func _test_marksman_lane_stays_orthogonal() -> void:
 	var battle = ControllerScript.new()
 	root.add_child(battle)
 	var archetypes: Array[String] = ["marksman"]
-	# Diagonal at Manhattan distance six: in range, but off the orthogonal lane.
+	# Diagonal at Chebyshev distance 3 (Manhattan 6): marksman now fires along 8-way straight lines.
 	battle.start_encounter(Vector2i(1, 3), [Vector2i(4, 6)], [], archetypes)
+	battle.beacons.clear()
+	battle.intents = IntentPlannerScript.plan(battle)
 	_check(battle.intents.size() == 1, "marksman still produces an intent")
-	_check(battle.intents[0].action_id == "wait", "marksman does not fire along a diagonal")
+	_check(battle.intents[0].action_id == "aimed_shot", "marksman fires aimed_shot along a clear diagonal")
 	battle.queue_free()

@@ -15,6 +15,7 @@ func _run() -> void:
 	_test_oath_shield_validation_and_duration()
 	_test_absolute_verdict_aoe_knockback_and_energy()
 	_test_one_action_grants_vow_per_carrier()
+	_test_oathblade_knockback_collisions()
 	_report()
 
 
@@ -182,3 +183,52 @@ func _test_one_action_grants_vow_per_carrier() -> void:
 	_check(battle.get_oath_vow_stacks("sevrin") == 1, "the pulse grants Sevrin his single stack")
 	_check(battle.get_oath_vow_stacks("fellow") == 1, "the same pulse grants the fellow carrier its own stack")
 	battle.queue_free()
+
+
+## The knockback is the headline mechanic of the 2.5D rework and had no coverage:
+## deleting the wall branch left every suite green. Three outcomes are separable
+## by damage, which is what makes them worth asserting separately.
+##
+## Oathblade is 100% ATK: floor(1150 * 1000 / 1450) = 793 against the vanguard's
+## 450 defence. A collision adds 450 true damage, which ignores that defence - so
+## a colliding push deals 1243 and a clean one deals 793.
+func _test_oathblade_knockback_collisions() -> void:
+	# Wall: the target has nowhere to go, so it takes the collision and stays put.
+	var wall = ControllerScript.new()
+	root.add_child(wall)
+	_check(wall.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [Vector2i(3, 1)]), "walled encounter starts")
+	wall.beacons.clear()
+	var wall_enemy = wall.get_actor("vanguard_00")
+	var wall_before: int = wall_enemy.health
+	_check(wall.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a wall")
+	_check(wall_before - wall_enemy.health == 1243, "a wall slam adds 450 true damage on top of the strike")
+	_check(wall_enemy.cell == Vector2i(2, 1), "a target with a wall behind it is not pushed")
+	wall.queue_free()
+
+	# Relic beacon: the target slams into it and the beacon takes the same 450.
+	var beacon = ControllerScript.new()
+	root.add_child(beacon)
+	_check(beacon.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)]), "beacon encounter starts")
+	var beacon_enemy = beacon.get_actor("vanguard_00")
+	var beacon_cell := Vector2i(3, 1)
+	_check(beacon.beacons.has(beacon_cell), "a relic beacon sits behind the target")
+	var beacon_health_before: int = int(beacon.beacons[beacon_cell]["health"])
+	var beacon_before: int = beacon_enemy.health
+	_check(beacon.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a beacon")
+	_check(beacon_before - beacon_enemy.health == 1243, "slamming into a beacon deals the same collision damage")
+	_check(int(beacon.beacons[beacon_cell]["health"]) == beacon_health_before - 450, "the beacon takes 450 for being in the way")
+	beacon.queue_free()
+
+	# Free cell: the target moves one cell and takes only the strike. This is the
+	# control - without it the collision assertions could pass for a push that
+	# always adds damage.
+	var open = ControllerScript.new()
+	root.add_child(open)
+	_check(open.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)]), "open encounter starts")
+	open.beacons.clear()
+	var open_enemy = open.get_actor("vanguard_00")
+	var open_before: int = open_enemy.health
+	_check(open.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into open ground")
+	_check(open_before - open_enemy.health == 793, "a clean push deals only the strike")
+	_check(open_enemy.cell == Vector2i(3, 1), "a clean push moves the target one cell")
+	open.queue_free()

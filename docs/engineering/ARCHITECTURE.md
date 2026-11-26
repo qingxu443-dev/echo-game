@@ -59,13 +59,15 @@ wc -l scripts/**/*.gd
 | `grid_rules.gd` | 137 | 纯网格校验、路径合法性、候选寻路（`find_path`，仅供 UI 提示）、曼哈顿距离；正交视线与玩家侧直线视线 | 无状态，不持有战斗数据；寻路产物须由 controller 复验 |
 | `ap_budget.gd` | 46 | 确定性 AP 账本：重置、消耗、退款、回合结束清零 | 仅在动作确认后扣除；退款走 `refund()`，不绕过账本 |
 | `combat_math.gd` | 26 | 共享伤害公式，防御采用递减收益 | 物理走防御、法术走法抗 |
+| `damage_types.gd` | 45 | 伤害类型的**封闭集合**（物理 / 法术 / 真伤）、抗性映射、真伤是否跳过减伤 | 集合外的类型在结算前被拒，避免拼写错误静默绕过全部防御 |
 | `battle_intent.gd` | 59 | 敌方意图快照，actor / tile / area 三种锁定模式与 active→resolved/canceled 单向生命周期 | **预告展示与敌方执行使用同一份快照** |
 | `battle_status.gd` | 48 | 单个状态实例：触发次数（-1 为无限）、到期边界、叠层策略 | — |
 | `battle_status_collection.gd` | 218 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 延迟接口保留，当前无调用方 |
 | `skill_definition.gd` | 77 | 技能纯数据规格（Resource） | 不含执行逻辑 |
 | `oathkeeper_v2_skill_catalog.gd` | 57 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
+| `sakura_skill_catalog.gd` | 105 | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | **当前版本不参战**，数据与框架保留待后续接入；测试仍覆盖 |
 | `enemy_definition.gd` / `enemy_catalog.gd` | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres`；`actions` 列表决定该原型按优先级尝试哪些行动 |
-| `intent_planner.gd` | 按 `actions` 顺序挑第一个可用的行动，生成意图预告 | 行动的合法性判定在代码，行动的组合在数据 |
+| `intent_planner.gd` | 419 | 按 `actions` 顺序挑行动；多怪目标分流（`claimed_cells` 防抢同一格）、远程风筝取位；生成意图预告 | 只读不写状态；行动的合法性在代码、组合在数据 |
 | `encounter_definition.gd` | 58 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
 | `run_state.gd` | 317 | 单局 Roguelite 状态：跨关血量、武器/护甲装备槽、背包、技能铭文强化与 `reset()` 清空 | 仅存活于单局内存，通关开新局或战败重开时全部清空 |

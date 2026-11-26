@@ -18,6 +18,7 @@ const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skil
 
 func _run() -> void:
 	_test_characters_come_from_data()
+	_test_every_active_skill_has_an_executor()
 	_test_sevrin_normal_attack()
 	_test_party_spawns_from_the_level_sheet()
 	_test_switching_is_free_and_party_wide()
@@ -67,6 +68,26 @@ func _test_characters_come_from_data() -> void:
 
 
 ## §15: every character has a normal attack. Sevrin's takes the shared executor.
+## §18-24: a skill can live in data, appear on the bar and do nothing when
+## pressed. The press returns false, which is indistinguishable from a failed
+## condition, so the only place to catch a missing executor is here: walk the
+## registry and ask the runtime which ids it can actually run.
+func _test_every_active_skill_has_an_executor() -> void:
+	var active := 0
+	var missing: Array[String] = []
+	for skill in SkillRegistryScript.all_skills():
+		if skill.is_passive:
+			continue
+		active += 1
+		if not CharacterSkillRuntimeScript.supports(skill.executor_id):
+			missing.append("%s(%s)" % [String(skill.skill_id), String(skill.executor_id)])
+	# Guards the test itself: an empty registry would pass the check below while
+	# proving nothing.
+	_check(active > 0, "the registry exposes active skills to check", str(active))
+	_check(missing.is_empty(), "every active skill has a registered executor", ", ".join(missing))
+	_check(not CharacterSkillRuntimeScript.supports(&"no_such_executor"), "an unregistered executor is not claimed")
+
+
 func _test_sevrin_normal_attack() -> void:
 	var battle = ControllerScript.new()
 	root.add_child(battle)

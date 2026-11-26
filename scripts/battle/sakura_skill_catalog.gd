@@ -30,7 +30,6 @@ static func create_skills() -> Array[SkillDefinition]:
 	passive.description_zh = "被动：攻击与移动积累剑意，满 4 层进入极意。"
 	passive.ap_cost = 0
 	passive.target_mode = SkillDefinitionScript.TARGET_SELF
-	passive.effect_id = &"blade_intent"
 	passive.is_passive = true
 	passive.slot = CharacterScript.SLOT_PASSIVE
 	skills.append(passive)
@@ -99,7 +98,6 @@ static func _make(
 	skill.max_range = max_range
 	skill.damage_type = damage_type
 	skill.damage_multiplier = multiplier
-	skill.effect_id = effect_id
 	skill.executor_id = effect_id
 	skill.slot = slot
 	return skill

@@ -63,9 +63,9 @@ wc -l scripts/**/*.gd
 | `battle_intent.gd` | 59 | 敌方意图快照，actor / tile / area 三种锁定模式与 active→resolved/canceled 单向生命周期 | **预告展示与敌方执行使用同一份快照** |
 | `battle_status.gd` | 48 | 单个状态实例：触发次数（-1 为无限）、到期边界、叠层策略 | — |
 | `battle_status_collection.gd` | 218 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 延迟接口保留，当前无调用方 |
-| `skill_definition.gd` | 77 | 技能纯数据规格（Resource） | 不含执行逻辑 |
-| `oathkeeper_v2_skill_catalog.gd` | 57 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
-| `sakura_skill_catalog.gd` | 105 | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | **当前版本不参战**，数据与框架保留待后续接入；测试仍覆盖 |
+| `skill_definition.gd` | 72 | 技能纯数据规格（Resource） | 不含执行逻辑 |
+| `oathkeeper_v2_skill_catalog.gd` | 54 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
+| `sakura_skill_catalog.gd` | 103 | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | **当前版本不参战**，数据与框架保留待后续接入；测试仍覆盖 |
 | `enemy_definition.gd` / `enemy_catalog.gd` | — | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres`；`actions` 列表决定该原型按优先级尝试哪些行动 |
 | `intent_planner.gd` | 419 | 按 `actions` 顺序挑行动；多怪目标分流（`claimed_cells` 防抢同一格）、远程风筝取位；生成意图预告 | 只读不写状态；行动的合法性在代码、组合在数据 |
 | `encounter_definition.gd` | 63 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |

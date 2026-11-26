@@ -16,7 +16,6 @@ extends Resource
 ## Player turns before it can be called again.
 @export var cooldown_turns: int = 2
 @export var ap_cost: int = 0
-@export var icon: Texture2D
 
 
 func is_valid() -> bool:

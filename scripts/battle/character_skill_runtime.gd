@@ -82,9 +82,13 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 		if caster != null:
 			target_actor_id = caster.actor_id
 
-	# The executors resolve the caster as the commanded character themselves, so
-	# there is one rule in one place rather than a parameter every call has to
-	# remember to pass correctly.
+	return _dispatch(battle, skill, target_actor_id)
+
+
+## The executors resolve the caster as the commanded character themselves, so
+## there is one rule in one place rather than a parameter every call has to
+## remember to pass correctly.
+static func _dispatch(battle, skill, target_actor_id: String) -> bool:
 	match String(skill.executor_id):
 		"oathkeeper_judgment_mark":
 			return SkillExecutorScript.judgment_mark_v2(battle, target_actor_id)
@@ -119,8 +123,9 @@ static func _basic_attack(battle, skill, target_actor_id: String) -> bool:
 	if not battle.ap.spend(skill.ap_cost):
 		return false
 
-	_apply_segments(battle, caster, skill, [target], String(skill.skill_id))
+	var kills: int = _apply_segments(battle, caster, skill, [target], String(skill.skill_id))
 	gain_intent_from_action(battle, caster)
+	_credit_kills(battle, kills)
 	# §47 待决 9 option A: a normal attack is an active action, so it pays the
 	# §13 per-turn ultimate energy like every skill does. The per-turn cap lives
 	# in gain_active_energy, so this cannot be farmed by attacking repeatedly.
@@ -148,12 +153,14 @@ static func _pierce_blossom(battle, skill, target_actor_id: String) -> bool:
 	# §20: a target that was not already marked only gets the mark - the first
 	# application must not also fire the follow-up.
 	var was_marked: bool = battle.statuses.has_status(target.actor_id, PETAL_MARK)
-	_apply_segments(battle, caster, skill, [target], "sakura_pierce_blossom")
+	var kills: int = _apply_segments(battle, caster, skill, [target], "sakura_pierce_blossom")
 	# A dead target cannot carry a mark: damage clears its statuses, so marking it
 	# afterwards leaves one on a corpse for three enemy phases.
 	if target.is_alive():
 		_apply_petal_mark(battle, caster, target)
+	# §19/§30 order: the action's own stack, then kills, then the echo return.
 	gain_intent_from_action(battle, caster)
+	_credit_kills(battle, kills)
 	# §13 applies to every character's successful active action. This branch used
 	# to be the one skill that skipped it, so Pierce Blossom paid no ultimate
 	# energy while the dash and the rectangle did - same rule, different result
@@ -197,19 +204,21 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 
 	var adjacent: bool = GridRulesScript.manhattan_distance(caster.cell, target.cell) == 1
 	var was_marked: bool = adjacent and battle.statuses.has_status(target.actor_id, PETAL_MARK)
+	var kills: int = 0
 	if adjacent:
-		_apply_segments(battle, caster, skill, [target], "sakura_flowing_wind")
+		kills += _apply_segments(battle, caster, skill, [target], "sakura_flowing_wind")
 		if target.is_alive():
 			_apply_petal_mark(battle, caster, target)
 		# §22 极意: a second strike at 40% against the same target. The plan allows
 		# a new direction and a new target, but picking one is a second aiming
 		# step the interface does not offer yet, so this strike reuses the target.
 		if extreme and target.is_alive():
-			_apply_one_hit(battle, caster, target, EXTREME_FOLLOW_UP_MULTIPLIER, "sakura_flowing_wind_extreme")
-
+			if _apply_one_hit(battle, caster, target, EXTREME_FOLLOW_UP_MULTIPLIER, "sakura_flowing_wind_extreme"):
+				kills += 1
 	if extreme:
 		_consume_extreme(battle, caster)
 	gain_intent_from_action(battle, caster)
+	_credit_kills(battle, kills)
 	# §13: a successful active action grants one ultimate energy per turn, for
 	# every character. The dash resolves even without a strike, so the grant
 	# follows the action rather than the hit.
@@ -257,13 +266,14 @@ static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
 	for actor in targets:
 		was_marked[actor.actor_id] = battle.statuses.has_status(actor.actor_id, PETAL_MARK)
 
-	_apply_segments(battle, caster, skill, targets, "sakura_falling_petals")
+	var kills: int = _apply_segments(battle, caster, skill, targets, "sakura_falling_petals")
 	for actor in targets:
 		if actor.is_alive():
 			_apply_petal_mark(battle, caster, actor)
 	if extreme:
 		_consume_extreme(battle, caster)
 	gain_intent_from_action(battle, caster)
+	_credit_kills(battle, kills)
 	# §13: same per-turn ultimate-energy grant as every other active action.
 	SkillExecutorScript.gain_active_energy(battle, caster.actor_id)
 	# §21 / §23: 极意 raises the echo return against already-marked targets.
@@ -324,6 +334,7 @@ static func _endless_fragrance(battle, skill) -> bool:
 
 	var multipliers := _ultimate_multipliers(skill, caster)
 	var last_index: int = multipliers.size() - 1
+	var kills: int = 0
 	for hit_index in range(multipliers.size()):
 		for target in targets:
 			if not target.is_alive():
@@ -331,7 +342,12 @@ static func _endless_fragrance(battle, skill) -> bool:
 			var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, multipliers[hit_index])
 			var action_id := "sakura_endless_fragrance_finisher" if hit_index == last_index else "sakura_endless_fragrance"
 			battle._apply_damage(target.actor_id, raw_damage, caster.actor_id, action_id, String(skill.damage_type))
+			# Only the hit that lands the killing blow counts, so a target already
+			# dead from an earlier segment is not counted again.
+			if not target.is_alive():
+				kills += 1
 	gain_intent_from_action(battle, caster)
+	_credit_kills(battle, kills)
 	battle._emit_event("skill_resolved", caster.actor_id, "", "skill=sakura_endless_fragrance hits=%d targets=%d" % [multipliers.size(), targets.size()])
 	battle._check_battle_end()
 	return true
@@ -419,6 +435,24 @@ static func _owns_skill(battle, skill_id: StringName) -> bool:
 	return sheet.skill_ids.has(skill_id)
 
 
+static func _living_enemies(battle) -> int:
+	var living: int = 0
+	for actor in battle.actors.values():
+		if actor.team == "enemy" and actor.is_alive():
+			living += 1
+	return living
+
+
+## §19: one stack per enemy defeated, inside the same per-turn action budget as
+## movement and attacks. Called between the damage and the echo return, because
+## §30 orders the defeat step before the echo step.
+static func _credit_kills(battle, kills: int) -> void:
+	var caster = battle.get_active_character()
+	if caster == null or not caster.has_resource() or kills <= 0:
+		return
+	gain_intent_from_action(battle, caster, kills, "kill")
+
+
 ## §19: 极意 is simply the full-intent state, so there is no separate flag to keep
 ## in sync with the resource.
 static func _is_extreme(caster) -> bool:
@@ -446,27 +480,33 @@ static func _can_cast(battle, caster, skill) -> bool:
 
 
 ## One segment per entry in hit_multipliers, or damage_multiplier split evenly.
-static func _apply_segments(battle, caster, skill, targets: Array, action_id: String) -> void:
+static func _apply_segments(battle, caster, skill, targets: Array, action_id: String) -> int:
 	var multipliers: Array[float] = []
 	if not skill.hit_multipliers.is_empty():
 		multipliers = skill.hit_multipliers.duplicate()
 	elif skill.damage_multiplier > 0.0:
 		for _i in range(maxi(1, skill.hits)):
 			multipliers.append(skill.damage_multiplier / float(maxi(1, skill.hits)))
+	var kills: int = 0
 	for multiplier in multipliers:
 		for target in targets:
 			if not target.is_alive():
 				continue
-			_apply_one_hit(battle, caster, target, multiplier, action_id, String(skill.damage_type))
+			if _apply_one_hit(battle, caster, target, multiplier, action_id, String(skill.damage_type)):
+				kills += 1
+	return kills
 
 
 ## One segment at an explicit multiplier, for hits that are not part of the
-## skill's own segment list (极意's follow-up strike).
-static func _apply_one_hit(battle, caster, target, multiplier: float, action_id: String, damage_type: String = "physical") -> void:
+## skill's own segment list (极意's follow-up strike). Returns whether this hit
+## killed the target, so the caller can order the kill credit before the echo
+## return the way §30 lists them.
+static func _apply_one_hit(battle, caster, target, multiplier: float, action_id: String, damage_type: String = "physical") -> bool:
 	if not target.is_alive():
-		return
+		return false
 	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, multiplier)
 	battle._apply_damage(target.actor_id, raw_damage, caster.actor_id, action_id, damage_type)
+	return not target.is_alive()
 
 
 ## Cells two steps out in each orthogonal direction, kept on the board.
@@ -543,7 +583,7 @@ static func _check_echo_return(battle, caster, target, multiplier: float = ECHO_
 
 ## §19: action events share a three-stack budget per turn; the turn-start stack
 ## is granted separately by the flow.
-static func gain_intent_from_action(battle, caster, amount: int = INTENT_PER_ACTION_EVENT) -> void:
+static func gain_intent_from_action(battle, caster, amount: int = INTENT_PER_ACTION_EVENT, reason: String = "action") -> void:
 	if caster == null or not caster.has_resource():
 		return
 	if int(battle.resource_gain_turn.get(caster.actor_id, -1)) != battle.turn_number:
@@ -553,6 +593,12 @@ static func gain_intent_from_action(battle, caster, amount: int = INTENT_PER_ACT
 	if used >= INTENT_ACTION_BUDGET:
 		return
 	var granted: int = mini(amount, INTENT_ACTION_BUDGET - used)
+	var before: int = caster.resource_current
 	caster.gain_resource(granted)
 	battle.resource_gain_count[caster.actor_id] = used + granted
-	battle._emit_event("resource_gained", caster.actor_id, caster.actor_id, "resource=%s value=%d" % [String(caster.resource_id), caster.resource_current])
+	# The budget is spent by the attempt, but a full bar absorbs the stack - so the
+	# event only fires when the number actually moved. Reporting "gained" for a
+	# grant the ceiling swallowed made a capped kill look like it had paid.
+	if caster.resource_current == before:
+		return
+	battle._emit_event("resource_gained", caster.actor_id, caster.actor_id, "resource=%s reason=%s value=%d" % [String(caster.resource_id), reason, caster.resource_current])

@@ -35,6 +35,7 @@ func _run() -> void:
 	_test_active_skills_grant_ultimate_energy()
 	_test_every_sakura_action_grants_the_same_energy()
 	_test_extreme_strengthens_the_next_active_skill()
+	_test_kills_pay_intent_inside_the_budget()
 	_test_cast_uses_the_commanded_character()
 	_test_movement_uses_the_commanded_character()
 	_test_oath_vow_follows_the_passive_not_the_character()
@@ -619,3 +620,105 @@ func _test_extreme_strengthens_the_next_active_skill() -> void:
 	_check(plain_attack.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Pierce Blossom resolves at full intent")
 	_check(attack_sakura.resource_current >= 4, "a normal attack neither spends nor clears 极意")
 	plain_attack.queue_free()
+
+
+## §19 lists five ways to earn intent: turn start, movement, attacks, kills and
+## the first echo return of a turn. The kill clause was missing from the code
+## while the decision sheet claimed the whole item was unaddressed - the first
+## echo return had been there since the kit landed. Both are pinned here.
+func _test_kills_pay_intent_inside_the_budget() -> void:
+	# One kill on top of the action's own stack.
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sakura"]
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], ids, [])
+	var sakura = battle.get_actor("sakura")
+	var enemy = battle.get_actor("vanguard_00")
+	sakura.resource_current = 1
+	enemy.health = 1
+	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the killing blow resolves")
+	_check(enemy.is_defeated(), "the target is defeated")
+	_check(sakura.resource_current == 3, "a kill pays one extra stack on top of the action's own")
+	battle.queue_free()
+
+	# §19/§30 order: the action's stack lands before the kill's, which is only
+	# observable in the event log when the per-turn budget is nearly spent. The
+	# sheet requires this order to be pinned by a test rather than assumed.
+	var order = ControllerScript.new()
+	root.add_child(order)
+	var order_ids: Array[String] = ["sakura"]
+	order.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], order_ids, [])
+	var order_sakura = order.get_actor("sakura")
+	var order_enemy = order.get_actor("vanguard_00")
+	order_sakura.resource_current = 1
+	order_enemy.health = 1
+	var gains: Array = []
+	order.battle_event.connect(func(event):
+		if event["type"] == "resource_gained":
+			gains.append(String(event["detail"]))
+	)
+	_check(order.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the ordered action resolves")
+	_check(gains.size() == 2, "the action and the kill each report a stack")
+	_check(gains[0].contains("reason=action"), "the action's stack is credited first")
+	_check(gains[1].contains("reason=kill"), "the kill's stack follows the action")
+	order.queue_free()
+
+	# With the budget nearly spent, the action takes the last stack and the kill
+	# gets nothing - and must not report a gain it did not receive.
+	var capped = ControllerScript.new()
+	root.add_child(capped)
+	var capped_ids: Array[String] = ["sakura"]
+	capped.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], capped_ids, [])
+	var capped_sakura = capped.get_actor("sakura")
+	var capped_enemy = capped.get_actor("vanguard_00")
+	capped_sakura.resource_current = 1
+	capped_enemy.health = 1
+	capped.resource_gain_turn["sakura"] = capped.turn_number
+	capped.resource_gain_count["sakura"] = 2
+	var capped_gains: Array = []
+	capped.battle_event.connect(func(event):
+		if event["type"] == "resource_gained":
+			capped_gains.append(String(event["detail"]))
+	)
+	_check(capped.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the capped action resolves")
+	_check(capped_sakura.resource_current == 2, "the action takes the last stack")
+	_check(capped_gains.size() == 1 and capped_gains[0].contains("reason=action"), "the kill reports nothing when the budget is spent")
+	capped.queue_free()
+
+	# Two kills in one action still respect the three-stack action budget, so the
+	# total is capped rather than doubled.
+	var wide = ControllerScript.new()
+	root.add_child(wide)
+	var wide_ids: Array[String] = ["sakura"]
+	# A third enemy far away keeps the battle from ending on the double kill.
+	wide.start_encounter(Vector2i(1, 1), [Vector2i(2, 1), Vector2i(2, 2), Vector2i(1, 6)], [], [], wide_ids, [])
+	var wide_sakura = wide.get_actor("sakura")
+	wide_sakura.resource_current = 0
+	wide.get_actor("vanguard_00").health = 1
+	wide.get_actor("vanguard_01").health = 1
+	_check(wide.request_skill(&"sakura_falling_petals", "vanguard_00"), "the double kill resolves")
+	_check(wide_sakura.resource_current == 3, "two kills and the action are capped at three stacks")
+	wide.queue_free()
+
+	# A character without a resource must not be affected by the kill credit.
+	var sevrin = ControllerScript.new()
+	root.add_child(sevrin)
+	var sevrin_ids: Array[String] = ["sevrin"]
+	sevrin.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], sevrin_ids, [])
+	sevrin.get_actor("vanguard_00").health = 1
+	_check(sevrin.request_skill(&"oathblade", "vanguard_00"), "Sevrin's killing blow resolves")
+	_check(sevrin.get_actor("vanguard_00").is_defeated(), "the enemy dies to a character with no intent track")
+	sevrin.queue_free()
+
+	# The first echo return of a turn pays a stack; the second in the same turn
+	# does not. This is the clause the decision sheet wrongly called unimplemented.
+	var echo = ControllerScript.new()
+	root.add_child(echo)
+	var echo_ids: Array[String] = ["sakura"]
+	echo.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], echo_ids, [])
+	var echo_sakura = echo.get_actor("sakura")
+	echo.statuses.apply_status(&"sakura_petal_mark", "sakura", "vanguard_00", 1, 1, -1, &"")
+	echo_sakura.resource_current = 1
+	_check(echo.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the marked target is struck")
+	_check(echo_sakura.resource_current == 3, "the first echo return pays a stack as well as the action")
+	echo.queue_free()

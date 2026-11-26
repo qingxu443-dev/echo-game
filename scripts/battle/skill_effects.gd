@@ -423,10 +423,11 @@ static func _check_echo_return(battle, caster, target, multiplier: float = ECHO_
 	if killed:
 		_credit_kills(battle, 1)
 
-	# §19: the first echo return of a turn is worth one more stack.
+	# §19: the first echo return of a turn is worth one more stack. Tagged as its
+	# own reason so the log does not read as a second action stack.
 	if int(battle.echo_return_gain_turn.get(caster.actor_id, -1)) != battle.turn_number:
 		battle.echo_return_gain_turn[caster.actor_id] = battle.turn_number
-		gain_intent_from_action(battle, caster)
+		gain_intent_from_action(battle, caster, INTENT_PER_ACTION_EVENT, "echo")
 	battle._emit_event("counter_resolved", caster.actor_id, target.actor_id, "skill=sakura_echo_return multiplier=%.2f raw=%d killed=%s" % [multiplier, raw_damage, str(killed)])
 	return killed
 

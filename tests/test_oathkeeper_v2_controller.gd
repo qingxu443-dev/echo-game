@@ -16,6 +16,8 @@ func _run() -> void:
 	_test_absolute_verdict_aoe_knockback_and_energy()
 	_test_one_action_grants_vow_per_carrier()
 	_test_oathblade_knockback_collisions()
+	_test_oathblade_knockback_unit_collision_and_chest_break()
+	_test_knockback_shifts_active_telegraphs()
 	_report()
 
 
@@ -232,3 +234,55 @@ func _test_oathblade_knockback_collisions() -> void:
 	_check(open_before - open_enemy.health == 793, "a clean push deals only the strike")
 	_check(open_enemy.cell == Vector2i(3, 1), "a clean push moves the target one cell")
 	open.queue_free()
+
+
+## The collision branch the trio above does not reach: a unit in the way pays
+## the same 450, and the chest-break path drops the loot on the tile.
+func _test_oathblade_knockback_unit_collision_and_chest_break() -> void:
+	var pair = ControllerScript.new()
+	root.add_child(pair)
+	_check(pair.start_encounter(Vector2i(1, 1), [Vector2i(2, 1), Vector2i(3, 1)]), "unit-collision encounter starts")
+	pair.beacons.clear()
+	var pushed = pair.get_actor("vanguard_00")
+	var blocker = pair.get_actor("vanguard_01")
+	var pushed_before: int = pushed.health
+	var blocker_before: int = blocker.health
+	_check(pair.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a blocking unit")
+	_check(pushed.health == pushed_before - 1243, "a unit slam adds the collision to the strike on the pushed target")
+	_check(blocker.health == blocker_before - 450, "the unit in the way takes the same true damage")
+	_check(pushed.cell == Vector2i(2, 1), "a blocked push leaves the target in place")
+	pair.queue_free()
+
+	var chest = ControllerScript.new()
+	root.add_child(chest)
+	_check(chest.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)]), "chest encounter starts")
+	var chest_cell := Vector2i(3, 1)
+	_check(chest.beacons.has(chest_cell), "a beacon sits behind the target")
+	chest.beacons[chest_cell]["health"] = 1
+	var chest_enemy = chest.get_actor("vanguard_00")
+	_check(chest.request_skill(&"oathblade", "vanguard_00"), "the Oathblade slams into the cracked chest")
+	_check(int(chest.beacons[chest_cell]["health"]) == 0, "the chest breaks")
+	_check(chest.dropped_loot.has(chest_cell) and not chest.dropped_loot[chest_cell].is_empty(), "the chest's loot drops on its tile for pickup")
+	_check(chest_enemy.cell == Vector2i(2, 1), "a chest slam leaves the target in place")
+	chest.queue_free()
+
+
+## Into-the-Breach core promise: displacing an enemy moves its active telegraph
+## by the same vector, so the sweep lands relative to where the enemy now stands.
+func _test_knockback_shifts_active_telegraphs() -> void:
+	var sweep = ControllerScript.new()
+	root.add_child(sweep)
+	_check(sweep.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)]), "sweep encounter starts")
+	sweep.beacons.clear()
+	var sweep_enemy = sweep.get_actor("vanguard_00")
+	var sweep_intent = sweep.intents[0]
+	var planned_target: Vector2i = sweep_intent.target_cell
+	var planned_affected: Array = sweep_intent.affected_cells.duplicate()
+	_check(sweep_intent.action_id == "charged_strike", "the opening sweep is telegraphed at full starting charge")
+	_check(sweep.request_skill(&"oathblade", "vanguard_00"), "the Oathblade pushes the sweep's owner")
+	_check(sweep_enemy.cell == Vector2i(3, 1), "the sweep's owner is pushed clear")
+	_check(sweep_intent.target_cell == planned_target + Vector2i(1, 0), "the telegraph target moves with its owner")
+	_check(sweep_intent.affected_cells.size() == planned_affected.size(), "the sweep keeps its shape when it moves")
+	for i in range(planned_affected.size()):
+		_check(sweep_intent.affected_cells.find(planned_affected[i] + Vector2i(1, 0)) != -1, "sweep cell %d shifts by the same vector" % i)
+	sweep.queue_free()

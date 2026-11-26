@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"armor_echo_mantle"
+kind = "armor"
+kind_zh = "护甲"
+name = "回声抗魔披风"
+desc = "魔抗 +220，防御 +90。"
+defense = 90
+magic_resistance = 220
+enemy_buff_zh = "夺得披风 · 护盾+500 & 抗+150"
+enemy_shield = 500

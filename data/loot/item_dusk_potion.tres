@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"item_dusk_potion"
+kind = "consumable"
+kind_zh = "道具"
+name = "黄昏疗伤药"
+desc = "使用：立刻回复 1000 生命。"
+heal = 1000
+enemy_buff_zh = "吞食药剂 · 回复+800 血"
+enemy_heal = 800

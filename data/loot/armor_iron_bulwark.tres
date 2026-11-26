@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"armor_iron_bulwark"
+kind = "armor"
+kind_zh = "护甲"
+name = "遗迹铁壁甲"
+desc = "防御 +180，最大生命 +400。"
+defense = 180
+max_health = 400
+enemy_buff_zh = "夺得铁壁 · 护盾+650"
+enemy_shield = 650

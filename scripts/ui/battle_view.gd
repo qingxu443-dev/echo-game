@@ -18,6 +18,7 @@ const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
 const SettlementViewScript = preload("res://scripts/ui/settlement_view.gd")
 const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
+const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 const InventoryViewScript = preload("res://scripts/ui/inventory_view.gd")
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
@@ -57,6 +58,18 @@ func _ready() -> void:
 	controller.battle_event.connect(_on_battle_event)
 	controller.battle_finished.connect(_on_battle_finished)
 	skill_bar = SkillBarViewScript.build_entries(controller)
+	_begin_fresh_run()
+
+
+## A fresh run gets a fresh drop sequence: reseed the loot RNG and remember the
+## seed on the run state so a drop complaint can be reproduced from it later.
+## Seeding lives here in the UI layer on purpose - headless tests never start a
+## run through this path, so their rolls stay on the fixed default seed.
+func _begin_fresh_run() -> void:
+	run_state.reset()
+	var loot_seed: int = int(Time.get_unix_time_from_system()) & 0x7FFFFFFF
+	LootCatalogScript.seed_rng(loot_seed)
+	run_state.loot_seed = loot_seed
 	_start_level(0)
 
 
@@ -480,14 +493,12 @@ func _handle_settlement_tap(position: Vector2) -> void:
 			inventory_open = true
 			queue_redraw()
 		SettlementViewScript.ACTION_RESTART:
-			run_state.reset()
-			_start_level(0)
+			_begin_fresh_run()
 		SettlementViewScript.ACTION_NEXT:
 			if _has_next_level():
 				_start_level(current_level + 1)
 			else:
-				run_state.reset()
-				_start_level(0)
+				_begin_fresh_run()
 
 
 # --- player actions ----------------------------------------------------------

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"upg_shatter_slam"
+kind = "skill_upgrade"
+kind_zh = "技能升级"
+name = "铭文·碎石震荡"
+desc = "使用：撞墙 / 撞怪真实伤害翻倍（450 → 900）。"
+mod_id = &"shatter_slam"
+enemy_buff_zh = "吸收铭文 · 攻+260"
+enemy_attack = 260

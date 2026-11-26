@@ -21,6 +21,9 @@ var equipped_weapon: Dictionary = {}
 var equipped_armor: Dictionary = {}
 var backpack: Array[Dictionary] = []
 var initialized: bool = false
+## Loot RNG seed of the current run, set by the battle view when a fresh run
+## begins. 0 in headless tests (fixed default seed - reproducible rolls).
+var loot_seed: int = 0
 
 const REWARD_POOL: Array[Dictionary] = [
 	{

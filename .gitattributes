@@ -13,3 +13,6 @@
 *.yaml  text eol=lf
 # Binary art assets.
 *.webp binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary

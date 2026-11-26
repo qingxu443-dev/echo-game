@@ -36,9 +36,11 @@ func _ready() -> void:
 
 
 func _draw() -> void:
-	var target := Rect2(Vector2.ZERO, size)
 	if background != null:
-		draw_texture_rect(background, target, false)
+		var scale_factor := _background_scale()
+		var drawn_size := DESIGN_SIZE * scale_factor
+		var offset := (size - drawn_size) * 0.5
+		draw_texture_rect(background, Rect2(offset, drawn_size), false)
 	else:
 		_draw_fallback_background()
 
@@ -60,13 +62,22 @@ func _draw_fallback_background() -> void:
 	draw_string(title_font, Vector2(size.x * 0.22, size.y * 0.77), "□  退出游戏", HORIZONTAL_ALIGNMENT_LEFT, -1, body_size, Color(0.78, 0.79, 0.80))
 
 
+func _background_scale() -> float:
+	# Fill the viewport without distorting the 1260 x 700 artwork.
+	# Any overflow is cropped evenly from the opposing edges.
+	return maxf(size.x / DESIGN_SIZE.x, size.y / DESIGN_SIZE.y)
+
+
+func _background_offset() -> Vector2:
+	return (size - DESIGN_SIZE * _background_scale()) * 0.5
+
+
 func _scaled_option_rect(index: int) -> Rect2:
 	var source_rect: Rect2 = OPTION_RECTS[index]
-	var scale_x := size.x / DESIGN_SIZE.x
-	var scale_y := size.y / DESIGN_SIZE.y
+	var scale_factor := _background_scale()
 	return Rect2(
-		Vector2(source_rect.position.x * scale_x, source_rect.position.y * scale_y),
-		Vector2(source_rect.size.x * scale_x, source_rect.size.y * scale_y)
+		_background_offset() + source_rect.position * scale_factor,
+		source_rect.size * scale_factor
 	)
 
 

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"weapon_dusk_blade"
+kind = "weapon"
+kind_zh = "武器"
+name = "黄昏破甲刃"
+desc = "攻击 +340，但防御 -60。"
+attack = 340
+defense = -60
+enemy_buff_zh = "夺得破甲刃 · 攻+320"
+enemy_attack = 320

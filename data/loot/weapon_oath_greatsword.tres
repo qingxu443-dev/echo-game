@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"weapon_oath_greatsword"
+kind = "weapon"
+kind_zh = "武器"
+name = "誓约重剑"
+desc = "攻击 +260。"
+attack = 260
+enemy_buff_zh = "夺得重剑 · 攻+260"
+enemy_attack = 260

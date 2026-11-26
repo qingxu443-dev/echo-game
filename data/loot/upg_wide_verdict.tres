@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"upg_wide_verdict"
+kind = "skill_upgrade"
+kind_zh = "技能升级"
+name = "铭文·大裁决域"
+desc = "使用：「绝对裁决」范围扩大至自身周围 2 格。"
+mod_id = &"wide_verdict"
+enemy_buff_zh = "吸收铭文 · 满充能 & 攻+200"
+enemy_attack = 200
+enemy_charge = true

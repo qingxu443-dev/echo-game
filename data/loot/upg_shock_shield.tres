@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"upg_shock_shield"
+kind = "skill_upgrade"
+kind_zh = "技能升级"
+name = "铭文·震荡誓盾"
+desc = "使用：「誓盾庇护」+350 护盾，且开盾震退周围敌人。"
+mod_id = &"shock_shield"
+enemy_buff_zh = "吸收铭文 · 护盾+700"
+enemy_shield = 700

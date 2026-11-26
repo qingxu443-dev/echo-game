@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"item_vow_talisman"
+kind = "consumable"
+kind_zh = "道具"
+name = "誓约护符"
+desc = "使用：立刻获得 700 护盾与 +1 终极能量。"
+shield_gain = 700
+energy_gain = 1
+enemy_buff_zh = "夺得护符 · 护盾+600"
+enemy_shield = 600

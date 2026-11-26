@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="LootItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/loot_item_definition.gd" id="1_li"]
+
+[resource]
+script = ExtResource("1_li")
+id = &"weapon_echo_halberd"
+kind = "weapon"
+kind_zh = "武器"
+name = "回声战戟"
+desc = "攻击 +180，撞击真实伤害 +200。"
+attack = 180
+collision_bonus = 200
+enemy_buff_zh = "夺得战戟 · 攻+200 & 满充能"
+enemy_attack = 200
+enemy_charge = true

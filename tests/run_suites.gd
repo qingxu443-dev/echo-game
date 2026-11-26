@@ -77,13 +77,19 @@ func _run() -> void:
 		quit(1)
 		return
 
-	# Guard against silent coverage loss: a suite that aborts part-way still exits
-	# 0 and still reports failures=0, and the only evidence is that fewer
-	# assertions ran.
+	# The baseline has to equal what ran, in both directions. Below means coverage
+	# was lost; above means the documents still describe a tree that has moved on,
+	# which is exactly how "716" and "752" once coexisted here: every run was green
+	# because only the shortfall was checked, and the stale side merged silently.
 	var expected := _expected_assertions()
 	if expected > 0 and total < expected:
-		print("coverage dropped: %d assertions ran, baseline declares at least %d" % [total, expected])
+		print("coverage dropped: %d assertions ran, baseline declares %d" % [total, expected])
 		print("If the drop is intended, update ", DocChecks.BASELINE_PATH, " and record why.")
+		quit(1)
+		return
+	if expected > 0 and total > expected:
+		print("baseline is behind: %d assertions ran, %s still declares %d" % [total, DocChecks.BASELINE_PATH, expected])
+		print("Raise the declared total - and the copies doc-numbers checks - in this change.")
 		quit(1)
 		return
 

@@ -230,7 +230,7 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	return true
 
 
-## §23 落英: a rectangle in front of the caster - three cells deep and two wide
+## §23 落英: a rectangle in front of the caster - three cells wide and two deep
 ## by owner decision on 2026-11-25, replacing the undecided fan. Three segments of
 ## 30% each; the mark lands on hit, and targets already marked take a follow-up.
 static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
@@ -564,21 +564,32 @@ static func _apply_petal_mark(battle, caster, target) -> void:
 
 
 ## §21: an adjacent marked target takes one automatic follow-up per action.
-static func _check_echo_return(battle, caster, target, multiplier: float = ECHO_RETURN_MULTIPLIER) -> void:
+## Returns whether the follow-up landed the killing blow, so the caller can
+## assert on it; the kill stack itself is paid here, because a defeat is a defeat
+## whichever step produced it.
+static func _check_echo_return(battle, caster, target, multiplier: float = ECHO_RETURN_MULTIPLIER) -> bool:
 	if not target.is_alive():
-		return
+		return false
 	if not battle.statuses.has_status(target.actor_id, PETAL_MARK):
-		return
+		return false
 	if GridRulesScript.manhattan_distance(caster.cell, target.cell) != 1:
-		return
+		return false
 	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, multiplier)
 	battle._apply_damage(target.actor_id, raw_damage, caster.actor_id, "sakura_echo_return", "physical")
+	var killed: bool = not target.is_alive()
+
+	# §19 / §30: a defeat inside the echo step is still a defeat, so its stack is
+	# paid before the first-echo stack - and both share the per-turn budget, which
+	# is why the echo stack can still come up empty after this.
+	if killed:
+		_credit_kills(battle, 1)
 
 	# §19: the first echo return of a turn is worth one more stack.
 	if int(battle.echo_return_gain_turn.get(caster.actor_id, -1)) != battle.turn_number:
 		battle.echo_return_gain_turn[caster.actor_id] = battle.turn_number
 		gain_intent_from_action(battle, caster)
-	battle._emit_event("counter_resolved", caster.actor_id, target.actor_id, "skill=sakura_echo_return multiplier=%.2f raw=%d" % [multiplier, raw_damage])
+	battle._emit_event("counter_resolved", caster.actor_id, target.actor_id, "skill=sakura_echo_return multiplier=%.2f raw=%d killed=%s" % [multiplier, raw_damage, str(killed)])
+	return killed
 
 
 ## §19: action events share a three-stack budget per turn; the turn-start stack

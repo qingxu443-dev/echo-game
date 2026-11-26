@@ -117,6 +117,14 @@ tests\run_all.bat
 .\tests\run_all.ps1 -Godot "C:\Godot\Godot_v4.7.2-stable_win64_console.exe"
 ```
 
+三个入口都只负责找到引擎：真正的运行与守卫在 `tests/run_suites.gd`，所以 Linux、Windows 与 CI 跑的是同一份判定。此前两个脚本各写一套等价逻辑，PowerShell 那份漏了脚本错误拦截与文档校验，Windows 上的绿灯因此比 Linux 的宽。
+
+文档里的断言总数、以及 `ARCHITECTURE.md` 的模块行数表，由 `tests/framework/doc_checks.gd` 校验。改动导致行数变化时，用下面这条原地改写那几行，再复查：
+
+```bash
+tests/run_all.sh --fix      # PowerShell: .\tests\run_all.ps1 -Fix
+```
+
 单独运行某个测试套件：
 
 ```bash
@@ -128,13 +136,16 @@ godot --headless --path . --script res://tests/test_core_rules.gd
 正常汇总输出示例（仅当所有套件 `failures=0` 且无崩溃时退出码为 `0`）：
 
 ```text
-test_battle_controller                 115 ok
+test_battle_controller                 118 ok
 ...
 -----
 suites=18 assertions=805 failures=0 broken=0
+doc-numbers: ok (805)
+module-sizes: ok (26 rows)
 ```
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。
+* 末尾三行分别是套件汇总、文档数字校验、模块行数校验；任何一项不一致都会让退出码变成 `1`。
 * 当前基线为 **18 个套件、805 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
 * 任何代码改动均应重跑测试并以零失败为合并前提；无头测试不能替代 `F5` 主场景的交互与画面人工检查。
 

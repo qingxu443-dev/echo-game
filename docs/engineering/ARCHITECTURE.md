@@ -23,7 +23,7 @@
 │   └── levels/                       # 三关 .tres 关卡配置（M1）
 ├── assets/ui/                        # 主菜单背景图（1260×700）
 ├── assets/ui/summons/                # 猎人通灵的表现层图标
-├── tests/                            # 18 个无头套件 + framework/test_case.gd 公共基类 + run_all 一键回归
+├── tests/                            # 18 个无头套件 + framework/（公共基类、文档守卫）+ run_suites.gd 统一运行器
 └── docs/                             # 设计规范、状态记录、工程基线与验证清单
 ```
 

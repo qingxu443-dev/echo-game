@@ -15,14 +15,17 @@
 ├── scenes/main/main.tscn             # 战斗场景，挂载 battle_view.gd
 ├── scripts/
 │   ├── main.gd                       # 极简入口脚本
-│   ├── actors/battle_actor.gd        # 战斗单位运行时数据与伤害结算
-│   ├── battle/                       # 战斗规则、状态与数据目录（27 个模块，见下）
-│   └── ui/                           # battle_view.gd（战斗编排）+ main_menu.gd（启动菜单）
+│   ├── actors/battle_actor.gd        # 战斗单位运行时数据、技能充能与偷取装备状态
+│   ├── battle/                       # 战斗规则、肉鸽单局状态、宝箱战利品目录与数据目录（见下）
+│   └── ui/                           # battle_view.gd（2.5D 战斗编排）+ inventory_view.gd + main_menu.gd
 ├── data/
-│   ├── enemies/                      # 三种敌人的 .tres 属性档案（M1）
+│   ├── enemies/                      # 三种敌人的 .tres 属性档案与动作清单（M1）
 │   └── levels/                       # 三关 .tres 关卡配置（M1）
-├── assets/ui/                        # 主菜单背景图（1260×700）
-├── assets/ui/summons/                # 猎人通灵的表现层图标
+├── assets/
+│   ├── actors/                       # 瑟弗林与三类敌人正/背面立绘与 portraits/ 大头头像
+│   └── ui/                           # 主菜单背景图（main_menu_background.png）与图标
+├── tools/
+│   └── process_sprites.py            # 角色立绘抠图、规范尺寸与头像羽化批处理脚本
 ├── tests/                            # 18 个无头套件 + framework/（公共基类、文档守卫）+ run_suites.gd 统一运行器
 └── docs/                             # 设计规范、状态记录、工程基线与验证清单
 ```
@@ -65,6 +68,8 @@ wc -l scripts/**/*.gd
 | `intent_planner.gd` | 按 `actions` 顺序挑第一个可用的行动，生成意图预告 | 行动的合法性判定在代码，行动的组合在数据 |
 | `encounter_definition.gd` | 58 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
+| `run_state.gd` | 317 | 单局 Roguelite 状态：跨关血量、武器/护甲装备槽、背包、技能铭文强化与 `reset()` 清空 | 仅存活于单局内存，通关开新局或战败重开时全部清空 |
+| `loot_catalog.gd` | 222 | 遗迹宝箱战利品池：随机生成武器、护甲、消耗品与技能升级物品 | 玩家与敌人共享同一份物品属性结构，保证对称抢宝规则 |
 
 ### 角色层（`scripts/battle/`）
 
@@ -108,22 +113,23 @@ wc -l scripts/**/*.gd
 
 ### 表现层（`scripts/ui/`）
 
-表现层拆为七个文件：`main_menu.gd` 是唯一的启动场景，`battle_view.gd`（295 行）只做编排：保留遭遇生命周期、技能栏与玩家意图，绘制全部转发给下面的视图，原始输入转发给 `input_router`。
+表现层拆为九个文件：`main_menu.gd` 是唯一的启动场景，`battle_view.gd` 负责 2.5D 战斗编排（关卡流程、分步敌方回合演出、技能栏、装备背包弹窗与玩家意图），绘制分别转发给下面的视图，原始输入转发给 `input_router`。
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `battle_view.gd` | 695 | 编排：关卡流程、技能栏构建、点击分发（敌人 / 友军 / 空地）、控制器信号 |
-| `board_view.gd` | 837 | 棋盘、障碍、单位与状态标记、意图预告、目标圈（`can_target()` 转发 `can_aim()`，`can_target_ally()` 管友军） |
-| `skill_bar_view.gd` | 154 | 五格技能栏、结束回合按钮、操作提示；`mode` 分 actor / ally / self，`skill_rect()` 是唯一的按钮几何，`is_affordable()` 是唯一的按钮可用判据 |
-| `theme_palette.gd` | 244 | 全部颜色与坐标常量、棋盘几何（`cell_rect` / `cell_at`） |
-| `hud_view.gd` | 353 | 标题、回合与资源读数、剑意与极意状态、战术提示、敌方行动顺序、队伍状态栏（含倒地标记） |
-| `settlement_view.gd` | 151 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |
-| `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` |
-| `main_menu.gd` | 184 | 启动菜单：开始游戏 / 退出、键盘与点击选中、背景图等比铺满并居中裁切、未选中行压暗；保存与设置仅为占位 |
+| `battle_view.gd` | 695 | 编排：关卡流程、分步敌方回合动画、4 技能栏构建、点击分发、`Q/E` 旋转视角与 `B` 键背包切换 |
+| `board_view.gd` | 837 | 2.5D 等距石板棋盘、3D 废墟立柱、4 向动态立绘朝向、遗迹宝箱与地面掉落光柱、警戒斜条纹、安全逃生信标、受威压呼吸红晕与打击闪爆 |
+| `skill_bar_view.gd` | 154 | 底部横向 4 技能条（悬停浮窗显示完整技能说明）、结束回合按钮与操作提示；`skill_rect()` 是唯一的按钮几何，`is_affordable()` 是唯一的按钮可用判据 |
+| `theme_palette.gd` | 244 | 全部颜色与坐标常量、2.5D 等距菱形投影（`80×44`）与 4 对角 90° 旋转正反算（`cell_to_iso` / `cell_at`） |
+| `hud_view.gd` | 353 | 左下角主角大头头像与血条/护盾/AP/能量、顶部关名与战况、右上角敌方行动顺序与技能充能情报卡 |
+| `inventory_view.gd` | 125 | `[B]` 键开关的装备与背包弹窗：展示武器槽、护甲槽、背包物品与点击穿戴/卸下/使用交互 |
+| `settlement_view.gd` | 151 | 结算面板、完好遗迹宝箱开箱战利品展示、三选一肉鸽强化与其点击区 |
+| `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
+| `main_menu.gd` | 184 | 启动菜单：新黄昏背景图与飘浮光尘、极简悬停横条动画、键盘与点击选中；继续/设置仅为占位 |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 
-输入约定：数字键 `1`–`6` 按序对应技能栏（当前栏最多五格，第六键为扩展位）；`Esc` 或右键取消目标选择；`Enter`/空格结束回合。自身技能按下即施放，目标技能需再点战场上的敌人确认。结算面板出现时，点击只响应「重开本关」与「下一关」。
+输入约定：数字键 `1`–`4` 对应瑟弗林四个技能（`1` 誓刃、`2` 裁决印记、`3` 誓盾庇护瞬发、`4` 绝对裁决瞬发）；`Q / E` 左右旋转四对角视角；`B` 开关装备/背包面板；`Esc` 或右键取消目标选择/关闭弹窗；`Enter`/空格结束回合。结算面板出现时，点击响应「重开本关」与「下一关 / 重新开始」。
 
 ## 运行时数据流
 

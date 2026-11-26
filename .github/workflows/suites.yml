@@ -1,9 +1,15 @@
 name: suites
 
 # Every push to main and every pull request runs the same headless suite the
-# project already relies on. The declared assertion count is read from
-# docs/engineering/BASELINE.md rather than repeated here, so the baseline has one
-# maintenance point.
+# project already relies on, on both platforms it ships to. The declared
+# assertion count is read from docs/engineering/BASELINE.md rather than repeated
+# here, so the baseline has one maintenance point.
+#
+# The Windows job exists because Windows is the platform the project is actually
+# verified on, and because the two entry points used to disagree: run_all.ps1 was
+# missing the SCRIPT ERROR guard and the documentation check that run_all.sh had,
+# so a Windows run could report all-green after a suite had aborted. Both now call
+# tests/run_suites.gd, and this job is what keeps them honest.
 
 on:
   push:
@@ -80,3 +86,46 @@ jobs:
           # Invoked through bash so the run does not depend on the executable bit
           # surviving a checkout on any platform.
           GODOT="$GODOT_BIN" EXPECTED_ASSERTIONS="$EXPECTED" bash ./tests/run_all.sh
+
+  windows-suites:
+    name: windows suites
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      GODOT_VERSION: "4.7.2"
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Cache the engine
+        id: engine
+        uses: actions/cache@v4
+        with:
+          path: C:\godot
+          key: godot-${{ env.GODOT_VERSION }}-windows-x86_64
+
+      # The release archive ships both the windowed and the console binary; only
+      # the console one reports to stdout, which is what the runner reads.
+      - name: Download the engine
+        if: steps.engine.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path C:\godot | Out-Null
+          $version = $env:GODOT_VERSION
+          $url = "https://github.com/godotengine/godot/releases/download/$version-stable/Godot_v$version-stable_win64.exe.zip"
+          Write-Host "downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\godot.zip" -UseBasicParsing
+          Expand-Archive -Path "$env:RUNNER_TEMP\godot.zip" -DestinationPath C:\godot -Force
+          Get-ChildItem C:\godot | Select-Object -ExpandProperty Name
+
+      # run_all.ps1 generates the .godot cache itself and then runs the suites, so
+      # the two platforms share one runner rather than two similar ones.
+      - name: Run suites
+        shell: pwsh
+        run: |
+          $console = "C:\godot\Godot_v$env:GODOT_VERSION-stable_win64_console.exe"
+          if (-not (Test-Path $console)) { throw "console binary not found at $console" }
+          .\tests\run_all.ps1 -Godot $console
+          exit $LASTEXITCODE

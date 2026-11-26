@@ -43,7 +43,7 @@
 
 ## 持续集成
 
-`.github/workflows/suites.yml` 在每次推送到 `main` 和每个 PR 上复跑本文件的套件。
+`.github/workflows/suites.yml` 在每次推送到 `main` 和每个 PR 上复跑本文件的套件，Ubuntu 与 Windows 各一个 job。Windows job 存在的理由很直接：Windows 是人工验收平台，而此前它的入口守卫比 Linux 少。
 
 **断言数不写死在 workflow 里**：CI 从本文件的「断言总数」一行读取，因此基线仍只有一个维护点。脚本层面由 `EXPECTED_ASSERTIONS` 兜底——实际断言数与声明值不相等（低于或高于）都会直接退出 1。这条此前只查下限，于是「断言已涨、基线未改」的树可以一直绿灯合入，`716` 与 `752` 并存就是这么来的。
 

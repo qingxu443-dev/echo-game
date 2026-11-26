@@ -26,7 +26,8 @@ static func start_encounter(
 	obstacles: Array[Vector2i] = [],
 	enemy_archetypes: Array[String] = [],
 	character_ids: Array[String] = [],
-	ally_cells: Array[Vector2i] = []
+	ally_cells: Array[Vector2i] = [],
+	chest_items: Array[StringName] = []
 ) -> bool:
 	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
 		return false
@@ -132,14 +133,20 @@ static func start_encounter(
 		battle.actors[enemy_id] = enemy_unit
 
 	# Spawn 2 Relic Beacons as stationary defense objectives (Into-the-Breach style)
-	_spawn_default_beacons(battle, spawn_cells, enemy_cells, candidate_blockers)
+	_spawn_default_beacons(battle, spawn_cells, enemy_cells, candidate_blockers, chest_items)
 
 	battle.phase = battle.BattlePhase.PLAYER
 	begin_player_turn(battle)
 	return true
 
 
-static func _spawn_default_beacons(battle, spawn_cells: Array[Vector2i], enemy_cells: Array[Vector2i], blockers: Dictionary) -> void:
+static func _spawn_default_beacons(
+	battle,
+	spawn_cells: Array[Vector2i],
+	enemy_cells: Array[Vector2i],
+	blockers: Dictionary,
+	fixed_items: Array[StringName] = []
+) -> void:
 	var preferred: Array[Vector2i] = [
 		Vector2i(1, 5),
 		Vector2i(3, 1),
@@ -163,13 +170,22 @@ static func _spawn_default_beacons(battle, spawn_cells: Array[Vector2i], enemy_c
 			continue
 		placed += 1
 		used[c] = true
+		var loot: Dictionary = {}
+		if placed <= fixed_items.size():
+			var fixed_id: StringName = fixed_items[placed - 1]
+			loot = LootCatalogScript.get_item(fixed_id)
+			if loot.is_empty():
+				push_error("LevelCatalog: unknown chest item id '%s', falling back to a random roll" % str(fixed_id))
+				loot = LootCatalogScript.roll_random_item()
+		else:
+			loot = LootCatalogScript.roll_random_item()
 		battle.beacons[c] = {
 			"id": "beacon_%02d" % placed,
 			"cell": c,
 			"health": 2000,
 			"max_health": 2000,
 			"opened": false,
-			"loot": LootCatalogScript.roll_random_item(),
+			"loot": loot,
 		}
 
 

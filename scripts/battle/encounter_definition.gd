@@ -19,6 +19,11 @@ extends Resource
 @export var enemy_cells: Array[Vector2i] = []
 @export var enemy_archetypes: Array[String] = []
 @export var obstacles: Array[Vector2i] = []
+## Fixed chest contents, one StringName item id per beacon, in placement order.
+## Empty means every beacon rolls a random item from the LootCatalog pool
+## (the pre-2.5D behaviour). Teaching levels pin their rewards here so the
+## lesson they promise is the lesson the player actually gets.
+@export var chest_items: Array[StringName] = []
 
 const KNOWN_ARCHETYPES: Array[String] = ["vanguard", "marksman", "area_controller"]
 

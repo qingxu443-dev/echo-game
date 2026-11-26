@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**十八个测试套件 824 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**十八个测试套件 828 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -44,8 +44,8 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `battle_controller.gd` | 487 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
-| `battle_flow.gd` | 299 | 回合边界、遭遇构建、终止判定 | — |
+| `battle_controller.gd` | 488 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
+| `battle_flow.gd` | 315 | 回合边界、遭遇构建、终止判定 | — |
 | `intent_planner.gd` | 419 | 敌方意图生成 | — |
 | `intent_resolver.gd` | 223 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
 | `skill_executor.gd` | 278 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
@@ -68,7 +68,7 @@ wc -l scripts/**/*.gd
 | `sakura_skill_catalog.gd` | 105 | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | **当前版本不参战**，数据与框架保留待后续接入；测试仍覆盖 |
 | `enemy_definition.gd` / `enemy_catalog.gd` | — | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres`；`actions` 列表决定该原型按优先级尝试哪些行动 |
 | `intent_planner.gd` | 419 | 按 `actions` 顺序挑行动；多怪目标分流（`claimed_cells` 防抢同一格）、远程风筝取位；生成意图预告 | 只读不写状态；行动的合法性在代码、组合在数据 |
-| `encounter_definition.gd` | 58 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
+| `encounter_definition.gd` | 63 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
 | `run_state.gd` | 317 | 单局 Roguelite 状态：跨关血量、武器/护甲装备槽、背包、技能铭文强化与 `reset()` 清空 | 仅存活于单局内存，通关开新局或战败重开时全部清空 |
 | `loot_catalog.gd` | 222 | 遗迹宝箱战利品池：随机生成武器、护甲、消耗品与技能升级物品 | 玩家与敌人共享同一份物品属性结构，保证对称抢宝规则 |

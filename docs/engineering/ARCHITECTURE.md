@@ -70,9 +70,9 @@ wc -l scripts/**/*.gd
 | `intent_planner.gd` | 419 | 按 `actions` 顺序挑行动；多怪目标分流（`claimed_cells` 防抢同一格）、远程风筝取位；生成意图预告 | 只读不写状态；行动的合法性在代码、组合在数据 |
 | `encounter_definition.gd` | 63 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
-| `run_state.gd` | 317 | 单局 Roguelite 状态：跨关血量、武器/护甲装备槽、背包、技能铭文强化与 `reset()` 清空 | 仅存活于单局内存，通关开新局或战败重开时全部清空 |
+| `run_state.gd` | 320 | 单局 Roguelite 状态：跨关血量、武器/护甲装备槽、背包、技能铭文强化与 `reset()` 清空 | 仅存活于单局内存，通关开新局或战败重开时全部清空 |
 | `loot_catalog.gd` | 91 | 遗迹宝箱战利品名册：显式引用 13 张 `data/loot/*.tres`，`to_dict()` 维持字典契约；掉落 RNG 可播种（默认种子 0 供无头可复现，新局按时间播种并记入 `run_state.loot_seed`） | 玩家与敌人共享同一份物品属性结构，保证对称抢宝规则 |
-| `loot_item_definition.gd` | 70 | 单件战利品数据（Resource）：类别、名称、描述、装备数值、消耗效果、铭文 `mod_id` 与敌方偷取载荷 `enemy_*` | 纯数据；改数值只动 `data/loot/*.tres` |
+| `loot_item_definition.gd` | 79 | 单件战利品数据（Resource）：类别、名称、描述、装备数值、消耗效果、铭文 `mod_id` 与敌方偷取载荷 `enemy_*` | 纯数据；改数值只动 `data/loot/*.tres` |
 
 ### 角色层（`scripts/battle/`）
 
@@ -120,7 +120,7 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `battle_view.gd` | 695 | 编排：关卡流程、分步敌方回合动画、4 技能栏构建、点击分发、`Q/E` 旋转视角与 `B` 键背包切换 |
+| `battle_view.gd` | 706 | 编排：关卡流程、分步敌方回合动画、4 技能栏构建、点击分发、`Q/E` 旋转视角与 `B` 键背包切换 |
 | `board_view.gd` | 215 | 编排层：等距石板棋盘与侧棱、移动/悬停/目标提示、目标谓词 `can_target()` / `can_target_ally()`；其余绘制转发给威胁层与实体层 |
 | `board_threat_view.gd` | 235 | 威胁层：敌方攻击预告（警戒斜条纹）、落点伤害标签、打击闪爆、飘字、受威压呼吸红晕，以及全家族共用的 `is_cell_in_danger()` 查询 |
 | `board_objects_view.gd` | 423 | 实体层：按等距深度排序的废墟立柱、遗迹宝箱、4 向动态立绘与受击动画、地面掉落光柱、血条/充能条与头顶徽标；持有精灵纹理缓存 |

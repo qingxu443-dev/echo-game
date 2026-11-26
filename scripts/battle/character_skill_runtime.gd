@@ -230,7 +230,7 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 	return true
 
 
-## §23 落英: a rectangle in front of the caster - three cells deep and two wide
+## §23 落英: a rectangle in front of the caster - three cells wide and two deep
 ## by owner decision on 2026-11-25, replacing the undecided fan. Three segments of
 ## 30% each; the mark lands on hit, and targets already marked take a follow-up.
 static func _falling_petals(battle, skill, target_actor_id: String) -> bool:

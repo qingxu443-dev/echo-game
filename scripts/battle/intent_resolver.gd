@@ -92,14 +92,16 @@ static func redirect_to_guardian(battle, intent, guardian_id: String) -> void:
 			# therefore legally redirected to Sevrin anywhere inside the
 			# two-cell taunt radius, not only when adjacent.
 			legal = distance <= 2
-		"charged_strike":
-			legal = distance == 2 and GridRulesScript.has_clear_orthogonal_line(source.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id))
 		_:
+			# Charged strikes are AREA_LOCKED sweeps; the mode filter above
+			# already excludes them, and a sweep has nothing to redirect.
 			return
 	if not legal:
 		return
-	if intent.target_mode == BattleIntentScript.TargetMode.ACTOR_LOCKED:
-		intent.target_actor_id = guardian_id
+	# Record the pull on the intent: the tile-slot re-check in the resolver
+	# must know this intent was redirected, or it cancels the two-cell melee
+	# the taunt just made legal.
+	intent.target_actor_id = guardian_id
 	intent.target_cell = target.cell
 	var redirected_cells: Array[Vector2i] = [target.cell]
 	intent.affected_cells = redirected_cells
@@ -139,7 +141,10 @@ static func _tile_locked_attack(battle, intent) -> void:
 	var source = actors[intent.source_actor_id]
 	var current_distance: int = GridRulesScript.manhattan_distance(source.cell, intent.target_cell)
 	var chebyshev: int = maxi(absi(source.cell.x - intent.target_cell.x), absi(source.cell.y - intent.target_cell.y))
-	if intent.action_id == "basic_melee" and current_distance != 1:
+	if intent.action_id == "basic_melee" and current_distance != 1 and intent.target_actor_id.is_empty():
+		# A plain tile-lock whiffs when the target steps away (it does not
+		# follow a moved actor). A redirected melee carries the guardian's
+		# id and is legal anywhere inside the two-cell taunt radius.
 		intent.cancel("melee_out_of_range")
 		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 		return
@@ -152,7 +157,7 @@ static func _tile_locked_attack(battle, intent) -> void:
 			intent.cancel("marked_cell_line_blocked")
 			battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 			return
-	elif intent.action_id != "echo_bolt" and not GridRulesScript.has_clear_orthogonal_line(source.cell, intent.target_cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id)):
+	elif intent.action_id != "echo_bolt" and intent.target_actor_id.is_empty() and not GridRulesScript.has_clear_orthogonal_line(source.cell, intent.target_cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id)):
 		intent.cancel("marked_cell_line_blocked")
 		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 		return

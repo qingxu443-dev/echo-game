@@ -71,7 +71,7 @@ static func absolute_guard(battle) -> bool:
 			hit_targets.append(enemy)
 
 	for enemy in hit_targets:
-		battle._apply_damage(enemy.actor_id, raw_damage, caster_id, "absolute_guard", "physical")
+		battle._apply_damage(enemy.actor_id, raw_damage, caster_id, "absolute_guard", String(skill.damage_type))
 		if enemy.is_alive():
 			_knockback_one(battle, caster, enemy, enemy.cell - caster.cell, col_dmg)
 
@@ -266,7 +266,7 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 		return false
 	gain_active_energy(battle, caster_id)
 	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, skill.damage_multiplier)
-	battle._apply_damage(target_actor_id, raw_damage, caster_id, "oathkeeper_judgment_mark", "physical")
+	battle._apply_damage(target_actor_id, raw_damage, caster_id, "oathkeeper_judgment_mark", String(skill.damage_type))
 	battle._emit_event(
 		"skill_resolved",
 		caster_id,

@@ -13,7 +13,7 @@
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 19 |
-| 断言总数 | **863** |
+| 断言总数 | **877** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -26,21 +26,21 @@
 | `test_downed_and_revive.gd` | 44 | 倒地、复活与指令交接（§12） |
 | `test_damage_types.gd` | 24 | 伤害类型白名单、真实伤害语义、暴击钩子、抗性换算（§10.2 / §10.6 / §47） |
 | `test_character_framework.gd` | 183 | 角色框架、誓刃（含击退）、樱与行动归属（§15 / §19-24），含回锋击杀的剑意对照 |
-| `test_oathkeeper_v2_controller.gd` | 103 | 瑟弗林重做技能控制器（誓约、易伤印记、650 基础护盾、4 能量绝对裁决 AoE 击退） |
+| `test_oathkeeper_v2_controller.gd` | 110 | 瑟弗林重做技能控制器（誓约、易伤印记、650 基础护盾、4 能量绝对裁决 AoE 击退） |
 | `test_turn_bookkeeping.gd` | 44 | 回合账本（含遗物宝箱占格） |
 | `test_enemy_catalog.gd` | 54 | 敌人数据目录（M1，三职业新数值与充能/普攻/走位动作清单） |
 | `test_hunter_summon.gd` | 46 | 通灵（含数据驱动框架） |
 | `test_level_catalog.gd` | 34 | 关卡数据（3 关 2.5D 遗迹宝箱教学编排 + 固定奖励与撞墙教学位） |
 | `test_battle_status.gd` | 29 | 状态容器 |
 | `test_diagonal_line_of_sight.gd` | 20 | 视线规则（含神射手 8 向斜线射击） |
-| `test_battle_view_skills.gd` | 31 | UI 到控制器集成（4 技能栏、即时护盾、4 能量大招、`Q/E` 视角与 `B` 背包快捷键） |
+| `test_battle_view_skills.gd` | 38 | UI 到控制器集成（4 技能栏、即时护盾、4 能量大招、`Q/E` 视角与 `B` 背包快捷键） |
 | `test_oathkeeper_v2_actor.gd` | 19 | 护盾（30% 上限）与能量 |
 | `test_core_rules.gd` | 18 | 网格 / AP / 伤害 |
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 14 | 瑟弗林技能目录（单人重做版 4 技能） |
 | `test_main_menu.gd` | 10 | 主菜单选中、回车确认与点击区几何 |
 | `test_loot_catalog.gd` | 23 | 掉落名册（13 张 .tres 全部合法且 id 唯一）、字典契约、敌方偷取载荷、播种 RNG 可复现性 |
-| **合计** | **863** | |
+| **合计** | **877** | |
 
 ## 持续集成
 
@@ -110,6 +110,7 @@
 | 2026-11-26 | 敌人开箱增益改读 `loot_catalog` 的 `enemy_*` 列（此前套用玩家面板：破甲刃多给 60 攻且白吃防御惩罚、护甲给防不给盾、四件技能升级一律 +180 攻 +满充能）；死列复活，断言 +12 | 828 → 840（+12） |
 | 2026-11-26 | 第十轮：全数据层字段读者扫描——移除三个纯写入死字段（skill 的 effect_id / duration_player_phases、summon 的 icon 及相关写入/校验/数据引用）；纯清理断言不变 | 840 → 840（不变） |
 | 2026-11-26 | 掉落外置与可播种随机：13 件物品迁至 `data/loot/*.tres`（`LootItemDefinition`，字典契约由 `to_dict()` 保持，下游零改动）；`roll_random_item` 改用可播种 RNG（默认种子 0 保证无头可复现，新局在 battle_view 按时间播种并记入 `run_state.loot_seed`）；新增 `test_loot_catalog` | 840 → 863（+23，新套件） |
+| 2026-11-26 | 第十二轮全模块体检：修复嘲讽两格拉扯被双重拦截（重定向与结算层不一致）、删不可达分支、执行器伤害类型改读目录（×2）、技能栏文案漂移守卫（×8）、嘲讽两格拉扯钉子（×7） | 863 → 877（+14） |
 
 ## 如何复现
 

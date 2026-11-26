@@ -17,6 +17,7 @@ func _run() -> void:
 	_test_one_action_grants_vow_per_carrier()
 	_test_oathblade_knockback_collisions()
 	_test_oathblade_knockback_unit_collision_and_chest_break()
+	_test_guard_taunt_pulls_a_dodged_melee_within_two_cells()
 	_test_knockback_shifts_active_telegraphs()
 	_report()
 
@@ -286,3 +287,31 @@ func _test_knockback_shifts_active_telegraphs() -> void:
 	for i in range(planned_affected.size()):
 		_check(sweep_intent.affected_cells.find(planned_affected[i] + Vector2i(1, 0)) != -1, "sweep cell %d shifts by the same vector" % i)
 	sweep.queue_free()
+
+
+## The taunt's promise: a melee aimed at the tile the player abandoned is pulled
+## onto the guardian anywhere inside the two-cell radius. Before this pin, the
+## redirect legalised the pull but the tile re-check cancelled it as
+## melee_out_of_range, so the taunt silently did nothing for a dodged melee.
+func _test_guard_taunt_pulls_a_dodged_melee_within_two_cells() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)])
+	battle.beacons.clear()
+	# Empty the charge so the opening plan is a plain melee against (1,1).
+	battle.get_actor("vanguard_00").skill_charge = 0
+	battle.intents = IntentPlannerScript.plan(battle)
+	var melee = battle.intents[0]
+	_check(melee.action_id == "basic_melee", "a charge-less opening plan is a melee on the hero's tile")
+	_check(melee.target_cell == Vector2i(1, 1), "the melee is telegraphed on the hero's cell")
+
+	_check(battle.request_player_move([Vector2i(1, 2)]), "the hero steps out of the marked tile")
+	var sevrin = battle.get_actor("sevrin")
+	_check(sevrin.cell == Vector2i(1, 2), "the hero stands two cells from the waiting melee")
+	_check(battle.statuses.apply_status(&"absolute_guard", "sevrin", "sevrin", 1, 1, -1, &"player_phase_start", &"replace"), "the guard stance goes up")
+
+	var health_before: int = sevrin.health
+	battle.end_player_turn()
+	_check(sevrin.health < health_before, "the redirected melee lands on the guardian from two cells")
+	_check(melee.state == IntentScript.IntentState.RESOLVED, "the pulled melee resolves instead of cancelling")
+	battle.queue_free()

@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #42 及其后的 §47 裁决批合并后），Godot 4.7.2 导入零错误、**十七个测试套件 786 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main` + PR #44，Godot 4.7.2 导入零错误、**十八个测试套件 800 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -11,17 +11,18 @@
 ```
 .
 ├── project.godot                     # Godot 4.7.2 工程配置（1280×720，横屏优先）
-├── scenes/main/main.tscn             # 唯一场景，挂载 battle_view.gd
+├── scenes/menu/main_menu.tscn        # 启动场景，挂载 main_menu.gd
+├── scenes/main/main.tscn             # 战斗场景，挂载 battle_view.gd
 ├── scripts/
 │   ├── main.gd                       # 极简入口脚本
 │   ├── actors/battle_actor.gd        # 战斗单位运行时数据与伤害结算
 │   ├── battle/                       # 战斗规则、状态与数据目录（27 个模块，见下）
-│   └── ui/battle_view.gd             # 战斗界面：绘制、输入、技能栏、结算面板
+│   └── ui/                           # battle_view.gd（战斗编排）+ main_menu.gd（启动菜单）
 ├── data/
 │   ├── enemies/                      # 三种敌人的 .tres 属性档案（M1）
 │   └── levels/                       # 三关 .tres 关卡配置（M1）
 ├── assets/ui/summons/                # 猎人通灵的表现层图标
-├── tests/                            # 17 个无头套件 + framework/test_case.gd 公共基类 + run_all 一键回归
+├── tests/                            # 18 个无头套件 + framework/test_case.gd 公共基类 + run_all 一键回归
 └── docs/                             # 设计规范、状态记录、工程基线与验证清单
 ```
 
@@ -104,7 +105,7 @@ wc -l scripts/**/*.gd
 
 ### 表现层（`scripts/ui/`）
 
-表现层拆为六个文件，`battle_view.gd`（295 行）只做编排：保留遭遇生命周期、技能栏与玩家意图，绘制全部转发给下面的视图，原始输入转发给 `input_router`。
+表现层拆为七个文件：`main_menu.gd` 是唯一的启动场景，`battle_view.gd`（295 行）只做编排：保留遭遇生命周期、技能栏与玩家意图，绘制全部转发给下面的视图，原始输入转发给 `input_router`。
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
@@ -115,6 +116,7 @@ wc -l scripts/**/*.gd
 | `hud_view.gd` | 158 | 标题、回合与资源读数、剑意与极意状态、战术提示、敌方行动顺序、队伍状态栏（含倒地标记） |
 | `settlement_view.gd` | 71 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |
 | `input_router.gd` | 66 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` |
+| `main_menu.gd` | 130 | 启动菜单：开始游戏 / 退出、键盘与点击选中、背景图等比留边；保存与设置仅为占位 |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 

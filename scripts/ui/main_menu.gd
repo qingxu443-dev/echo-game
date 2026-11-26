@@ -44,10 +44,19 @@ func _draw() -> void:
 	else:
 		_draw_fallback_background()
 
-	# The source artwork already contains the selected gold frame. This subtle
-	# outline follows keyboard/mouse focus without repainting the supplied art.
-	var focus_rect := _scaled_option_rect(selected_option)
-	draw_rect(focus_rect, Color(1.0, 0.84, 0.62, 0.78), false, 2.0, true)
+	# The artwork bakes a gold frame around 开始游戏. An outline that merely moves
+	# leaves that frame still saying "selected", so two rows read as current at
+	# once. Dim every other row instead and light the selected one: the static
+	# frame loses its vote and focus is unambiguous at a glance.
+	for index in range(OPTION_COUNT):
+		var rect := _scaled_option_rect(index)
+		if index == selected_option:
+			draw_rect(rect.grow(3.0), Color(1.0, 0.84, 0.62, 0.12), true)
+			draw_rect(rect.grow(3.0), Color(1.0, 0.84, 0.62, 0.88), false, 2.0, true)
+		else:
+			# Grow sideways only: the baked frame's corner diamonds sit ~36 px
+			# outside the hit rect, and growing vertically would dim the row above.
+			draw_rect(rect.grow_individual(40.0, 6.0, 40.0, 6.0), Color(0.02, 0.03, 0.05, 0.66), true)
 
 
 func _draw_fallback_background() -> void:

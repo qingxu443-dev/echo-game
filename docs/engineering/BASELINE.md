@@ -8,11 +8,11 @@
 | 项目 | 值 |
 |---|---|
 | 分支 | `main` |
-| 提交 | `main`（§47 裁决批 + 击杀剑意入账（含回锋击杀）+ 主菜单，本机实测复核 805/0） |
+| 提交 | `main`（§47 裁决批 + 击杀剑意入账（含回锋击杀）+ 主菜单，本机实测复核 808/0） |
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 18 |
-| 断言总数 | **805** |
+| 断言总数 | **808** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -24,7 +24,7 @@
 | `test_shared_ap.gd` | 19 | 队伍共享 AP 池（§4） |
 | `test_downed_and_revive.gd` | 44 | 倒地、复活与指令交接（§12） |
 | `test_damage_types.gd` | 24 | 伤害类型白名单、真实伤害语义、暴击钩子、抗性换算（§10.2 / §10.6 / §47） |
-| `test_character_framework.gd` | 151 | 角色框架、誓刃、樱与行动归属（§15 / §19-24），含回锋击杀的剑意对照 |
+| `test_character_framework.gd` | 154 | 角色框架、誓刃、樱与行动归属（§15 / §19-24），含回锋击杀的剑意对照 |
 | `test_oathkeeper_v2_controller.gd` | 96 | V2 技能控制器 |
 | `test_turn_bookkeeping.gd` | 44 | 回合账本 |
 | `test_enemy_catalog.gd` | 54 | 敌人数据目录（M1） |
@@ -38,7 +38,7 @@
 | `test_battle_stats.gd` | 13 | 结算统计 |
 | `test_oathkeeper_v2_skill_catalog.gd` | 14 | 瑟弗林技能目录（含普攻） |
 | `test_main_menu.gd` | 14 | 主菜单选中、回车确认与点击区几何 |
-| **合计** | **805** | |
+| **合计** | **808** | |
 
 ## 持续集成
 
@@ -46,7 +46,7 @@
 
 **断言数不写死在 workflow 里**：CI 从本文件的「断言总数」一行读取，因此基线仍只有一个维护点。脚本层面由 `EXPECTED_ASSERTIONS` 兜底——实际断言数低于声明值会直接退出 1。
 
-**其他文档里的副本由机器校验**：`tests/framework/doc_checks.gd` 扫描 README、ARCHITECTURE、PROJECT_STATUS、TESTER、IMPLEMENTATION_DEBT 中写出的断言总数，与本文件不一致即失败。同一处还校验 `ARCHITECTURE.md` 的模块行数表：26 行逐一对上真实文件，不一致即失败，`run_all.sh --fix` 可原地改写那几行。这张表在标题菜单合并前已漂移过五行，而该文件开头自称描述的是当前实现。
+**其他文档里的副本由机器校验**：`tests/framework/doc_checks.gd` 扫描 README、ARCHITECTURE、PROJECT_STATUS、TESTER、IMPLEMENTATION_DEBT 中写出的断言总数，与本文件不一致即失败。同一处还校验 `ARCHITECTURE.md` 的模块行数表：31 行逐一对上真实文件，不一致即失败，`run_all.sh --fix` 可原地改写那几行。这张表在标题菜单合并前已漂移过五行，而该文件开头自称描述的是当前实现。
 
 **一份实现，三个入口**：`tests/run_suites.gd` 持有全部守卫（脚本错误、断言下限、文档一致），`run_all.sh` 与 `run_all.ps1` 只负责找到引擎并启动它。此前两边各写一套等价逻辑，PowerShell 那份漏了 `SCRIPT ERROR` 与文档校验——于是 Windows 上的绿灯比 Linux 的更宽，而 Windows 恰恰是人工验收平台。
 
@@ -96,6 +96,7 @@
 | 2026-11-26 | 主菜单（PR #44）：启动场景改为 `main_menu.tscn`，新增 1 个套件 | 786 → 800（+14） |
 | 2026-11-26 | 回锋自身击杀也计 1 层，顺序为回锋伤害 → 击杀 → 首次回锋；补「致死 / 留活口」对照 | 800 → 805（+5） |
 | 2026-11-26 | 测试运行器下沉到 `tests/run_suites.gd`：两个 shell 入口只负责找引擎，Windows 端补回此前缺失的脚本错误拦截与文档校验；文档守卫新增 ARCHITECTURE 模块行数表校验，并支持 `--fix` 原地改写 | 805 → 805（不变） |
+| 2026-11-26 | 技能分派改为执行器表：`_dispatch` 的 `match` 换成 `executor_id → Callable` 表并新增 `supports()`；补 3 条断言，遍历注册表确认每个主动技能都有执行器 | 805 → 808（+3） |
 
 ## 如何复现
 

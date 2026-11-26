@@ -85,28 +85,54 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 	return _dispatch(battle, skill, target_actor_id)
 
 
+## executor_id -> the function that runs it. A table rather than a match so
+## "does this skill have an executor?" is a question the suite can ask: it walks
+## the registry and fails on any active skill whose executor is missing. Under a
+## match the same mistake produced a button that returned false and said nothing.
+##
+## Every entry takes (battle, skill, target_actor_id); Sevrin's three are wrapped
+## below because SkillExecutor predates this shape.
+static var _executors: Dictionary = {
+	&"oathkeeper_judgment_mark": Callable(CharacterSkillRuntime, "_run_judgment_mark"),
+	&"oath_shield": Callable(CharacterSkillRuntime, "_run_oath_shield"),
+	&"absolute_guard": Callable(CharacterSkillRuntime, "_run_absolute_guard"),
+	&"basic_attack": Callable(CharacterSkillRuntime, "_basic_attack"),
+	&"sakura_pierce_blossom": Callable(CharacterSkillRuntime, "_pierce_blossom"),
+	&"sakura_flowing_wind": Callable(CharacterSkillRuntime, "_flowing_wind"),
+	&"sakura_falling_petals": Callable(CharacterSkillRuntime, "_falling_petals"),
+	&"sakura_endless_fragrance": Callable(CharacterSkillRuntime, "_endless_fragrance"),
+}
+
+
+static func supports(executor_id: StringName) -> bool:
+	return _executors.has(executor_id)
+
+
 ## The executors resolve the caster as the commanded character themselves, so
 ## there is one rule in one place rather than a parameter every call has to
 ## remember to pass correctly.
 static func _dispatch(battle, skill, target_actor_id: String) -> bool:
-	match String(skill.executor_id):
-		"oathkeeper_judgment_mark":
-			return SkillExecutorScript.judgment_mark_v2(battle, target_actor_id)
-		"oath_shield":
-			return SkillExecutorScript.oath_shield(battle, target_actor_id)
-		"absolute_guard":
-			return SkillExecutorScript.absolute_guard(battle)
-		"basic_attack":
-			return _basic_attack(battle, skill, target_actor_id)
-		"sakura_pierce_blossom":
-			return _pierce_blossom(battle, skill, target_actor_id)
-		"sakura_flowing_wind":
-			return _flowing_wind(battle, skill, target_actor_id)
-		"sakura_falling_petals":
-			return _falling_petals(battle, skill, target_actor_id)
-		"sakura_endless_fragrance":
-			return _endless_fragrance(battle, skill)
-	return false
+	var executor_id := StringName(skill.executor_id)
+	if not _executors.has(executor_id):
+		# Never silently return false: the press would do nothing and the player
+		# would have no way to tell a missing executor from a failed condition.
+		push_error("CharacterSkillRuntime: no executor registered for '%s' (skill '%s')" % [executor_id, skill.skill_id])
+		return false
+	return _executors[executor_id].call(battle, skill, target_actor_id)
+
+
+# --- Sevrin's three, wrapped so every executor shares one signature -----------
+
+static func _run_judgment_mark(battle, _skill, target_actor_id: String) -> bool:
+	return SkillExecutorScript.judgment_mark_v2(battle, target_actor_id)
+
+
+static func _run_oath_shield(battle, _skill, target_actor_id: String) -> bool:
+	return SkillExecutorScript.oath_shield(battle, target_actor_id)
+
+
+static func _run_absolute_guard(battle, _skill, _target_actor_id: String) -> bool:
+	return SkillExecutorScript.absolute_guard(battle)
 
 
 ## Shared normal attack: adjacent single target, damage only. Characters with an
@@ -314,7 +340,7 @@ static func _rectangle_cells(battle, origin: Vector2i, direction: Vector2i, widt
 
 ## §24 无尽芳华: cross around the caster, three 20% cuts and a 40% finisher that
 ## each blade-intent stack lifts by 5%, plus 20% at full stacks.
-static func _endless_fragrance(battle, skill) -> bool:
+static func _endless_fragrance(battle, skill, _target_actor_id: String = "") -> bool:
 	var caster = battle.get_active_character()
 	if not _can_cast(battle, caster, skill):
 		return false

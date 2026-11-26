@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #44 与 PR #46 合并后），Godot 4.7.2 导入零错误、**十八个测试套件 805 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main`（PR #44 与 PR #46 合并后），Godot 4.7.2 导入零错误、**十八个测试套件 808 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -70,16 +70,16 @@ wc -l scripts/**/*.gd
 
 加一名角色 = 一个 `.tres` + 技能数据，不改控制器。
 
-| 模块 | 职责 | 关键约束 |
-|---|---|---|
-| `character_definition.gd` | 角色面板、五槽位技能 id、职业资源声明 | 纯数据；`skill_ids` 按槽位顺序 |
-| `character_catalog.gd` | `data/characters/*.tres` 的显式名册 | 不用目录扫描，出战名单可评审 |
-| `skill_registry.gd` | 跨角色技能解析（id → 定义） | 角色只写 skill id，不关心来自哪个目录 |
-| `character_skill_runtime.gd` | 按 `executor_id` 分派技能；樱的剑意 / 极意 / 残香 / 回锋；通用普攻；`can_aim()` 是射程与视线的唯一真源 | 数值来自数据，机制才写代码；极意的范围加成与黄圈读同一尺寸 |
+| 模块 | 行数 | 职责 | 关键约束 |
+|---|---|---|---|
+| `character_definition.gd` | 70 | 角色面板、五槽位技能 id、职业资源声明 | 纯数据；`skill_ids` 按槽位顺序 |
+| `character_catalog.gd` | 48 | `data/characters/*.tres` 的显式名册 | 不用目录扫描，出战名单可评审 |
+| `skill_registry.gd` | 78 | 跨角色技能解析（id → 定义） | 角色只写 skill id，不关心来自哪个目录 |
+| `character_skill_runtime.gd` | 641 | 按 `executor_id` 分派技能；樱的剑意 / 极意 / 残香 / 回锋；通用普攻；`can_aim()` 是射程与视线的唯一真源 | 数值来自数据，机制才写代码；极意的范围加成与黄圈读同一尺寸 |
 | `summon_definition.gd` / `summon_catalog.gd` | 通灵数据（`data/summons/*.tres`）与名册 | 通灵属于玩家，不属于角色面板 |
-| `summon_service.gd` | 通灵的可用性、现身格与冷却 | 数值全部来自 `SummonDefinition` |
+| `summon_service.gd` | 98 | 通灵的可用性、现身格与冷却 | 数值全部来自 `SummonDefinition` |
 
-槽位见 `CharacterDefinition.SLOT_ORDER`：普通攻击、被动、主动一、主动二、终极。技能栏由当前角色的槽位生成，`Tab` 切换角色。
+行数表覆盖承担逻辑的模块；`summon_definition.gd` / `summon_catalog.gd` 这类纯数据 Resource 合并成一行，不记行数。槽位见 `CharacterDefinition.SLOT_ORDER`：普通攻击、被动、主动一、主动二、终极。技能栏由当前角色的槽位生成，`Tab` 切换角色。
 
 **执行层不认角色名**：施法者一律取 `active_character_id`，没有任何执行器假定某一个角色。机制则按「状态在谁身上」或「谁带这个被动」解析：
 

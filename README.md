@@ -15,7 +15,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 2D 回�
 | **开发与验证平台** | Windows 10/11（64 位），目标分辨率 `1280 × 720`（横屏） |
 | **移动端方向** | Android 横屏（本阶段优先完成 Windows 桌面验证，暂未验证 Android 导出） |
 | **技能组版本** | **守誓者 V2**（裁决印记 / 誓盾庇护 / 绝对守护 + 被动「不屈誓约」） |
-| **自动化验证** | 2026-11-25 完成 Godot 4.7.2 导入与主场景无头运行；17 个测试套件当前 **770 条断言，0 失败**（基线见 `docs/engineering/BASELINE.md`）；每次推送到 main 或开 PR 时由 GitHub Actions 复跑（`.github/workflows/suites.yml`） |
+| **自动化验证** | 2026-11-25 完成 Godot 4.7.2 导入与主场景无头运行；17 个测试套件当前 **786 条断言，0 失败**（基线见 `docs/engineering/BASELINE.md`）；每次推送到 main 或开 PR 时由 GitHub Actions 复跑（`.github/workflows/suites.yml`） |
 | **待人工验证** | Windows 桌面交互与画面表现、Android 导出与真机表现 |
 
 ---
@@ -131,11 +131,11 @@ godot --headless --path . --script res://tests/test_core_rules.gd
 test_battle_controller                 115 ok
 ...
 -----
-suites=17 assertions=770 failures=0 broken=0
+suites=17 assertions=786 failures=0 broken=0
 ```
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。
-* 当前基线为 **17 个套件、770 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
+* 当前基线为 **17 个套件、786 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
 * 任何代码改动均应重跑测试并以零失败为合并前提；无头测试不能替代 `F5` 主场景的交互与画面人工检查。
 
 ---

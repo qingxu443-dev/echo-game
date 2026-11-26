@@ -41,6 +41,16 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 
 ---
 
+## 打包 Windows 试玩包
+
+仓库已内置 Windows Desktop 导出预设（`export_presets.cfg`：单文件 exe，资源全部内嵌，免安装双击即玩）。在本机装有 4.7.2 导出模板（`%APPDATA%\Godot\export_templates\4.7.2.stable\`）的前提下，一条命令导出：
+
+```sh
+godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_x64.exe
+```
+
+导出后建议做一次冒烟（启动数秒确认窗口与渲染正常）；测试交付惯例见 `docs/engineering/TESTER_WINDOWS_0.1.md`。`build/` 为本地产物目录，不入库。
+
 ## 历史基线说明（原 Prototype 0.1 / 0.3 内容完整保留）
 
 > 以下为本次 2.5D 新底层重构前的原版 README 内容，予以完整保留供历史对照。

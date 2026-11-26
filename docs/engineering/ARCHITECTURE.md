@@ -75,7 +75,9 @@ wc -l scripts/**/*.gd
 | `character_definition.gd` | 70 | 角色面板、五槽位技能 id、职业资源声明 | 纯数据；`skill_ids` 按槽位顺序 |
 | `character_catalog.gd` | 48 | `data/characters/*.tres` 的显式名册 | 不用目录扫描，出战名单可评审 |
 | `skill_registry.gd` | 78 | 跨角色技能解析（id → 定义） | 角色只写 skill id，不关心来自哪个目录 |
-| `character_skill_runtime.gd` | 641 | 按 `executor_id` 分派技能；樱的剑意 / 极意 / 残香 / 回锋；通用普攻；`can_aim()` 是射程与视线的唯一真源 | 数值来自数据，机制才写代码；极意的范围加成与黄圈读同一尺寸 |
+| `character_skill_runtime.gd` | 111 | 唯一入口：召唤前缀、技能归属校验、自目标补齐，再按 `executor_id` 分派；`can_aim()` 与剑意入账转发到效果层 | 执行器表是唯一分派点，缺登记即 `push_error` 并返回 false |
+| `combat_geometry.gd` | 138 | 纯网格查询：射程、视线、矩形与十字落点、突进落点 | 不认识角色、机制或设计数值；极意的范围加成由调用方以参数传入 |
+| `skill_effects.gd` | 449 | 各技能的结算分支：樱的剑意 / 极意 / 残香 / 回锋、通用普攻、守誓者三技的包装，以及伤害分段与剑意预算的公共记账 | 只按 `executor_id` 被调用；不算格子，几何一律问 `CombatGeometry` |
 | `summon_definition.gd` / `summon_catalog.gd` | 通灵数据（`data/summons/*.tres`）与名册 | 通灵属于玩家，不属于角色面板 |
 | `summon_service.gd` | 98 | 通灵的可用性、现身格与冷却 | 数值全部来自 `SummonDefinition` |
 

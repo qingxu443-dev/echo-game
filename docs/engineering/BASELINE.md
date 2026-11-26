@@ -47,7 +47,7 @@
 
 **断言数不写死在 workflow 里**：CI 从本文件的「断言总数」一行读取，因此基线仍只有一个维护点。脚本层面由 `EXPECTED_ASSERTIONS` 兜底——实际断言数与声明值不相等（低于或高于）都会直接退出 1。这条此前只查下限，于是「断言已涨、基线未改」的树可以一直绿灯合入，`716` 与 `752` 并存就是这么来的。
 
-**其他文档里的副本由机器校验**：`tests/framework/doc_checks.gd` 扫描 README、ARCHITECTURE、PROJECT_STATUS、TESTER、IMPLEMENTATION_DEBT 中写出的断言总数，与本文件不一致即失败。同一处还校验 `ARCHITECTURE.md` 的模块行数表：31 行逐一对上真实文件，不一致即失败，`run_all.sh --fix` 可原地改写那几行。这张表在标题菜单合并前已漂移过五行，而该文件开头自称描述的是当前实现。
+**其他文档里的副本由机器校验**：`tests/framework/doc_checks.gd` 扫描 README、ARCHITECTURE、PROJECT_STATUS、TESTER、IMPLEMENTATION_DEBT 中写出的断言总数，与本文件不一致即失败。同一处还校验 `ARCHITECTURE.md` 的模块行数表：33 行逐一对上真实文件，不一致即失败，`run_all.sh --fix` 可原地改写那几行。这张表在标题菜单合并前已漂移过五行，而该文件开头自称描述的是当前实现。
 
 **一份实现，三个入口**：`tests/run_suites.gd` 持有全部守卫（脚本错误、断言下限、文档一致），`run_all.sh` 与 `run_all.ps1` 只负责找到引擎并启动它。此前两边各写一套等价逻辑，PowerShell 那份漏了 `SCRIPT ERROR` 与文档校验——于是 Windows 上的绿灯比 Linux 的更宽，而 Windows 恰恰是人工验收平台。
 
@@ -99,6 +99,7 @@
 | 2026-11-26 | 测试运行器下沉到 `tests/run_suites.gd`：两个 shell 入口只负责找引擎，Windows 端补回此前缺失的脚本错误拦截与文档校验；文档守卫新增 ARCHITECTURE 模块行数表校验，并支持 `--fix` 原地改写 | 805 → 805（不变） |
 | 2026-11-26 | 技能分派改为执行器表：`_dispatch` 的 `match` 换成 `executor_id → Callable` 表并新增 `supports()`；补 3 条断言，遍历注册表确认每个主动技能都有执行器 | 805 → 808（+3） |
 | 2026-11-26 | 基线守卫改为「必须相等」：实际断言数高于声明值也退出 1，堵住「断言已涨、基线未改」的绿灯合入路径 | 808 → 808（不变） |
+| 2026-11-26 | 运行时拆成三层：`combat_geometry.gd`（纯网格查询）、`skill_effects.gd`（技能结算）、`character_skill_runtime.gd`（入口与分派，641 → 111 行）；行数表 31 → 33 行 | 808 → 808（不变） |
 
 ## 如何复现
 

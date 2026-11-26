@@ -141,7 +141,7 @@ test_battle_controller                 118 ok
 -----
 suites=18 assertions=808 failures=0 broken=0
 doc-numbers: ok (808)
-module-sizes: ok (31 rows)
+module-sizes: ok (33 rows)
 ```
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。

@@ -11,7 +11,7 @@ const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
-const BoardViewScript = preload("res://scripts/ui/board_view.gd")
+const BoardObjectsViewScript = preload("res://scripts/ui/board_objects_view.gd")
 
 const PORTRAIT_DIR: String = "res://assets/actors/portraits/"
 
@@ -119,7 +119,7 @@ static func _draw_portrait_card(canvas: CanvasItem, font: Font, controller) -> v
 	var p_rect := Rect2(rect.position + Vector2(12.0, 12.0), Vector2(p_size, p_size))
 	canvas.draw_rect(p_rect, Color(0.09, 0.11, 0.14, 1.0), true)
 	var p_key: String = String(hero.character_id) if hero.character_id != &"" else String(hero.actor_id)
-	var tex: Texture2D = BoardViewScript._load_cached_texture(PORTRAIT_DIR + p_key + ".png")
+	var tex: Texture2D = BoardObjectsViewScript._load_cached_texture(PORTRAIT_DIR + p_key + ".png")
 	if tex != null:
 		canvas.draw_texture_rect(tex, p_rect, false)
 	canvas.draw_rect(p_rect, P.GOLD_LIGHT, false, 2.0)
@@ -192,7 +192,7 @@ static func _draw_enemy_inspector_card(canvas: CanvasItem, font: Font, controlle
 	# Enemy portrait + name + HP
 	var p_rect := Rect2(rect.position + Vector2(12.0, 12.0), Vector2(62.0, 62.0))
 	canvas.draw_rect(p_rect, Color(0.09, 0.10, 0.12), true)
-	var tex: Texture2D = BoardViewScript._load_cached_texture(PORTRAIT_DIR + String(target_enemy.archetype) + ".png")
+	var tex: Texture2D = BoardObjectsViewScript._load_cached_texture(PORTRAIT_DIR + String(target_enemy.archetype) + ".png")
 	if tex != null:
 		canvas.draw_texture_rect(tex, p_rect, false)
 	canvas.draw_rect(p_rect, P.ENEMY_OUTLINE, false, 1.5)

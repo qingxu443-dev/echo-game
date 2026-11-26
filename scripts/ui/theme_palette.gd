@@ -242,3 +242,31 @@ static func cell_at(position: Vector2) -> Vector2i:
 
 static func is_inside_board(cell: Vector2i, grid_size: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < grid_size.x and cell.y < grid_size.y
+
+
+## Standee sprite render height. Owned here with the other hard-coded UI
+## dimensions so the threat labels and the actor renderer cannot disagree.
+const STANDEE_HEIGHT: float = 96.0
+
+
+## Shared isometric draw primitives: every board layer (terrain, objects,
+## threat) draws through these two, so a closed diamond or an ellipse always
+## takes the same pixels no matter which layer drew it.
+static func draw_polyline_closed(canvas: CanvasItem, pts: PackedVector2Array, color: Color, width: float) -> void:
+	if pts.size() < 2:
+		return
+	var closed := PackedVector2Array(pts)
+	closed.append(pts[0])
+	canvas.draw_polyline(closed, color, width, true)
+
+
+static func draw_iso_ellipse(canvas: CanvasItem, center: Vector2, rx: float, ry: float, color: Color, filled: bool, width: float = 2.0) -> void:
+	var segs := 28
+	var pts := PackedVector2Array()
+	for i in range(segs):
+		var a := (float(i) / float(segs)) * TAU
+		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+	if filled:
+		canvas.draw_colored_polygon(pts, color)
+	else:
+		draw_polyline_closed(canvas, pts, color, width)

@@ -6,10 +6,11 @@
 script = ExtResource("1_lv")
 level_id = &"lesson_charge"
 display_name_zh = "第一关 · 遗迹宝箱"
-tactical_hint_zh = "护住地图上的「遗迹宝箱」至通关即可开出装备/道具！若被怪拆毁，怪物会立刻吃掉增益！"
+tactical_hint_zh = "敌人开局已满充能，第 2 回合就会释放招牌技；你每花 1 AP 敌人重新充能 +1。用 [1] 誓刃把先锋撞上右侧障碍可附加真伤！护住宝箱通关必得「铭文·碎石震荡」与「遗迹铁壁甲」。Q/E 旋转视角。"
 player_cell = Vector2i(2, 3)
 enemy_cells = Array[Vector2i]([Vector2i(4, 3), Vector2i(5, 1)])
 enemy_archetypes = Array[String](["vanguard", "marksman"])
 character_ids = Array[String](["sevrin"])
 ally_cells = Array[Vector2i]([])
-obstacles = Array[Vector2i]([Vector2i(3, 5)])
+obstacles = Array[Vector2i]([Vector2i(3, 5), Vector2i(5, 3)])
+chest_items = Array[StringName]([&"upg_shatter_slam", &"armor_iron_bulwark"])

@@ -114,9 +114,10 @@ func start_encounter(
 	obstacles: Array[Vector2i] = [],
 	enemy_archetypes: Array[String] = [],
 	character_ids: Array[String] = [],
-	ally_cells: Array[Vector2i] = []
+	ally_cells: Array[Vector2i] = [],
+	chest_items: Array[StringName] = []
 ) -> bool:
-	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells)
+	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items)
 
 
 func end_player_turn() -> bool:

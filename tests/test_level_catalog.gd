@@ -2,6 +2,7 @@ extends "res://tests/framework/test_case.gd"
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const LevelCatalogScript = preload("res://scripts/battle/level_catalog.gd")
+const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 
 
 func _run() -> void:
@@ -24,12 +25,26 @@ func _run() -> void:
 	_check(levels[1].level_id == &"lesson_lane", "second level is the firing-lane lesson")
 	_check(levels[2].level_id == &"lesson_mixed", "third level is the mixed roster")
 
-	# Level 1 introduces the Relic Chests with a vanguard + marksman pair.
+	# Level 1 introduces the Relic Chests with a vanguard + marksman pair,
+	# pins its chest rewards so the tutorial always delivers the lesson it
+	# promises, and places a wall next to the vanguard so the first knockback
+	# slam is teachable.
 	var battle_one = ControllerScript.new()
 	root.add_child(battle_one)
 	var level_one: EncounterDefinition = levels[0]
-	_check(battle_one.start_encounter(level_one.player_cell, level_one.enemy_cells, level_one.obstacles, level_one.enemy_archetypes), "level 1 is accepted by the controller")
+	_check(battle_one.start_encounter(level_one.player_cell, level_one.enemy_cells, level_one.obstacles, level_one.enemy_archetypes, level_one.character_ids, [], level_one.chest_items), "level 1 is accepted by the controller with its teaching chest contents")
 	_check(battle_one.intents.size() == level_one.enemy_cells.size(), "level 1 telegraphs one intent per enemy")
+	_check(battle_one.blocked_cells.has(Vector2i(5, 3)), "level 1 places the knockback-teaching wall beside the vanguard column")
+	var chest_item_ids: Array[StringName] = []
+	for cell in battle_one.beacons:
+		chest_item_ids.append(battle_one.beacons[cell]["loot"]["id"])
+	_check(chest_item_ids.has(&"upg_shatter_slam") and chest_item_ids.has(&"armor_iron_bulwark"), "level 1 chests carry the pinned teaching items")
+	var unpinned: bool = true
+	for item_id in level_one.chest_items:
+		if LootCatalogScript.get_item(item_id).is_empty():
+			unpinned = false
+	_check(unpinned, "every pinned chest id exists in the loot catalog")
+	_check(level_one.obstacles.has(Vector2i(5, 3)) and level_one.enemy_cells.has(Vector2i(4, 3)), "the teaching wall is orthogonally adjacent to the vanguard spawn")
 	battle_one.queue_free()
 
 	# Level 2 introduces 3-way crossfire with vanguard, marksman, and area controller.

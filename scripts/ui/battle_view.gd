@@ -68,7 +68,7 @@ func _start_level(index: int) -> void:
 	pending_rewards.clear()
 	# A rejected setup leaves the previous encounter untouched, so say so instead
 	# of showing a fresh-looking screen that will not accept any action.
-	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells):
+	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items):
 		status_message = "关卡「%s」数据无效，未能开始。" % str(level.display_name_zh)
 		queue_redraw()
 		return
@@ -688,7 +688,7 @@ func _on_battle_finished(result: String) -> void:
 		var hero = controller.get_active_character()
 		if hero != null and run_state != null:
 			run_state.sync_from_actor(hero)
-		status_message = "遭遇战胜利！保住 %d 个遗迹宝箱，战利品已收入背包。" % pending_rewards.size()
+		status_message = "遭遇战胜利！保住 %d 个遗迹宝箱，战利品已收入背包。按 B 打开背包穿戴装备 / 激活铭文后再进下一关。" % pending_rewards.size()
 	else:
 		pending_rewards.clear()
 		status_message = "遭遇战失败，点击重开将清空本局装备与背包重新开始。"

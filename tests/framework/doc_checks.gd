@@ -136,6 +136,37 @@ static func check_module_sizes() -> Array[String]:
 	return problems
 
 
+## A row with fewer columns than its header renders shifted: the 职责 text lands
+## under 行数 and the constraint lands under 职责, so the reader sees a wrong
+## number next to a wrong sentence. This happened twice - once when a row was
+## added by hand, once inherited - and neither was caught by anything.
+##
+## Not auto-fixable: deciding whether a short row needs `—` in the count column or
+## actually wants merging with another row is a judgement call.
+static func check_table_shape() -> Array[String]:
+	var problems: Array[String] = []
+	var lines := read_text(ARCHITECTURE_PATH).split("\n")
+	var header_columns := 0
+	for index in range(lines.size()):
+		var line: String = lines[index]
+		if line.begins_with("| 模块 |"):
+			header_columns = line.split("|").size()
+			continue
+		if header_columns == 0:
+			continue
+		if not line.begins_with("|"):
+			# Blank or prose line ends the table.
+			header_columns = 0
+			continue
+		if line.begins_with("|---") or line.begins_with("| ---"):
+			continue
+		var columns := line.split("|").size()
+		if columns != header_columns:
+			# split() keeps the empty first and last field, so subtract two.
+			problems.append("line %d has %d cells, its header has %d" % [index + 1, columns - 2, header_columns - 2])
+	return problems
+
+
 ## `--fix` is passed after `--`, so OS.get_cmdline_user_args() reports it as a
 ## bare token; accept both spellings rather than depending on the caller.
 static func wants_fix() -> bool:
@@ -193,6 +224,15 @@ static func report() -> bool:
 		for problem in sizes:
 			print("module-sizes: ", problem)
 		print("module-sizes: %d row(s) disagree with the files; run tests/run_all.sh --fix" % sizes.size())
+		ok = false
+
+	var shape := check_table_shape()
+	if shape.is_empty():
+		print("table-shape: ok")
+	else:
+		for problem in shape:
+			print("table-shape: ", problem)
+		print("table-shape: %d row(s) would render shifted" % shape.size())
 		ok = false
 	return ok
 

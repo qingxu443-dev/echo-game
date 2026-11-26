@@ -7,6 +7,8 @@ extends RefCounted
 
 var maximum: int
 var current: int
+## Optional callback invoked whenever AP is actually spent (amount: int).
+var on_spend: Callable = Callable()
 
 
 func _init(ap_maximum: int = 5) -> void:
@@ -26,6 +28,8 @@ func spend(cost: int) -> bool:
 	if not can_spend(cost):
 		return false
 	current -= cost
+	if cost > 0 and on_spend.is_valid():
+		on_spend.call(cost)
 	return true
 
 

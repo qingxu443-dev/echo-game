@@ -26,11 +26,27 @@ const GOLD_PALE := Color("#e4d2aa")
 const CYAN := Color("#8fc7dc")
 const WARN := Color("#d58b78")
 
-const BOARD_LIGHT := Color("#292c31")
-const BOARD_DARK := Color("#24272c")
-const BOARD_LINE := Color("#45484c")
-const BLOCKED_FILL := Color("#101114")
-const BLOCKED_LINE := Color("#55504a")
+const BOARD_LIGHT := Color("#2e3239")
+const BOARD_DARK := Color("#252930")
+const BOARD_LINE := Color("#464b54")
+const BOARD_SIDE_LEFT := Color("#1c2026")
+const BOARD_SIDE_RIGHT := Color("#13161b")
+const BLOCKED_FILL := Color("#3a3835")
+const BLOCKED_LEFT := Color("#262523")
+const BLOCKED_RIGHT := Color("#1a1918")
+const BLOCKED_LINE := Color("#655e54")
+
+const HOVER_FILL := Color(0.92, 0.84, 0.62, 0.16)
+const HOVER_LINE := Color(0.95, 0.87, 0.64, 0.72)
+const MOVE_FILL := Color(0.28, 0.78, 0.92, 0.28)
+const MOVE_LINE := Color(0.55, 0.92, 1.00, 0.85)
+const MOVE_GUIDE_FILL := Color(0.26, 0.88, 0.96, 0.36)
+const MOVE_GUIDE_LINE := Color(0.72, 0.98, 1.00, 0.98)
+const SHADOW_COLOR := Color(0.02, 0.03, 0.05, 0.48)
+const HP_BG := Color(0.08, 0.09, 0.11, 0.85)
+const HP_PLAYER := Color("#6cb878")
+const HP_ENEMY := Color("#cf5c52")
+const HP_SHIELD := Color("#78c3e0")
 
 const PLAYER_BODY := Color("#a8a08b")
 const PLAYER_OUTLINE := Color("#e7d7ae")
@@ -61,17 +77,17 @@ const RING_ALLY := Color(0.56, 0.78, 0.60, 0.70)
 const MARK_LABEL := Color("#e6c9f2")
 const PETAL_LABEL := Color("#f7d9e2")
 
-const TELEGRAPH_PULSE_FILL := Color(0.48, 0.35, 0.72, 0.24)
-const TELEGRAPH_PULSE_LINE := Color("#b49adf")
-const TELEGRAPH_PULSE_MARK := Color("#eee4ff")
-const TELEGRAPH_SHOT_FILL := Color(0.20, 0.55, 0.72, 0.22)
-const TELEGRAPH_SHOT_LINE := Color("#78c7df")
-const TELEGRAPH_SHOT_MARK := Color("#d7f5ff")
-const TELEGRAPH_CHARGE_FILL := Color(0.65, 0.12, 0.10, 0.24)
-const TELEGRAPH_CHARGE_LINE := Color("#e36a5e")
-const TELEGRAPH_CHARGE_MARK := Color("#ffd7cb")
-const TELEGRAPH_PURSUIT_FILL := Color(0.75, 0.61, 0.31, 0.22)
-const TELEGRAPH_PURSUIT_LINE := Color("#c5a45c")
+const TELEGRAPH_PULSE_FILL := Color(0.58, 0.32, 0.86, 0.44)
+const TELEGRAPH_PULSE_LINE := Color("#d3b3ff")
+const TELEGRAPH_PULSE_MARK := Color("#f6eeff")
+const TELEGRAPH_SHOT_FILL := Color(0.14, 0.62, 0.86, 0.44)
+const TELEGRAPH_SHOT_LINE := Color("#88e4ff")
+const TELEGRAPH_SHOT_MARK := Color("#e4f9ff")
+const TELEGRAPH_CHARGE_FILL := Color(0.86, 0.16, 0.14, 0.46)
+const TELEGRAPH_CHARGE_LINE := Color("#ff6b5e")
+const TELEGRAPH_CHARGE_MARK := Color("#ffe6df")
+const TELEGRAPH_PURSUIT_FILL := Color(0.78, 0.62, 0.28, 0.28)
+const TELEGRAPH_PURSUIT_LINE := Color("#e0bf6a")
 
 const PANEL := Color("#262a2f")
 const PANEL_SELECTED := Color("#3a3f46")
@@ -94,14 +110,39 @@ const VIEW_SIZE := Vector2(1280.0, 720.0)
 const CELL_SIZE: float = 64.0
 const BOARD_ORIGIN := Vector2(384.0, 72.0)
 
-const LEFT_COLUMN_X: float = 48.0
+## 2.5D Isometric projection geometry (larger 8x8 diamond centered above the
+## Into-the-Breach style bottom portrait & horizontal skill bar).
+const ISO_TILE_W: float = 80.0
+const ISO_TILE_H: float = 44.0
+const ISO_TILE_DEPTH: float = 16.0
+const ISO_OBSTACLE_H: float = 26.0
+const ISO_ORIGIN := Vector2(640.0, 146.0)
 
-const SKILL_PANEL_X: float = 940.0
-const SKILL_PANEL_W: float = 300.0
-const SKILL_FIRST_Y: float = 112.0
-const SKILL_BTN_H: float = 50.0
-const SKILL_BTN_STEP: float = 54.0
-const END_TURN_RECT := Rect2(940.0, 620.0, 300.0, 60.0)
+const LEFT_COLUMN_X: float = 24.0
+
+## Bottom horizontal skill bar & right-bottom End Turn button
+const SKILL_FIRST_X: float = 328.0
+const SKILL_BAR_Y: float = 608.0
+const SKILL_BTN_W: float = 172.0
+const SKILL_BTN_H: float = 84.0
+const SKILL_BTN_GAP: float = 12.0
+const END_TURN_RECT := Rect2(1072.0, 608.0, 184.0, 84.0)
+
+## Bottom-left portrait card (Into the Breach style: portrait + HP bar underneath)
+const PORTRAIT_CARD_RECT := Rect2(24.0, 540.0, 284.0, 152.0)
+const TOP_LEFT_RECT := Rect2(24.0, 20.0, 284.0, 102.0)
+const CAM_LEFT_BTN := Rect2(24.0, 130.0, 138.0, 32.0)
+const CAM_RIGHT_BTN := Rect2(170.0, 130.0, 138.0, 32.0)
+const BAG_BTN := Rect2(24.0, 190.0, 284.0, 34.0)
+const GUIDE_BANNER_RECT := Rect2(332.0, 20.0, 616.0, 52.0)
+const ORDER_CARD_RECT := Rect2(972.0, 20.0, 284.0, 144.0)
+const ENEMY_INFO_RECT := Rect2(972.0, 178.0, 284.0, 224.0)
+
+## Legacy aliases kept so external scripts never break on missing constants
+const SKILL_PANEL_X: float = SKILL_FIRST_X
+const SKILL_PANEL_W: float = SKILL_BTN_W
+const SKILL_FIRST_Y: float = SKILL_BAR_Y
+const SKILL_BTN_STEP: float = SKILL_BTN_W + SKILL_BTN_GAP
 
 const SETTLEMENT_RECT := Rect2(330.0, 210.0, 620.0, 330.0)
 const RESTART_BTN := Rect2(390.0, 464.0, 220.0, 52.0)
@@ -109,19 +150,94 @@ const NEXT_BTN := Rect2(640.0, 464.0, 220.0, 52.0)
 
 const OATH_VOW_MAX: int = 3
 
+## Active corner camera quadrant (0..3 -> 4 diagonal corner views around the 8x8 board).
+static var camera_quadrant: int = 0
+static var board_grid_size: Vector2i = Vector2i(8, 8)
 
-## Board geometry. Static so the input layer and the renderer cannot disagree.
-static func cell_rect(cell: Vector2i) -> Rect2:
-	return Rect2(BOARD_ORIGIN + Vector2(cell) * CELL_SIZE, Vector2(CELL_SIZE, CELL_SIZE))
+const CAMERA_LABELS: Array[String] = ["东南机位", "西南机位", "西北机位", "东北机位"]
 
 
+static func rotate_camera(step: int) -> void:
+	camera_quadrant = posmod(camera_quadrant + step, 4)
+
+
+static func camera_label() -> String:
+	return "%s (%d/4)" % [CAMERA_LABELS[camera_quadrant], camera_quadrant + 1]
+
+
+static func to_view_cell(cell: Vector2i) -> Vector2i:
+	var lx: int = board_grid_size.x - 1
+	var ly: int = board_grid_size.y - 1
+	match camera_quadrant:
+		1:
+			return Vector2i(cell.y, lx - cell.x)
+		2:
+			return Vector2i(lx - cell.x, ly - cell.y)
+		3:
+			return Vector2i(ly - cell.y, cell.x)
+		_:
+			return cell
+
+
+static func from_view_cell(vcell: Vector2i) -> Vector2i:
+	var lx: int = board_grid_size.x - 1
+	var ly: int = board_grid_size.y - 1
+	match camera_quadrant:
+		1:
+			return Vector2i(lx - vcell.y, vcell.x)
+		2:
+			return Vector2i(lx - vcell.x, ly - vcell.y)
+		3:
+			return Vector2i(vcell.y, ly - vcell.x)
+		_:
+			return vcell
+
+
+## 2.5D Isometric board geometry. Static so the input layer and the renderer
+## cannot disagree: cell_at(cell_center(c)) == c for every cell in all 4 cameras.
 static func cell_center(cell: Vector2i) -> Vector2:
-	return cell_rect(cell).position + Vector2(CELL_SIZE * 0.5, CELL_SIZE * 0.5)
+	var vc := to_view_cell(cell)
+	var half_w := ISO_TILE_W * 0.5
+	var half_h := ISO_TILE_H * 0.5
+	return Vector2(
+		ISO_ORIGIN.x + float(vc.x - vc.y) * half_w,
+		ISO_ORIGIN.y + float(vc.x + vc.y + 1) * half_h
+	)
+
+
+static func view_cell_diamond(vc: Vector2i, inset: float = 0.0, y_offset: float = 0.0) -> PackedVector2Array:
+	var half_w := ISO_TILE_W * 0.5
+	var half_h := ISO_TILE_H * 0.5
+	var c := Vector2(
+		ISO_ORIGIN.x + float(vc.x - vc.y) * half_w,
+		ISO_ORIGIN.y + float(vc.x + vc.y + 1) * half_h + y_offset
+	)
+	var hw := maxf(2.0, half_w - inset)
+	var hh := maxf(2.0, half_h - inset * (ISO_TILE_H / ISO_TILE_W))
+	return PackedVector2Array([
+		Vector2(c.x, c.y - hh),
+		Vector2(c.x + hw, c.y),
+		Vector2(c.x, c.y + hh),
+		Vector2(c.x - hw, c.y),
+	])
+
+
+static func cell_diamond(cell: Vector2i, inset: float = 0.0, y_offset: float = 0.0) -> PackedVector2Array:
+	return view_cell_diamond(to_view_cell(cell), inset, y_offset)
+
+
+static func cell_rect(cell: Vector2i) -> Rect2:
+	var c := cell_center(cell)
+	return Rect2(c - Vector2(ISO_TILE_W * 0.5, ISO_TILE_H * 0.5), Vector2(ISO_TILE_W, ISO_TILE_H))
 
 
 static func cell_at(position: Vector2) -> Vector2i:
-	var grid_position := (position - BOARD_ORIGIN) / CELL_SIZE
-	return Vector2i(floori(grid_position.x), floori(grid_position.y))
+	var half_w := ISO_TILE_W * 0.5
+	var half_h := ISO_TILE_H * 0.5
+	var dx := (position.x - ISO_ORIGIN.x) / half_w
+	var dy := (position.y - ISO_ORIGIN.y) / half_h
+	var vc := Vector2i(floori((dx + dy) * 0.5), floori((dy - dx) * 0.5))
+	return from_view_cell(vc)
 
 
 static func is_inside_board(cell: Vector2i, grid_size: Vector2i) -> bool:

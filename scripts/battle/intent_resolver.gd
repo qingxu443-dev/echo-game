@@ -18,11 +18,19 @@ const ABSOLUTE_GUARD_PLAIN_MULTIPLIER: float = 0.5
 
 
 static func resolve_phase(battle) -> void:
-	var actors = battle.actors
-	var statuses = battle.statuses
-	for intent in battle.intents:
+	while resolve_one_active(battle):
 		if battle.phase == battle.BattlePhase.FINISHED:
 			break
+	finish_phase(battle)
+
+
+## Resolves exactly ONE active enemy intent so the UI can animate each enemy's
+## attack step-by-step during the enemy turn. Returns true if an intent ran.
+static func resolve_one_active(battle) -> bool:
+	var actors = battle.actors
+	for intent in battle.intents:
+		if battle.phase == battle.BattlePhase.FINISHED:
+			return false
 		if intent.state != BattleIntentScript.IntentState.ACTIVE:
 			continue
 		if not actors.has(intent.source_actor_id) or not actors[intent.source_actor_id].is_alive():
@@ -32,11 +40,9 @@ static func resolve_phase(battle) -> void:
 		if not guardian_id.is_empty():
 			redirect_to_guardian(battle, intent, guardian_id)
 		match intent.action_id:
-			"basic_melee":
-				_actor_locked_attack(battle, intent)
-			"charged_strike", "aimed_shot":
+			"basic_melee", "light_shot", "echo_bolt":
 				_tile_locked_attack(battle, intent)
-			"ground_pulse":
+			"ground_pulse", "charged_strike", "aimed_shot":
 				_area_attack(battle, intent)
 			"pursuit":
 				_pursuit(battle, intent)
@@ -49,11 +55,13 @@ static func resolve_phase(battle) -> void:
 			absolute_guard_counter(battle, intent)
 			battle.absolute_guard_hit_intents.erase(intent.intent_id)
 		battle._check_battle_end()
-		if battle.phase == battle.BattlePhase.FINISHED:
-			break
+		return true
+	return false
 
+
+static func finish_phase(battle) -> void:
+	var statuses = battle.statuses
 	if battle.phase != battle.BattlePhase.FINISHED:
-		# §20: marks that last a number of enemy turns tick here.
 		var timed_out: int = statuses.tick_enemy_phase()
 		if timed_out > 0:
 			battle._emit_event("statuses_expired", "", "", "reason=enemy_turns count=%d" % timed_out)
@@ -128,30 +136,51 @@ static func _actor_locked_attack(battle, intent) -> void:
 
 static func _tile_locked_attack(battle, intent) -> void:
 	var actors = battle.actors
+	var source = actors[intent.source_actor_id]
+	var current_distance: int = GridRulesScript.manhattan_distance(source.cell, intent.target_cell)
+	var chebyshev: int = maxi(absi(source.cell.x - intent.target_cell.x), absi(source.cell.y - intent.target_cell.y))
+	if intent.action_id == "basic_melee" and current_distance != 1:
+		intent.cancel("melee_out_of_range")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
+		return
+	if intent.action_id == "light_shot" and (chebyshev < 2 or chebyshev > 6):
+		intent.cancel("shot_out_of_range")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
+		return
+	if intent.action_id == "light_shot":
+		if not GridRulesScript.has_clear_line_of_sight(source.cell, intent.target_cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id)):
+			intent.cancel("marked_cell_line_blocked")
+			battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
+			return
+	elif intent.action_id != "echo_bolt" and not GridRulesScript.has_clear_orthogonal_line(source.cell, intent.target_cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id)):
+		intent.cancel("marked_cell_line_blocked")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
+		return
+
 	var target_id := ""
 	for actor_id in actors:
 		var candidate = actors[actor_id]
 		if candidate.is_alive() and candidate.team == "player" and candidate.cell == intent.target_cell:
 			target_id = actor_id
 			break
-	if target_id == "":
-		intent.cancel("marked_cell_empty")
+	if not target_id.is_empty():
+		battle._apply_damage(target_id, intent.damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
+		intent.mark_resolved()
+		battle._emit_event("enemy_action_resolved", intent.source_actor_id, target_id, intent.action_id)
 		return
-	var source = actors[intent.source_actor_id]
-	var current_distance: int = GridRulesScript.manhattan_distance(source.cell, intent.target_cell)
-	if intent.action_id == "aimed_shot" and (current_distance < 3 or current_distance > 6):
-		intent.cancel("shot_out_of_range")
+	if battle.damage_beacon_at(intent.target_cell, intent.damage, intent.source_actor_id, intent.action_id):
+		intent.mark_resolved()
+		battle._emit_event("enemy_action_resolved", intent.source_actor_id, "beacon", intent.action_id)
 		return
-	if not GridRulesScript.has_clear_orthogonal_line(source.cell, intent.target_cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id)):
-		intent.cancel("marked_cell_line_blocked")
-		return
-	battle._apply_damage(target_id, intent.damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
-	intent.mark_resolved()
-	battle._emit_event("enemy_action_resolved", intent.source_actor_id, target_id, intent.action_id)
+	intent.cancel("marked_cell_empty")
+	battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 
 
 static func _area_attack(battle, intent) -> void:
 	var actors = battle.actors
+	var source = actors.get(intent.source_actor_id)
+	if intent.action_id in ["charged_strike", "aimed_shot", "ground_pulse"] and source != null:
+		source.skill_charge = 0
 	var hit_any := false
 	for actor_id in actors:
 		var target = actors[actor_id]
@@ -159,8 +188,12 @@ static func _area_attack(battle, intent) -> void:
 			continue
 		battle._apply_damage(actor_id, intent.damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
 		hit_any = true
+	for area_cell in intent.affected_cells:
+		if battle.damage_beacon_at(area_cell, intent.damage, intent.source_actor_id, intent.action_id):
+			hit_any = true
 	if not hit_any:
 		intent.cancel("marked_area_empty")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 		return
 	intent.mark_resolved()
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", intent.action_id)

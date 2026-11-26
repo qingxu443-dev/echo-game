@@ -20,6 +20,8 @@ const ACTION_SKILL: String = "skill"
 const ACTION_CANCEL: String = "cancel"
 const ACTION_END_TURN: String = "end_turn"
 const ACTION_SWITCH: String = "switch"
+const ACTION_ROTATE_CAM: String = "rotate_cam"
+const ACTION_TOGGLE_BAG: String = "toggle_bag"
 
 
 static func translate(event: InputEvent) -> Dictionary:
@@ -62,5 +64,11 @@ static func translate(event: InputEvent) -> Dictionary:
 				return {"action": ACTION_END_TURN}
 			KEY_TAB:
 				return {"action": ACTION_SWITCH}
+			KEY_Q:
+				return {"action": ACTION_ROTATE_CAM, "step": -1}
+			KEY_E:
+				return {"action": ACTION_ROTATE_CAM, "step": 1}
+			KEY_B:
+				return {"action": ACTION_TOGGLE_BAG}
 
 	return {}

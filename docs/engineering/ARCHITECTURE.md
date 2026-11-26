@@ -21,6 +21,7 @@
 ├── data/
 │   ├── enemies/                      # 三种敌人的 .tres 属性档案（M1）
 │   └── levels/                       # 三关 .tres 关卡配置（M1）
+├── assets/ui/                        # 主菜单背景图（1260×700）
 ├── assets/ui/summons/                # 猎人通灵的表现层图标
 ├── tests/                            # 18 个无头套件 + framework/test_case.gd 公共基类 + run_all 一键回归
 └── docs/                             # 设计规范、状态记录、工程基线与验证清单
@@ -42,7 +43,7 @@ wc -l scripts/**/*.gd
 |---|---|---|---|
 | `battle_controller.gd` | 307 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
 | `battle_flow.gd` | 232 | 回合边界、遭遇构建、终止判定 | — |
-| `intent_planner.gd` | 129 | 敌方意图生成 | — |
+| `intent_planner.gd` | 197 | 敌方意图生成 | — |
 | `intent_resolver.gd` | 190 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
 | `skill_executor.gd` | 210 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
 | `damage_pipeline.gd` | 84 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
@@ -54,11 +55,11 @@ wc -l scripts/**/*.gd
 |---|---|---|---|
 | `grid_rules.gd` | 137 | 纯网格校验、路径合法性、候选寻路（`find_path`，仅供 UI 提示）、曼哈顿距离；正交视线与玩家侧直线视线 | 无状态，不持有战斗数据；寻路产物须由 controller 复验 |
 | `ap_budget.gd` | 42 | 确定性 AP 账本：重置、消耗、退款、回合结束清零 | 仅在动作确认后扣除；退款走 `refund()`，不绕过账本 |
-| `combat_math.gd` | 17 | 共享伤害公式，防御采用递减收益 | 物理走防御、法术走法抗 |
+| `combat_math.gd` | 26 | 共享伤害公式，防御采用递减收益 | 物理走防御、法术走法抗 |
 | `battle_intent.gd` | 59 | 敌方意图快照，actor / tile / area 三种锁定模式与 active→resolved/canceled 单向生命周期 | **预告展示与敌方执行使用同一份快照** |
 | `battle_status.gd` | 48 | 单个状态实例：触发次数（-1 为无限）、到期边界、叠层策略 | — |
-| `battle_status_collection.gd` | 213 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 延迟接口保留，当前无调用方 |
-| `skill_definition.gd` | 78 | 技能纯数据规格（Resource） | 不含执行逻辑 |
+| `battle_status_collection.gd` | 218 | 按 actor 聚合状态，处理阶段边界过期与延迟 | 延迟接口保留，当前无调用方 |
+| `skill_definition.gd` | 77 | 技能纯数据规格（Resource） | 不含执行逻辑 |
 | `oathkeeper_v2_skill_catalog.gd` | 60 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
 | `enemy_definition.gd` / `enemy_catalog.gd` | 敌人属性档案（Resource）与目录（M1） | 数值外置于 `data/enemies/*.tres`；`actions` 列表决定该原型按优先级尝试哪些行动 |
 | `intent_planner.gd` | 按 `actions` 顺序挑第一个可用的行动，生成意图预告 | 行动的合法性判定在代码，行动的组合在数据 |
@@ -101,7 +102,7 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `battle_actor.gd` | 205 | 单位身份、阵营、格位、整数血量、护盾、终极能量、承伤与阵亡状态 | 终段减伤在防御/抗性之后应用 |
+| `battle_actor.gd` | 216 | 单位身份、阵营、格位、整数血量、护盾、终极能量、承伤与阵亡状态 | 终段减伤在防御/抗性之后应用 |
 
 ### 表现层（`scripts/ui/`）
 
@@ -116,7 +117,7 @@ wc -l scripts/**/*.gd
 | `hud_view.gd` | 158 | 标题、回合与资源读数、剑意与极意状态、战术提示、敌方行动顺序、队伍状态栏（含倒地标记） |
 | `settlement_view.gd` | 71 | 结算面板与其点击区（`hit()` 同时拥有矩形与判定） |
 | `input_router.gd` | 66 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` |
-| `main_menu.gd` | 130 | 启动菜单：开始游戏 / 退出、键盘与点击选中、背景图等比留边；保存与设置仅为占位 |
+| `main_menu.gd` | 139 | 启动菜单：开始游戏 / 退出、键盘与点击选中、背景图等比铺满并居中裁切、未选中行压暗；保存与设置仅为占位 |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 
@@ -168,7 +169,8 @@ UI 不计算任何结果：命中、伤害、死亡、意图取消、护盾吸�
 |---|---|
 | Android 布局、触摸适配、导出与真机（P4） | 未开始；当前仅桌面鼠标键盘验证 |
 | Windows 人工交互与画面检查 | 自动化与无头运行已通过，真人操作待做 |
-| 标题菜单 / 关卡选择 | 不在 Prototype 0.1 范围；关卡只能经结算面板的「下一关」切换 |
+| 关卡选择 | 不在 Prototype 0.1 范围；关卡只能经结算面板的「下一关」切换 |
+| 主菜单的「选择存档」/「设置」 | 仅作为占位绘制，不可选中也不接受点击 |
 | 战斗内存档与恢复 | 明确排除 |
 
 ## 验证状态

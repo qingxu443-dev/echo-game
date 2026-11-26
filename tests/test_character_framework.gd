@@ -13,6 +13,7 @@ const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 const BoardViewScript = preload("res://scripts/ui/board_view.gd")
 const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
 const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
+const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
 
 
 func _run() -> void:
@@ -24,6 +25,7 @@ func _run() -> void:
 	_test_a_character_cannot_borrow_another_kit()
 	_test_pierce_blossom_applies_the_mark_without_follow_up()
 	_test_second_hit_triggers_echo_return()
+	_test_echo_kill_pays_a_kill_stack()
 	_test_blade_intent_accumulates_and_caps()
 	_test_petal_mark_lasts_three_enemy_turns()
 	_test_endless_fragrance_scales_with_intent()
@@ -187,6 +189,33 @@ func _test_second_hit_triggers_echo_return() -> void:
 	# 305 from the hit plus floor(260 * 1000 / 1700) = 152 from the follow-up
 	_check(dealt == 457, "an already-marked target also takes the echo return")
 	battle.queue_free()
+
+
+## §19 / §30: an echo return that kills is still a defeat, so it pays a stack -
+## after the action's own stack, before the first-echo stack.
+func _test_echo_kill_pays_a_kill_stack() -> void:
+	var battle = _sakura_battle()
+	var sakura = battle.get_actor("sakura")
+	var enemy = battle.get_actor("vanguard_00")
+	sakura.resource_current = 0
+	# 305 from the strike leaves 95 of 400; the 152 follow-up is lethal.
+	enemy.health = 400
+	CharacterSkillRuntimeScript._apply_petal_mark(battle, sakura, enemy)
+	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the strike resolves")
+	_check(not enemy.is_alive(), "the echo return lands the killing blow")
+	_check(sakura.resource_current == 3, "action 1 + kill 1 + first echo 1 reaches the budget cap")
+	battle.queue_free()
+
+	# Control: the same strike without a lethal follow-up pays no kill stack.
+	var open = _sakura_battle()
+	var sakura_open = open.get_actor("sakura")
+	var enemy_open = open.get_actor("vanguard_00")
+	sakura_open.resource_current = 0
+	CharacterSkillRuntimeScript._apply_petal_mark(open, sakura_open, enemy_open)
+	open.request_skill(&"sakura_pierce_blossom", "vanguard_00")
+	_check(enemy_open.is_alive(), "the control target survives the follow-up")
+	_check(sakura_open.resource_current == 2, "action 1 + first echo 1, with no kill stack")
+	open.queue_free()
 
 
 func _test_blade_intent_accumulates_and_caps() -> void:

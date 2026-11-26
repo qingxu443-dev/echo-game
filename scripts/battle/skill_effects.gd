@@ -163,7 +163,12 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 		return false
 
 	var landing: Vector2i = CombatGeometryScript.dash_landing(battle, caster, target, FLOWING_WIND_DASH_STEPS)
-	if landing == caster.cell and GridRulesScript.manhattan_distance(caster.cell, target.cell) != 1:
+	# A dash that ends out of reach would spend the AP and strike nothing. Under
+	# the current rules this cannot happen - the aim check clears the same lane the
+	# walk uses - so the condition states the invariant rather than guarding a
+	# reachable path. `_test_every_reachable_dash_can_strike` is what keeps the two
+	# rules from drifting apart and making it reachable.
+	if GridRulesScript.manhattan_distance(landing, target.cell) != 1:
 		return false
 	if not battle.ap.spend(skill.ap_cost):
 		return false

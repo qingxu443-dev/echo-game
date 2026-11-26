@@ -15,6 +15,8 @@ const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
 const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
 const SkillEffectsScript = preload("res://scripts/battle/skill_effects.gd")
+const CombatGeometryScript = preload("res://scripts/battle/combat_geometry.gd")
+const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 
 
 func _run() -> void:
@@ -33,6 +35,8 @@ func _run() -> void:
 	_test_endless_fragrance_scales_with_intent()
 	_test_falling_petals_covers_the_rectangle_in_front()
 	_test_flowing_wind_respects_its_range()
+	_test_flowing_wind_kill_pays_the_kill_stack()
+	_test_every_reachable_dash_can_strike()
 	_test_a_wall_stops_the_lane()
 	_test_oath_shield_reaches_a_party_member()
 	_test_a_dead_target_is_not_marked()
@@ -350,6 +354,83 @@ func _test_flowing_wind_respects_its_range() -> void:
 	# floor(416 * 1000 / 1700) = 244
 	_check(health_before - enemy.health == 244, "the dash strikes once it arrives")
 	inside.queue_free()
+
+
+## §19 / §30: a dash that kills still pays its stacks in the documented order,
+## and a corpse keeps no mark. The echo return cannot fire here - the target is
+## already dead when the echo step would run - so two is the whole ceiling, and
+## asserting two is what separates "kill paid" from "kill silently dropped".
+func _test_flowing_wind_kill_pays_the_kill_stack() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var ids: Array[String] = ["sakura"]
+	# A second enemy keeps the battle running. With one enemy the kill ends the
+	# fight, finish_battle clears every status, and "no mark on the corpse" would
+	# pass for the wrong reason - measured, not assumed.
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1), Vector2i(7, 7)], [], [], ids, [])
+	var sakura = battle.get_actor("sakura")
+	var enemy = battle.get_actor("vanguard_00")
+	sakura.resource_current = 0
+	# 244 damage against 200 health: the strike itself is lethal, so the mark is
+	# applied to a target that is already down.
+	enemy.health = 200
+	SkillEffectsScript.apply_petal_mark(battle, sakura, enemy)
+	_check(battle.request_skill(&"sakura_flowing_wind", "vanguard_00"), "a lethal dash resolves")
+	_check(not enemy.is_alive(), "the dash kills a 200-health target")
+	_check(sakura.resource_current == 2, "action 1 + kill 1, with no living target for the echo step")
+	_check(not battle.statuses.has_status(enemy.actor_id, SkillEffectsScript.PETAL_MARK), "a corpse keeps no petal mark")
+	battle.queue_free()
+
+	# 极意 first, kill second: the bar is spent before the action earns anything,
+	# so the same kill that pays 2 from zero pays 2 from four as well.
+	var extreme = ControllerScript.new()
+	root.add_child(extreme)
+	var extreme_ids: Array[String] = ["sakura"]
+	extreme.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], extreme_ids, [])
+	var extreme_sakura = extreme.get_actor("sakura")
+	var extreme_enemy = extreme.get_actor("vanguard_00")
+	extreme_sakura.resource_current = 4
+	extreme_enemy.health = 200
+	_check(extreme.request_skill(&"sakura_flowing_wind", "vanguard_00"), "an extreme lethal dash resolves")
+	_check(extreme_sakura.resource_current == 2, "the full bar is spent first, then action 1 + kill 1")
+	extreme.queue_free()
+
+
+## The target ring promises "you can dash here". Pinned as a property over every
+## cell in range rather than as one example, because the promise is what the
+## player reads and the two rules that back it - the aim check and the walk -
+## live in different files now. If either loosens alone, one of these goes red.
+##
+## Every cell in range contributes an assertion, reachable or not, so the count
+## depends on the board rather than on the implementation.
+func _test_every_reachable_dash_can_strike() -> void:
+	var skill = SkillRegistryScript.get_skill(&"sakura_flowing_wind")
+	var origin := Vector2i(3, 3)
+	var reachable: int = 0
+	for dy in range(-3, 4):
+		for dx in range(-3, 4):
+			var cell := origin + Vector2i(dx, dy)
+			if cell == origin or absi(dx) + absi(dy) > 3:
+				continue
+			var battle = ControllerScript.new()
+			root.add_child(battle)
+			var ids: Array[String] = ["sakura"]
+			battle.start_encounter(origin, [cell], [], [], ids, [])
+			var caster = battle.get_actor("sakura")
+			var target = battle.get_actor("vanguard_00")
+			var aimed: bool = CharacterSkillRuntimeScript.can_aim(battle, skill, target)
+			var landing: Vector2i = CombatGeometryScript.dash_landing(battle, caster, target, 2)
+			var strikes: bool = GridRulesScript.manhattan_distance(landing, cell) == 1
+			if aimed:
+				reachable += 1
+			_check(not aimed or strikes, "a dash the ring offers at %s can actually strike" % str(cell))
+			battle.queue_free()
+	# A guard on the guard: an empty walk would make every line above vacuous.
+	# A guard on the guard: an empty walk would make every line above vacuous.
+	# Twelve is the shape of the rule, not a coincidence: four adjacent, four
+	# orthogonal at two cells, four at three. Diagonals are offered by neither,
+	# because the walk only steps along one axis.
+	_check(reachable == 12, "the ring offers twelve of the twenty-four cells in range")
 
 
 ## A wall in the lane must stop the cast. Two different holes, one rule:

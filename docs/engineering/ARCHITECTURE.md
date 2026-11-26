@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #44 与 PR #46 合并后），Godot 4.7.2 导入零错误、**十八个测试套件 808 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main`（PR #44 与 PR #46 合并后），Godot 4.7.2 导入零错误、**十八个测试套件 839 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -77,7 +77,7 @@ wc -l scripts/**/*.gd
 | `skill_registry.gd` | 78 | 跨角色技能解析（id → 定义） | 角色只写 skill id，不关心来自哪个目录 |
 | `character_skill_runtime.gd` | 111 | 唯一入口：召唤前缀、技能归属校验、自目标补齐，再按 `executor_id` 分派；`can_aim()` 与剑意入账转发到效果层 | 执行器表是唯一分派点，缺登记即 `push_error` 并返回 false |
 | `combat_geometry.gd` | 138 | 纯网格查询：射程、视线、矩形与十字落点、突进落点 | 不认识角色、机制或设计数值；极意的范围加成由调用方以参数传入 |
-| `skill_effects.gd` | 449 | 各技能的结算分支：樱的剑意 / 极意 / 残香 / 回锋、通用普攻、守誓者三技的包装，以及伤害分段与剑意预算的公共记账 | 只按 `executor_id` 被调用；不算格子，几何一律问 `CombatGeometry` |
+| `skill_effects.gd` | 454 | 各技能的结算分支：樱的剑意 / 极意 / 残香 / 回锋、通用普攻、守誓者三技的包装，以及伤害分段与剑意预算的公共记账 | 只按 `executor_id` 被调用；不算格子，几何一律问 `CombatGeometry` |
 | `summon_definition.gd` / `summon_catalog.gd` | 通灵数据（`data/summons/*.tres`）与名册 | 通灵属于玩家，不属于角色面板 |
 | `summon_service.gd` | 98 | 通灵的可用性、现身格与冷却 | 数值全部来自 `SummonDefinition` |
 

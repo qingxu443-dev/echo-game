@@ -54,7 +54,7 @@ static func _focused_source_ids(controller, fx_state: Dictionary) -> Dictionary:
 	for intent in _active_intents(controller):
 		if ThreatTiles.cells_for(controller, intent).has(hc) or intent.move_path.has(hc):
 			out[intent.source_actor_id] = true
-		elif _reactive_cells_for_intent(controller, intent).has(hc):
+		elif TacticalPressure.is_reactive_cell(controller, intent, hc):
 			out[intent.source_actor_id] = true
 	return out
 
@@ -164,26 +164,7 @@ static func _draw_lingering_tile(canvas: CanvasItem, cell: Vector2i, pulse: floa
 # --- telegraphs & reactive/intercept caution zones ----------------------------
 
 static func _reactive_cells_for_intent(controller, intent) -> Array[Vector2i]:
-	var cells: Array[Vector2i] = []
-	if intent.action_id != "basic_melee" or not intent.target_actor_id.is_empty():
-		return cells
-	var source = controller.get_actor(intent.source_actor_id)
-	if source == null or not source.is_alive():
-		return cells
-	var origin: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else source.cell
-	var occupied: Dictionary = controller.get_occupied_cells(source.actor_id)
-	for dir in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-		var adj: Vector2i = origin + dir
-		if adj == intent.target_cell or not P.is_inside_board(adj, controller.grid_size) or controller.blocked_cells.has(adj):
-			continue
-		cells.append(adj)
-		# Elites & bosses can also step 1 tile to chase a hero within 2 tiles.
-		if int(source.tier) >= 1 and not occupied.has(adj):
-			for dir2 in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-				var c2: Vector2i = adj + dir2
-				if c2 != origin and c2 != intent.target_cell and GridRulesScript.manhattan_distance(origin, c2) == 2 and P.is_inside_board(c2, controller.grid_size) and not controller.blocked_cells.has(c2) and not cells.has(c2):
-					cells.append(c2)
-	return cells
+	return TacticalPressure.reactive_cells(controller, intent)
 
 
 static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
@@ -204,14 +185,14 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 		var aim_cell: Vector2i = target_cells[0] if intent.target_mode == IntentScript.TargetMode.ACTOR_LOCKED and not target_cells.is_empty() else intent.target_cell
 		var origin_cell: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else (source.cell if source != null else Vector2i.ZERO)
 
-		# Show amber reactive-melee caution rings when hovering this enemy or when
-		# the hero is standing inside a reactive tile (keeps default board crisp).
+		# Amber caution remains visible before moving; focus and current danger
+		# strengthen it without changing the shared eligibility geometry.
 		if intent.action_id == "basic_melee" and intent.target_actor_id.is_empty():
 			var hero = controller.get_active_character()
 			for rc in _reactive_cells_for_intent(controller, intent):
 				var hero_on_rc: bool = hero != null and hero.is_alive() and hero.cell == rc
-				if (is_focus and has_focus) or hero_on_rc:
-					_draw_caution_tile(canvas, rc, Color(1.0, 0.62, 0.16), (0.90 if hero_on_rc else 0.62) * dim)
+				if not controller.blocked_cells.has(rc):
+					_draw_caution_tile(canvas, rc, Color(1.0, 0.62, 0.16), 0.90 if hero_on_rc or (is_focus and has_focus) else 0.50)
 
 		match intent.action_id:
 			"ground_pulse", "echo_bolt":
@@ -296,7 +277,7 @@ static func incoming_threats_at(controller, cell: Vector2i) -> Dictionary:
 				break
 		if caution.is_empty():
 			for intent in active:
-				if _reactive_cells_for_intent(controller, intent).has(cell):
+				if TacticalPressure.is_reactive_cell(controller, intent, cell):
 					caution = "⚠ 贴身追击：敌方近战将转身或追步劈砍"
 					break
 	return {"entries": entries, "total_dmg": total_dmg, "hit_count": hit_count, "caution": caution}
@@ -449,6 +430,8 @@ static func is_cell_in_danger(controller, cell: Vector2i) -> bool:
 	for intent in controller.intents:
 		if intent.state != IntentScript.IntentState.ACTIVE or intent.action_id == "lock_on":
 			continue
+		if TacticalPressure.is_reactive_cell(controller, intent, cell):
+			return true
 		var source = controller.get_actor(intent.source_actor_id)
 		if source != null and source.is_alive() and ThreatTiles.ACTION_STYLES.has(intent.action_id) and ThreatTiles.cells_for(controller, intent).has(cell):
 			return true

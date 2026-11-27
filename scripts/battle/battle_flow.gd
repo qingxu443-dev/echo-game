@@ -129,18 +129,7 @@ static func start_encounter(
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
 		var enemy_id := "%s_%02d" % [archetype, index]
 		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
-		var enemy_unit = BattleActorScript.new(enemy_id, "enemy", cell, profile.health, archetype, profile.attack, profile.defense, profile.magic_resistance)
-		enemy_unit.glyph = profile.glyph
-		enemy_unit.skill_charge_max = 3
-		enemy_unit.move_steps = profile.move_steps
-		enemy_unit.tier = profile.tier
-		enemy_unit.ward_shield = profile.ward_shield
-		enemy_unit.skill_damage = profile.skill_damage
-		enemy_unit.ward_stance_percent = profile.ward_stance_percent
-		enemy_unit.ward_stance_node_bonus = profile.ward_stance_node_bonus
-		enemy_unit.basic_attack_multiplier = profile.basic_attack_multiplier
-		enemy_unit.interruptible_skill = profile.interruptible_skill
-		enemy_unit.curse_defense_down = profile.curse_defense_down
+		var enemy_unit = EnemyActorFactory.create(profile, enemy_id, cell)
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		TacticalPressureScript.init_enemy_pressure(enemy_unit)

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"petal_archer"
+display_name_zh = "花林射手"
+glyph = "弓"
+health = 1600
+attack = 950
+defense = 200
+magic_resistance = 200
+actions = Array[StringName]([&"light_shot"])

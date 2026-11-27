@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"rotten_blossom_witch"
+display_name_zh = "腐樱巫灵"
+glyph = "巫"
+health = 2870
+attack = 770
+defense = 210
+magic_resistance = 385
+actions = Array[StringName]([&"echo_bolt"])

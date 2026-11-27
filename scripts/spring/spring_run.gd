@@ -13,7 +13,17 @@ extends RefCounted
 ## capacity - are NOT invented here. They start at zero and are injected by
 ## content, which is what "尚未确定" means in practice.
 
-const SAVE_VERSION: int = 1
+const SAVE_VERSION: int = 2
+
+## The hero's battle-side baseline. 3600 / 1150 / 350 / 250 are 瑟弗林's sheet
+## values, the only playable character sheet the battle layer has. 春之境's
+## narrative lead is 樱 (§2) and her sheet is not wired into combat yet, so the
+## mode borrows this baseline; when that gap closes, only these four numbers and
+## the battle bridge need to change.
+const HERO_BASE_MAX_HEALTH: int = 3600
+const HERO_BASE_ATTACK: int = 1150
+const HERO_BASE_DEFENSE: int = 350
+const HERO_BASE_MAGIC_RESISTANCE: int = 250
 
 ## §5.1: 补给 is shared by the whole party, not carried per character.
 var seed_value: int = 0
@@ -28,6 +38,41 @@ var dew: Dictionary = {"spring": 0, "summer": 0, "autumn": 0, "winter": 0}
 var dew_cap: int = 0
 var memory_pages: int = 0
 var relics: Array[StringName] = []
+
+## §11.2: health carries from fight to fight and is never restored by winning.
+## The bonus is what relics and epic collectibles add for the rest of the run.
+var hero_max_health: int = HERO_BASE_MAX_HEALTH
+var hero_health: int = HERO_BASE_MAX_HEALTH
+var bonus_max_health: int = 0
+## Ceiling the battle layer reported back (gear can raise it, §11.2 keeps gear
+## effects between fights). 0 means "no fight has reported yet".
+var carry_max_health: int = 0
+
+## §6.1: collectibles are never duplicated, so this is a set with an order.
+var collectibles: Array[StringName] = []
+
+## What the battle layer needs to hand back: gear, backpack and skill mods. Kept
+## as an opaque snapshot on purpose - SpringRun must not start interpreting
+## battle rules (§4), it only carries the box between fights.
+var battle_carry: Dictionary = {"mods": [], "equipped_weapon": {}, "equipped_armor": {}, "backpack": []}
+var battles_won: int = 0
+
+## §7.3 / §10.4: an economic event prices the *next* shop only, applied on
+## arrival, and expires when that shop is left.
+var shop_price_multiplier: float = 1.0
+var shop_price_notes: Array[String] = []
+var shop: SpringShop
+
+## An event can put a fight in the player's way (§10.2 林间的异响 / 被封存的箱子).
+## The encounter id waits here until the map opens it.
+var pending_battle: StringName = &""
+## §11.3: one continuation per area, reset on entering the next area.
+var revive_used: bool = false
+## Event id -> {"option": int, "log": [...]}. §16.2 asks for the choices.
+var event_log: Dictionary = {}
+## Set when a collectible promises a reveal; the map consumes it on the next
+## redraw, because only the map knows which cells are still free.
+var pending_hidden_reveal: bool = false
 
 ## §10.3: drawn once per run and recorded, so a resumed run never re-rolls it.
 var random_event_id: StringName = &""
@@ -119,6 +164,197 @@ func add_relic(relic_id: StringName) -> void:
 	relics.append(relic_id)
 
 
+# --- hero vitals (§11.2) -----------------------------------------------------
+
+func effective_max_health() -> int:
+	return maxi(1, maxi(HERO_BASE_MAX_HEALTH + bonus_max_health, carry_max_health))
+
+
+## Returns how much was actually restored, so the caller can say "回复 37 点"
+## instead of promising a number the cap ate.
+func heal_hero(amount: int) -> int:
+	if amount <= 0:
+		return 0
+	var before: int = hero_health
+	hero_health = mini(effective_max_health(), hero_health + amount)
+	return hero_health - before
+
+
+## §10.1: an event may hurt, but it may not end the run by itself - the floor is
+## one point, and losing the last point stays a battle's job.
+func damage_hero(amount: int) -> int:
+	if amount <= 0:
+		return 0
+	var before: int = hero_health
+	hero_health = maxi(1, hero_health - amount)
+	return before - hero_health
+
+
+func heal_fraction(fraction: float) -> int:
+	return heal_hero(int(round(float(effective_max_health()) * fraction)))
+
+
+func add_bonus_max_health(amount: int) -> void:
+	if amount == 0:
+		return
+	bonus_max_health = maxi(0, bonus_max_health + amount)
+	if amount > 0:
+		hero_health = mini(effective_max_health(), hero_health + amount)
+	else:
+		hero_health = clampi(hero_health, 1, effective_max_health())
+
+
+# --- collectibles (§6.1) -----------------------------------------------------
+
+func has_collectible(collectible_id: StringName) -> bool:
+	return collectibles.has(collectible_id)
+
+
+## §6.1: no duplicates, ever. Returns false when the player already owns it.
+func grant_collectible(collectible_id: StringName) -> bool:
+	if collectible_id == &"" or collectibles.has(collectible_id):
+		return false
+	if not SpringCollectibleCatalog.has_collectible(collectible_id):
+		return false
+	collectibles.append(collectible_id)
+	return true
+
+
+## Draws one the player does not own yet. Returns &"" when the pool is exhausted;
+## the caller then falls back to a resource reward so the option is never dead
+## (§6.1 closing rule).
+func grant_random_collectible(rng: RandomNumberGenerator, source: String = "event") -> StringName:
+	var candidates: Array[String] = []
+	for candidate_id in SpringCollectibleCatalog.candidates_for(source):
+		if not collectibles.has(StringName(candidate_id)):
+			candidates.append(candidate_id)
+	if candidates.is_empty():
+		return &""
+	var picked: StringName = StringName(candidates[rng.randi_range(0, candidates.size() - 1)])
+	if not grant_collectible(picked):
+		return &""
+	return picked
+
+
+## §7.4 / 神秘收藏家: handing one over removes the newest, which is the one the
+## player just saw in the log.
+func consume_collectible() -> StringName:
+	if collectibles.is_empty():
+		return &""
+	return collectibles.pop_back()
+
+
+func collectible_name(collectible_id: StringName) -> String:
+	return SpringCollectibleCatalog.name_of(collectible_id)
+
+
+func relic_name(relic_id: StringName) -> String:
+	return SpringRelicCatalog.name_of(relic_id)
+
+
+## Applies a collectible's effect. Resource kinds land immediately; the two that
+## need the map (a reveal) and the run (a stat) set state the map/bridge reads.
+func apply_collectible_effect(collectible_id: StringName) -> Dictionary:
+	var effect: Dictionary = SpringCollectibleCatalog.effect_of(collectible_id)
+	var result := {"ok": false, "message": ""}
+	if effect.is_empty():
+		return result
+	match str(effect.get("kind", "")):
+		"coins":
+			add_coins(int(effect.get("amount", 0)))
+		"supplies":
+			add_supplies(int(effect.get("amount", 0)))
+		"pages":
+			add_memory_pages(int(effect.get("amount", 0)))
+		"dew":
+			var dew_kind: String = str(effect.get("dew_kind", "spring"))
+			if not add_dew(dew_kind, int(effect.get("amount", 0))):
+				result["message"] = "四时花露已满，这一份没能收下。"
+				return result
+		"max_health":
+			add_bonus_max_health(int(effect.get("amount", 0)))
+		"reveal_hidden":
+			pending_hidden_reveal = true
+		_:
+			return result
+	result["ok"] = true
+	result["message"] = SpringCollectibleCatalog.desc_of(collectible_id)
+	return result
+
+
+# --- battle carry (§11.2) ----------------------------------------------------
+
+func battle_backpack() -> Array:
+	if not battle_carry.has("backpack"):
+		battle_carry["backpack"] = []
+	return battle_carry["backpack"]
+
+
+func add_battle_item(item: Dictionary) -> void:
+	if item.is_empty():
+		return
+	battle_backpack().append(item.duplicate(true))
+
+
+func remove_battle_item(index: int) -> bool:
+	var bag: Array = battle_backpack()
+	if index < 0 or index >= bag.size():
+		return false
+	bag.remove_at(index)
+	return true
+
+
+## Snapshot handed to the battle layer when a fight starts.
+func battle_payload() -> Dictionary:
+	return {
+		"hero_health": hero_health,
+		"hero_max_health": effective_max_health(),
+		"bonus_max_health": bonus_max_health,
+		"carry": battle_carry.duplicate(true),
+	}
+
+
+## Writes back what the fight left behind. Health is clamped to the run's max,
+## because gear sold or lost mid-fight can shrink the ceiling.
+func apply_battle_payload(payload: Dictionary) -> void:
+	if payload.has("hero_health"):
+		hero_health = clampi(int(payload["hero_health"]), 1, effective_max_health())
+	if payload.has("hero_max_health"):
+		carry_max_health = maxi(0, int(payload["hero_max_health"]))
+	if payload.has("carry"):
+		battle_carry = (payload["carry"] as Dictionary).duplicate(true)
+	if payload.has("bonus_max_health"):
+		bonus_max_health = maxi(0, int(payload["bonus_max_health"]))
+
+
+# --- shop (§7.3) -------------------------------------------------------------
+
+func apply_shop_price_modifier(multiplier: float, note: String = "") -> void:
+	if multiplier <= 0.0:
+		return
+	shop_price_multiplier *= multiplier
+	if not note.is_empty():
+		shop_price_notes.append(note)
+
+
+## Rolls stock on first arrival and reuses it afterwards (§7.2). The price
+## modifier is consumed here - it prices this shop and no other.
+func enter_shop() -> SpringShop:
+	if shop == null:
+		shop = SpringShop.create(seed_value + template_id * 131, shop_price_multiplier)
+		shop_price_multiplier = 1.0
+		shop_price_notes.clear()
+	return shop
+
+
+## Called when the player walks away: the shop object (and its stock, purchase
+## records and used services) is kept for the next visit, only the pending price
+## effect is dropped.
+func leave_shop() -> void:
+	shop_price_multiplier = 1.0
+	shop_price_notes.clear()
+
+
 ## Finishes a place and closes the exhausted-turn window if that is what the
 ## player was doing when the bar emptied.
 func complete_place(place: SpringPlace) -> void:
@@ -168,10 +404,32 @@ func to_dict() -> Dictionary:
 			"memory_pages": memory_pages,
 			"relics": relics.duplicate(),
 		},
-		# §16.2 also asks for shop stock and purchase records. No shop exists yet;
-		# the key is reserved so a later version can fill it without a format bump.
-		"shop": {},
+		"hero": {
+			"health": hero_health,
+			"bonus_max_health": bonus_max_health,
+			"carry_max_health": carry_max_health,
+		},
+		"collectibles": _names_to_strings(collectibles),
+		"battle_carry": battle_carry.duplicate(true),
+		"battles_won": battles_won,
+		"pending_battle": String(pending_battle),
+		"revive_used": revive_used,
+		"event_log": event_log.duplicate(true),
+		"price": {
+			"multiplier": shop_price_multiplier,
+			"notes": shop_price_notes.duplicate(),
+		},
+		# §16.2: stock, remaining counts, purchase records and used services all
+		# travel with the save.
+		"shop": {} if shop == null else shop.to_dict(),
 	}
+
+
+static func _names_to_strings(values: Array) -> Array[String]:
+	var result: Array[String] = []
+	for value in values:
+		result.append(String(value))
+	return result
 
 
 static func from_dict(data: Dictionary) -> SpringRun:
@@ -209,6 +467,29 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	run.relics = []
 	for relic_id in resources.get("relics", []):
 		run.relics.append(StringName(relic_id))
+
+	# Everything below arrived with save version 2. A version-1 file simply has no
+	# such keys, and each default matches what version 1 meant, so old saves load.
+	var hero: Dictionary = data.get("hero", {})
+	run.bonus_max_health = maxi(0, int(hero.get("bonus_max_health", 0)))
+	run.carry_max_health = maxi(0, int(hero.get("carry_max_health", 0)))
+	run.hero_health = clampi(int(hero.get("health", run.effective_max_health())), 1, run.effective_max_health())
+	for collectible_id in data.get("collectibles", []):
+		run.collectibles.append(StringName(collectible_id))
+	var carry: Dictionary = data.get("battle_carry", {})
+	if not carry.is_empty():
+		run.battle_carry = carry.duplicate(true)
+	run.battles_won = int(data.get("battles_won", 0))
+	run.pending_battle = StringName(str(data.get("pending_battle", "")))
+	run.revive_used = bool(data.get("revive_used", false))
+	run.event_log = data.get("event_log", {}).duplicate(true)
+	var price: Dictionary = data.get("price", {})
+	run.shop_price_multiplier = float(price.get("multiplier", 1.0))
+	for note in price.get("notes", []):
+		run.shop_price_notes.append(str(note))
+	var shop_data: Dictionary = data.get("shop", {})
+	if not shop_data.is_empty():
+		run.shop = SpringShop.from_dict(shop_data)
 	return run
 
 

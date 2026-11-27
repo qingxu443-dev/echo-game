@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"spring_blight"
+display_name_zh = "春蚀花灵"
+glyph = "灵"
+health = 1700
+attack = 850
+defense = 200
+magic_resistance = 420
+actions = Array[StringName]([&"echo_bolt"])

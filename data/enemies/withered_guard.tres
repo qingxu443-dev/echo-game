@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"withered_guard"
+display_name_zh = "枯木卫兵"
+glyph = "卫"
+health = 2800
+attack = 780
+defense = 480
+magic_resistance = 240
+actions = Array[StringName]([&"basic_melee"])

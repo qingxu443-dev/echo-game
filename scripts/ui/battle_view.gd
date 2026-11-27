@@ -21,6 +21,9 @@ const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
 const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 const InventoryViewScript = preload("res://scripts/ui/inventory_view.gd")
+const SpringBattleBridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
+const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
 ## Number keys 1–5 mirror the visible order, and nothing is selected by default.
@@ -49,9 +52,15 @@ var floating_popups: Array = []
 var impact_flashes: Array = []
 var enemy_step_timer: float = 0.0
 var enemy_phase_finishing: bool = false
+## True when this scene was opened by the 春之境 map for a single fight. The
+## campaign path (three lessons in a row) is untouched and stays the default.
+var spring_mode: bool = false
 
 
 func _ready() -> void:
+	if SpringBattleBridgeScript.has_pending():
+		_begin_spring_fight()
+		return
 	levels = LevelCatalogScript.create_prototype_levels()
 	run_state = RunStateScript.new()
 	controller = ControllerScript.new()
@@ -67,6 +76,64 @@ func _ready() -> void:
 ## seed on the run state so a drop complaint can be reproduced from it later.
 ## Seeding lives here in the UI layer on purpose - headless tests never start a
 ## run through this path, so their rolls stay on the fixed default seed.
+## One fight, injected from the map. Everything the run needs arrives in the
+## bridge payload; nothing is read from the save here, so a fight is always
+## against exactly the run the map handed over.
+func _begin_spring_fight() -> void:
+	spring_mode = true
+	var payload: Dictionary = SpringBattleBridgeScript.pending
+	var encounter_id := StringName(str(payload.get("encounter", "")))
+	var definition := SpringEncounterCatalogScript.build(encounter_id, [CharacterCatalogScript.default_id()])
+	if definition == null:
+		push_error("春之境：遭遇 %s 无法构建，直接返回地图。" % String(encounter_id))
+		SpringBattleBridgeScript.last_result = {
+			"result": "defeat",
+			"kind": str(payload.get("kind", SpringBattleBridgeScript.KIND_BATTLE)),
+			"place": str(payload.get("place", "")),
+			"hero_health": int(payload.get("hero_health", 1)),
+			"hero_max_health": int(payload.get("hero_max_health", 1)),
+		}
+		SpringBattleBridgeScript.clear_pending()
+		var error := get_tree().change_scene_to_file(SpringBattleBridgeScript.MAP_SCENE_PATH)
+		if error != OK:
+			push_error("无法返回春之境。Error: %s" % error)
+		return
+	levels = [definition]
+	run_state = RunStateScript.new()
+	SpringBattleBridgeScript.apply_payload(run_state, payload)
+	controller = ControllerScript.new()
+	controller.run_state = run_state
+	add_child(controller)
+	controller.battle_event.connect(_on_battle_event)
+	controller.battle_finished.connect(_on_battle_finished)
+	var loot_seed: int = int(Time.get_unix_time_from_system()) & 0x7FFFFFFF
+	LootCatalogScript.seed_rng(loot_seed)
+	run_state.loot_seed = loot_seed
+	_start_level(0)
+
+
+## Hands the outcome back to the map scene. Called from the settlement button.
+func _return_to_map() -> void:
+	var hero = controller.get_active_character()
+	var payload: Dictionary = SpringBattleBridgeScript.pending
+	var result := {
+		"result": controller.battle_result,
+		"kind": str(payload.get("kind", SpringBattleBridgeScript.KIND_BATTLE)),
+		"place": str(payload.get("place", "")),
+		"hero_health": hero.health if hero != null else 1,
+		"hero_max_health": hero.max_health if hero != null else 1,
+		"carry": SpringBattleBridgeScript.pack_carry(run_state),
+		"chests_saved": pending_rewards.size(),
+		"loot": pending_rewards.duplicate(true),
+		"seed": run_state.loot_seed,
+	}
+	SpringBattleBridgeScript.last_result = result
+	SpringBattleBridgeScript.clear_pending()
+	var error := get_tree().change_scene_to_file(SpringBattleBridgeScript.MAP_SCENE_PATH)
+	if error != OK:
+		push_error("无法返回春之境。Error: %s" % error)
+
+
 func _begin_fresh_run() -> void:
 	run_state.reset()
 	var loot_seed: int = int(Time.get_unix_time_from_system()) & 0x7FFFFFFF
@@ -220,7 +287,7 @@ func _draw() -> void:
 	if inventory_open:
 		InventoryViewScript.draw(self, run_state, controller.get_active_character(), inventory_page)
 	elif controller.phase == ControllerScript.BattlePhase.FINISHED:
-		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level(), pending_rewards)
+		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level(), pending_rewards, spring_mode)
 
 
 func _effective_banner_message() -> String:
@@ -502,8 +569,10 @@ func _handle_inventory_tap(position: Vector2) -> void:
 
 func _handle_settlement_tap(position: Vector2) -> void:
 	var won: bool = controller.battle_result == "victory"
-	var action: String = SettlementViewScript.hit(position, won, _has_next_level())
+	var action: String = SettlementViewScript.hit(position, won, _has_next_level(), spring_mode)
 	match action:
+		SettlementViewScript.ACTION_RETURN_MAP:
+			_return_to_map()
 		SettlementViewScript.ACTION_OPEN_BAG:
 			inventory_open = true
 			queue_redraw()
@@ -714,8 +783,14 @@ func _on_battle_finished(result: String) -> void:
 		var hero = controller.get_active_character()
 		if hero != null and run_state != null:
 			run_state.sync_from_actor(hero)
-		status_message = "遭遇战胜利！保住 %d 个遗迹宝箱，战利品已收入背包。按 B 打开背包穿戴装备 / 激活铭文后再进下一关。" % pending_rewards.size()
+		if spring_mode:
+			status_message = "战斗胜利！保住 %d 个遗迹宝箱，战利品已收入背包。按 B 查看，或点「返回春之境」继续探索。" % pending_rewards.size()
+		else:
+			status_message = "遭遇战胜利！保住 %d 个遗迹宝箱，战利品已收入背包。按 B 打开背包穿戴装备 / 激活铭文后再进下一关。" % pending_rewards.size()
 	else:
 		pending_rewards.clear()
-		status_message = "遭遇战失败，点击重开将清空本局装备与背包重新开始。"
+		if spring_mode:
+			status_message = "战斗失败。返回春之境后可消耗补给续行一次。"
+		else:
+			status_message = "遭遇战失败，点击重开将清空本局装备与背包重新开始。"
 	queue_redraw()

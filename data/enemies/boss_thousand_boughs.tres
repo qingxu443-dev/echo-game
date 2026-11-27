@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"boss_thousand_boughs"
+display_name_zh = "千枝神将"
+glyph = "枝"
+health = 5040
+attack = 630
+defense = 385
+magic_resistance = 280
+actions = Array[StringName]([&"basic_melee"])

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"gale_blade"
+display_name_zh = "逐风刃客"
+glyph = "刃"
+health = 2800
+attack = 840
+defense = 245
+magic_resistance = 210
+actions = Array[StringName]([&"basic_melee"])

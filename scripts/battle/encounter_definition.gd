@@ -25,6 +25,11 @@ extends Resource
 ## lesson they promise is the lesson the player actually gets.
 @export var chest_items: Array[StringName] = []
 
+const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
+
+## Kept for readers who want the prototype trio at a glance. Validation no longer
+## uses this list: a new archetype is one .tres plus one line in EnemyCatalog, so
+## the authority for "which ids exist" has to be the catalog itself.
 const KNOWN_ARCHETYPES: Array[String] = ["vanguard", "marksman", "area_controller"]
 
 
@@ -38,7 +43,7 @@ func is_valid() -> bool:
 	if enemy_archetypes.size() != enemy_cells.size():
 		return false
 	for archetype in enemy_archetypes:
-		if not KNOWN_ARCHETYPES.has(archetype):
+		if not EnemyCatalogScript.has_definition(archetype):
 			return false
 	return true
 

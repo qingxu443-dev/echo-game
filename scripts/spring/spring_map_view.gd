@@ -13,6 +13,12 @@ extends Control
 
 const P = preload("res://scripts/ui/theme_palette.gd")
 const FactoryScript = preload("res://scripts/spring/spring_map_factory.gd")
+const EventViewScript = preload("res://scripts/spring/spring_event_view.gd")
+const ShopViewScript = preload("res://scripts/spring/spring_shop_view.gd")
+const EventCatalogScript = preload("res://scripts/spring/spring_event_catalog.gd")
+const EncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
+const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
+const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
 
 const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
 const SAVE_PATH := "user://spring_run.json"
@@ -30,6 +36,8 @@ const GO_BTN := Rect2(824.0, 648.0, 196.0, 44.0)
 const CONFIRM_YES := Rect2(520.0, 408.0, 116.0, 40.0)
 const CONFIRM_NO := Rect2(648.0, 408.0, 116.0, 40.0)
 const RETURN_BTN := Rect2(566.0, 428.0, 148.0, 44.0)
+const REVIVE_YES := Rect2(520.0, 392.0, 180.0, 46.0)
+const REVIVE_NO := Rect2(724.0, 392.0, 180.0, 46.0)
 
 var run: SpringRun
 var selected_cell: Vector2i = Vector2i(-1, -1)
@@ -39,6 +47,21 @@ var elapsed: float = 0.0
 var petals: Array[Dictionary] = []
 var _scale: float = 1.0
 var _offset: Vector2 = Vector2.ZERO
+
+## Content overlays. Only one can be open at a time; each one blocks the map so a
+## click meant for a dialogue option cannot also move the explorer.
+var event_open: bool = false
+var event_place: SpringPlace
+var event_result: Dictionary = {}
+var shop_open: bool = false
+var shop_tab: int = 0
+var shop_sell_page: int = 0
+var shop_message: String = ""
+## Elite wins hand three candidates and take one (§14). Empty means no choice is
+## pending.
+var reward_choices: Array[StringName] = []
+## §11.3: shown after a lost fight, before the run ends.
+var revive_prompt: bool = false
 
 
 func _ready() -> void:
@@ -53,6 +76,7 @@ func _ready() -> void:
 			status_message = "已恢复本局：模板 %d · 剩余体力 %d。" % [run.template_id, run.exploration.stamina]
 		else:
 			start_new_run(int(Time.get_unix_time_from_system()) % 100000)
+	_apply_returned_battle()
 	_init_petals()
 	queue_redraw()
 
@@ -133,6 +157,14 @@ func _draw() -> void:
 		_draw_confirm()
 	if run.exploration.finished:
 		_draw_finished()
+	if event_open:
+		EventViewScript.draw(self, run, _event_id_for(event_place), event_result)
+	elif shop_open:
+		ShopViewScript.draw(self, run.shop, run, shop_tab, shop_sell_page, shop_message)
+	elif not reward_choices.is_empty():
+		_draw_reward_choices()
+	elif revive_prompt:
+		_draw_revive_prompt()
 
 
 func _draw_background() -> void:
@@ -270,9 +302,28 @@ func _draw_finished() -> void:
 	draw_rect(panel, P.OVERLAY_BG, true)
 	draw_rect(panel, P.GOLD, false, 2.0)
 	var font := ThemeDB.fallback_font
-	var reason: String = "体力耗尽" if run.exploration.finish_reason == "exhausted" else "主动结束"
-	draw_string(font, panel.position + Vector2(28.0, 48.0), "本局结束 · %s" % reason, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.GOLD_PALE)
-	draw_string(font, panel.position + Vector2(28.0, 84.0), "五区域中的春之境到此为止。夏之境及其后内容尚未解锁。", HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
+	# Three ways a 春之境 run can end, and they read differently on purpose: a
+	# cleared boss is an achievement, an empty stamina bar is a soft stop, and a
+	# lost fight is a failure.
+	var title: String = "本局结束"
+	var line: String = "五区域中的春之境到此为止。夏之境及其后内容尚未解锁。"
+	var color: Color = P.GOLD_PALE
+	match run.exploration.finish_reason:
+		"cleared":
+			title = "春之境 · 平定"
+			line = "凋落的花已经落尽。夏之境尚未解锁，这一趟归乡先到这里。"
+			color = P.GOLD_PALE
+		"defeat":
+			title = "本局结束 · 失守"
+			line = "失守的节点留在了地图上，这一趟走不下去了。"
+			color = P.WARN
+		"exhausted":
+			title = "本局结束 · 体力耗尽"
+			line = "体力走完了。夏之境及其后内容尚未解锁。"
+		_:
+			title = "本局结束 · 主动结束"
+	draw_string(font, panel.position + Vector2(28.0, 48.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, color)
+	draw_string(font, panel.position + Vector2(28.0, 84.0), line, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
 	_draw_button(RETURN_BTN, "返回主菜单", true)
 
 
@@ -335,6 +386,26 @@ func _gui_input(event: InputEvent) -> void:
 	if not mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
 		return
 	var point := _to_view(mouse.position)
+	if event_open:
+		_handle_event_tap(point)
+		queue_redraw()
+		accept_event()
+		return
+	if shop_open:
+		_handle_shop_tap(point)
+		queue_redraw()
+		accept_event()
+		return
+	if not reward_choices.is_empty():
+		_handle_reward_tap(point)
+		queue_redraw()
+		accept_event()
+		return
+	if revive_prompt:
+		_handle_revive_tap(point)
+		queue_redraw()
+		accept_event()
+		return
 	if confirm_end:
 		if CONFIRM_YES.has_point(point):
 			confirm_end = false
@@ -413,10 +484,261 @@ func _enter_here() -> void:
 	if place.one_shot and run.exploration.completed.has(place.id):
 		status_message = "该地点已完成。"
 		return
-	status_message = "「%s」的内容尚未接入：战斗、事件与商店是下一阶段的工作。" % run.title_of(place)
-	if run.exploration.awaiting_finish:
-		status_message += " 体力已耗尽，本局结束。"
+	match place.kind:
+		SpringPlace.Kind.BATTLE:
+			_start_battle(place, BridgeScript.KIND_BATTLE)
+		SpringPlace.Kind.ELITE:
+			_start_battle(place, BridgeScript.KIND_ELITE)
+		SpringPlace.Kind.BOSS:
+			_start_battle(place, BridgeScript.KIND_BOSS)
+		SpringPlace.Kind.EVENT:
+			_open_event(place)
+		SpringPlace.Kind.SHOP:
+			_open_shop()
+		SpringPlace.Kind.HIDDEN:
+			_open_event(place)
+
+
+# --- content entry points ----------------------------------------------------
+
+## §16.1: a fight keeps the map position and the remaining stamina, so nothing
+## about the explorer changes here - only the save, so the pre-fight state is what
+## a crash would come back to.
+func _start_battle(place: SpringPlace, kind: String) -> void:
+	if place.payload == &"":
+		status_message = "「%s」没有配置遭遇。" % run.title_of(place)
+		return
+	if not BridgeScript.prepare(run, place.payload, place.id, kind):
+		status_message = "「%s」的编成缺失，无法开战。" % run.title_of(place)
+		return
 	_save()
+	var error := get_tree().change_scene_to_file(BridgeScript.BATTLE_SCENE_PATH)
+	if error != OK:
+		BridgeScript.clear_pending()
+		push_error("无法进入战斗场景。Error: %s" % error)
+
+
+func _open_event(place: SpringPlace) -> void:
+	var event_id := _event_id_for(place)
+	if event_id == &"" or not EventCatalogScript.has_event(event_id):
+		status_message = "「%s」的内容还没有接入。" % run.title_of(place)
+		return
+	event_place = place
+	event_result = {}
+	event_open = true
+
+
+func _event_id_for(place: SpringPlace) -> StringName:
+	if place == null:
+		return &""
+	# The random slot carries no identity of its own: the run drew one (§10.3).
+	if place.id == &"event_random":
+		return run.random_event_id
+	# The hidden place resolves to a hoard, which is the one event that only
+	# exists through a reveal.
+	if place.kind == SpringPlace.Kind.HIDDEN:
+		return &"hidden_hoard"
+	return place.payload
+
+
+func _open_shop() -> void:
+	run.enter_shop()
+	shop_open = true
+	shop_tab = 0
+	shop_sell_page = 0
+	shop_message = ""
+
+
+## Applied once, right after the map scene comes back from a fight.
+func _apply_returned_battle() -> void:
+	if run == null or not BridgeScript.has_result():
+		return
+	var outcome: Dictionary = BridgeScript.settle(run)
+	status_message = str(outcome.get("message", status_message))
+	var choices: Array = outcome.get("reward_choices", [])
+	reward_choices = []
+	for choice in choices:
+		reward_choices.append(StringName(choice))
+	revive_prompt = bool(outcome.get("needs_revive", false))
+	if run.pending_hidden_reveal:
+		run.pending_hidden_reveal = false
+		_reveal_hidden_place()
+	_save()
+
+
+## Finds the first free cell in the same deterministic order the template uses,
+## so a reveal lands somewhere reachable rather than on an occupied cell.
+func _reveal_hidden_place() -> void:
+	for cell in FactoryScript.LAYOUT_ORDER:
+		if run.reveal_hidden(cell):
+			status_message += " 地图上多出一处「隐秘之地」。"
+			return
+	status_message += " 地图上已经没有能藏东西的地方了。"
+
+
+# --- reward choice (§14) -----------------------------------------------------
+
+func _draw_reward_choices() -> void:
+	var font := ThemeDB.fallback_font
+	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
+	var panel := Rect2(180.0, 140.0, 920.0, 420.0)
+	draw_rect(panel, P.OVERLAY_BG, true)
+	draw_rect(panel, P.GOLD, false, 2.0)
+	draw_string(font, Vector2(216.0, 196.0), "精英战利品 · 三选一", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, P.GOLD_PALE)
+	draw_string(font, Vector2(216.0, 226.0), "只出现普通与稀有品质；已拥有的不会重复出现。", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
+	for index in range(reward_choices.size()):
+		var rect := reward_card_rect(index)
+		var collectible_id: StringName = reward_choices[index]
+		draw_rect(rect, P.PANEL, true)
+		draw_rect(rect, P.BUTTON_BORDER, false, 1.4)
+		draw_string(font, rect.position + Vector2(18.0, 30.0), CollectibleCatalogScript.name_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 36.0, 18, P.GOLD_LIGHT)
+		draw_string(font, rect.position + Vector2(18.0, 56.0), CollectibleCatalogScript.rarity_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.CYAN)
+		draw_string(font, rect.position + Vector2(18.0, 84.0), CollectibleCatalogScript.desc_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 36.0, 13, P.TEXT_BODY)
+
+
+func reward_card_rect(index: int) -> Rect2:
+	return Rect2(216.0 + float(index) * 300.0, 260.0, 280.0, 180.0)
+
+
+# --- revive (§11.3) ----------------------------------------------------------
+
+func _draw_revive_prompt() -> void:
+	var font := ThemeDB.fallback_font
+	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
+	var panel := Rect2(300.0, 240.0, 680.0, 240.0)
+	draw_rect(panel, P.OVERLAY_BG, true)
+	draw_rect(panel, P.WARN, false, 2.0)
+	draw_string(font, Vector2(340.0, 296.0), "这一处失守了", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, P.WARN)
+	draw_string(font, Vector2(340.0, 330.0), "每个区域可以续行一次：消耗 %d 份补给，回复至三成生命。" % BridgeScript.CONTINUE_SUPPLY_COST, HORIZONTAL_ALIGNMENT_LEFT, 600.0, 14, P.TEXT_BODY)
+	draw_string(font, Vector2(340.0, 356.0), "现有补给 %d 份。" % run.supplies, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
+	_draw_button(REVIVE_YES, "续行", run.supplies >= BridgeScript.CONTINUE_SUPPLY_COST)
+	_draw_button(REVIVE_NO, "结束本局", true)
+
+
+# --- event / shop input ------------------------------------------------------
+
+func _handle_event_tap(point: Vector2) -> void:
+	var event_id := _event_id_for(event_place)
+	var hit: Dictionary = EventViewScript.hit(point, EventCatalogScript.option_count(event_id), not event_result.is_empty())
+	match str(hit["action"]):
+		EventViewScript.ACTION_OPTION:
+			_choose_event_option(event_id, int(hit["index"]))
+		EventViewScript.ACTION_CLOSE:
+			_close_event()
+		_:
+			pass
+
+
+func _choose_event_option(event_id: StringName, index: int) -> void:
+	var result: Dictionary = EventCatalogScript.resolve(run, event_id, index)
+	if not bool(result.get("ok", false)):
+		status_message = "；".join(result.get("log", []))
+		return
+	event_result = result
+	run.event_log[String(event_id)] = {"option": index, "log": result.get("log", [])}
+	if bool(result.get("reveal_hidden", false)):
+		_reveal_hidden_place()
+	_save()
+
+
+func _close_event() -> void:
+	var battle_id := StringName(str(event_result.get("battle", "")))
+	if battle_id != &"" and event_place != null:
+		# The event hands the fight the place's own id, so winning it finishes the
+		# event node instead of leaving a defeated encounter on the board.
+		var kind: String = BridgeScript.KIND_BATTLE
+		if EncounterCatalogScript.is_elite_or_boss(battle_id):
+			kind = BridgeScript.KIND_ELITE
+		event_open = false
+		event_result = {}
+		if not BridgeScript.prepare(run, battle_id, event_place.id, kind):
+			status_message = "这场伏击的编成缺失。"
+			run.complete_place(event_place)
+		else:
+			_save()
+			var error := get_tree().change_scene_to_file(BridgeScript.BATTLE_SCENE_PATH)
+			if error != OK:
+				BridgeScript.clear_pending()
+				push_error("无法进入战斗场景。Error: %s" % error)
+		return
+	if event_place != null:
+		run.complete_place(event_place)
+	event_open = false
+	event_result = {}
+	status_message = "「%s」已了结。" % (run.title_of(event_place) if event_place != null else "事件")
+	_save()
+
+
+func _handle_shop_tap(point: Vector2) -> void:
+	var hit: Dictionary = ShopViewScript.hit(point, run.shop, run, shop_tab, shop_sell_page)
+	match str(hit["action"]):
+		ShopViewScript.ACTION_CLOSE:
+			_close_shop()
+		ShopViewScript.ACTION_TAB:
+			shop_tab = int(hit["index"])
+			shop_message = ""
+		ShopViewScript.ACTION_BUY:
+			var bought: Dictionary = run.shop.buy(int(hit["index"]), run)
+			shop_message = str(bought.get("message", ""))
+			_save()
+		ShopViewScript.ACTION_SELL:
+			var sold: Dictionary = run.shop.sell(run, int(hit["index"]))
+			shop_message = str(sold.get("message", ""))
+			_save()
+		ShopViewScript.ACTION_REFRESH:
+			var refreshed: Dictionary = run.shop.refresh(run)
+			shop_message = str(refreshed.get("message", ""))
+			_save()
+		ShopViewScript.ACTION_SERVICE:
+			var served: Dictionary = run.shop.use_service(SpringShop.SERVICE_REST, run)
+			shop_message = str(served.get("message", ""))
+			_save()
+		ShopViewScript.ACTION_PAGE_PREV:
+			shop_sell_page = maxi(0, shop_sell_page - 1)
+		ShopViewScript.ACTION_PAGE_NEXT:
+			shop_sell_page += 1
+		_:
+			pass
+
+
+## §7.2: the shop keeps its stock between visits, so leaving only drops the
+## pending price effect and the overlay.
+func _close_shop() -> void:
+	run.leave_shop()
+	shop_open = false
+	status_message = "离开了春日行商。"
+	_save()
+
+
+func _handle_reward_tap(point: Vector2) -> void:
+	for index in range(reward_choices.size()):
+		if not reward_card_rect(index).has_point(point):
+			continue
+		var collectible_id: StringName = reward_choices[index]
+		run.grant_collectible(collectible_id)
+		var applied: Dictionary = run.apply_collectible_effect(collectible_id)
+		status_message = "获得藏品「%s」：%s" % [run.collectible_name(collectible_id), str(applied.get("message", ""))]
+		reward_choices = []
+		if run.pending_hidden_reveal:
+			run.pending_hidden_reveal = false
+			_reveal_hidden_place()
+		_save()
+		return
+
+
+func _handle_revive_tap(point: Vector2) -> void:
+	if REVIVE_YES.has_point(point):
+		var outcome: Dictionary = BridgeScript.continue_run(run)
+		status_message = str(outcome.get("message", ""))
+		revive_prompt = false
+		if not bool(outcome.get("ok", false)):
+			run.exploration.finish("defeat")
+		_save()
+		return
+	if REVIVE_NO.has_point(point):
+		revive_prompt = false
+		run.exploration.finish("defeat")
+		_save()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -426,6 +748,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not key.pressed or key.echo:
 		return
 	if key.keycode == KEY_ESCAPE:
+		if event_open and not event_result.is_empty():
+			_close_event()
+			queue_redraw()
+			accept_event()
+			return
+		if shop_open:
+			_close_shop()
+			queue_redraw()
+			accept_event()
+			return
 		if confirm_end:
 			confirm_end = false
 		elif not run.exploration.finished:

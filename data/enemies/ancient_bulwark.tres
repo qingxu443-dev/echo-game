@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"ancient_bulwark"
+display_name_zh = "古木重装卫士"
+glyph = "重"
+health = 3500
+attack = 770
+defense = 455
+magic_resistance = 315
+actions = Array[StringName]([&"basic_melee"])

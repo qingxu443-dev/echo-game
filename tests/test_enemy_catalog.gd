@@ -15,7 +15,8 @@ func _run() -> void:
 
 func _test_catalog_contents() -> void:
 	var definitions: Array = CatalogScript.definitions()
-	_check(definitions.size() == 3, "catalog exposes three enemy profiles")
+	# 3 prototype + 5 春之境 ordinary + 6 elites + 3 bosses (§13, §14, §15).
+	_check(definitions.size() == 17, "catalog exposes three prototype profiles plus 春之境's fourteen")
 
 	for definition in definitions:
 		_check(definition != null, "profile %s loads from its .tres" % String(definition.archetype_id))
@@ -26,6 +27,12 @@ func _test_catalog_contents() -> void:
 	_check(ids.has("vanguard"), "catalog knows the vanguard")
 	_check(ids.has("marksman"), "catalog knows the marksman")
 	_check(ids.has("area_controller"), "catalog knows the area controller")
+	for spring_id in ["petal_warrior", "petal_archer", "withered_guard", "wind_ranger", "spring_blight"]:
+		_check(ids.has(spring_id), "catalog knows the 春之境 archetype %s" % spring_id)
+	for elite_id in ["crimson_sword_guard", "hundred_bloom_sniper", "ancient_bulwark", "gale_blade", "rotten_blossom_witch", "sakura_beast"]:
+		_check(ids.has(elite_id), "catalog knows the elite %s" % elite_id)
+	for boss_id in ["boss_petalfall", "boss_thousand_boughs", "boss_spring_echo"]:
+		_check(ids.has(boss_id), "catalog knows the boss %s" % boss_id)
 	_check(CatalogScript.DEFAULT_ARCHETYPE == "vanguard", "the default archetype is the vanguard")
 
 

@@ -66,7 +66,7 @@
 | `test_tactical_integration.gd` | 60 | 击杀幂等/资源顺序、Boss 阈值/援军/双动、追身警戒与两角色道具集成 |
 | `test_coordination_boundaries.gd` | 30 | 协调故障/事件保持、模式奖励与旧档幂等、输入与载荷、技能说明单源 |
 | `test_knockback_contract.gd` | 58 | 两入口的墙/边界/单位/倒地/宝箱/结界/致死/意图/打断 |
-| **合计** | 3302 | #95 重整分支双端 CI 验证快照（45 套件 / 0 failures / 0 broken）；后续以最新主线分支运行输出为准 |
+| **合计** | 3302 | 前一版重整提交的双端 CI 快照（45 套件 / 0 failures / 0 broken）；本次最新主线重整仍以 PR #99 的 CI 结果为准 |
 
 ## 持续集成
 

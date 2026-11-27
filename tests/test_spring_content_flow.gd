@@ -225,6 +225,8 @@ func _test_region_unlock_persistence() -> void:
 	_check(RegionProgressionScript.unlock_region(&"summer", test_path), "a valid region unlock is persisted")
 	var restored: Array[StringName] = RegionProgressionScript.get_unlocked_region_ids(test_path)
 	_check(restored.has(&"summer"), "the summer unlock survives reloading progression data")
+	var no_scene: Dictionary = RegionProgressionScript.resolve_next(&"spring", restored, false)
+	_check(str(no_scene.get("status", "")) == "content_unavailable" and not bool(no_scene.get("can_enter", true)), "an unlocked region without a scene fails closed")
 	_check(not RegionProgressionScript.unlock_region(&"unknown", test_path), "unknown region ids cannot be unlocked")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
 

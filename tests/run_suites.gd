@@ -77,19 +77,20 @@ func _run() -> void:
 		quit(1)
 		return
 
-	# The baseline has to equal what ran, in both directions. Below means coverage
-	# was lost; above means the documents still describe a tree that has moved on,
-	# which is exactly how "716" and "752" once coexisted here: every run was green
-	# because only the shortfall was checked, and the stale side merged silently.
+	# 基线是下限而不是精确快照：低于下限说明覆盖被删掉，必须拦；高于下限只是
+	# 有人加了测试，不需要任何分支去改共享文档——这正是四个文档反复冲突的根因。
 	var expected := _expected_assertions()
 	if expected > 0 and total < expected:
-		print("coverage dropped: %d assertions ran, baseline declares %d" % [total, expected])
-		print("If the drop is intended, update ", DocChecks.BASELINE_PATH, " and record why.")
+		print("coverage dropped: %d assertions ran, baseline floor is %d" % [total, expected])
+		print("If the drop is intended, lower the floor in ", DocChecks.BASELINE_JSON_PATH, " and record why in ", DocChecks.BASELINE_PATH, ".")
 		quit(1)
 		return
 	if expected > 0 and total > expected:
-		print("baseline is behind: %d assertions ran, %s still declares %d" % [total, DocChecks.BASELINE_PATH, expected])
-		print("Raise the declared total - and the copies doc-numbers checks - in this change.")
+		print("baseline floor: %d; %d assertions ran (coverage grew, no doc change needed)" % [expected, total])
+
+	var expected_suites := DocChecks.expected_suite_count()
+	if expected_suites > 0 and suites.size() < expected_suites:
+		print("coverage dropped: %d suites ran, baseline floor is %d" % [suites.size(), expected_suites])
 		quit(1)
 		return
 

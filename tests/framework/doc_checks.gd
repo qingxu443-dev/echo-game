@@ -20,6 +20,9 @@ extends RefCounted
 
 const BASELINE_PATH := "docs/engineering/BASELINE.md"
 const ARCHITECTURE_PATH := "docs/engineering/ARCHITECTURE.md"
+## 唯一保存可变基线的机器文件。文档一律不写套件数/断言数，避免每个 PR
+## 都改同一批行、互相冲突。这里记录的是下限：实际值只许高于它。
+const BASELINE_JSON_PATH := "tests/framework/baseline.json"
 
 ## 单个脚本的行数上限。ARCHITECTURE 的行数表只保证「文档没撒谎」——它会把
 ## 846 行如实记成 846，然后放行。battle_view.gd 曾长到 846 行，现已拆到 596 行并移出存量豁免。
@@ -87,18 +90,21 @@ static func count_lines(text: String) -> int:
 	return rows.size() - (1 if text.ends_with("\n") else 0)
 
 
+static func _baseline_numbers() -> Dictionary:
+	var file := FileAccess.open(BASELINE_JSON_PATH, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	return parsed if parsed is Dictionary else {}
+
+
 static func expected_assertions() -> int:
-	var match := _total_re.search(read_text(BASELINE_PATH))
-	if match == null:
-		return 0
-	return int(match.get_string(1))
+	return int(_baseline_numbers().get("assertions", 0))
 
 
 static func expected_suite_count() -> int:
-	var match := _suite_total_re.search(read_text(BASELINE_PATH))
-	if match == null:
-		return 0
-	return int(match.get_string(1))
+	return int(_baseline_numbers().get("suites", 0))
 
 
 ## 与断言数同构：正文里每一处「当前套件数」都必须等于 BASELINE 的权威值。
@@ -381,35 +387,25 @@ static func report() -> bool:
 	var ok := true
 	var expected := expected_assertions()
 	if expected <= 0:
-		print("doc-numbers: could not read 断言总数 from ", BASELINE_PATH)
+		print("doc-numbers: could not read assertions floor from ", BASELINE_JSON_PATH)
 		ok = false
 	else:
-		var stale := check_assertion_copies(expected)
-		for problem in stale:
-			print("doc-numbers: ", problem)
-		if stale.is_empty():
-			print("doc-numbers: ok (%d)" % expected)
-		else:
-			print("doc-numbers: %d stale count(s); update them from %s" % [stale.size(), BASELINE_PATH])
-			ok = false
+		print("doc-numbers: ok (floor %d)" % expected)
 
 	var suite_count := expected_suite_count()
 	if suite_count <= 0:
-		print("doc-suites: could not read 套件数 from ", BASELINE_PATH)
+		print("doc-suites: could not read suites floor from ", BASELINE_JSON_PATH)
 		ok = false
 	else:
-		var stale_suites := check_suite_count_copies(suite_count)
-		for problem in stale_suites:
-			print("doc-suites: ", problem)
-		if stale_suites.is_empty():
-			print("doc-suites: ok (%d)" % suite_count)
-		else:
-			print("doc-suites: %d stale suite count(s); update them from %s" % [stale_suites.size(), BASELINE_PATH])
-			ok = false
+		print("doc-suites: ok (floor %d)" % suite_count)
 
 	var sizes := check_module_sizes()
 	if sizes.is_empty():
-		print("module-sizes: ok (%d rows)" % _count_module_rows())
+		var rows := _count_module_rows()
+		if rows == 0:
+			print("module-sizes: ok (no copied line counts; module-lines enforces the limit)")
+		else:
+			print("module-sizes: ok (%d rows)" % rows)
 	else:
 		for problem in sizes:
 			print("module-sizes: ", problem)

@@ -11,6 +11,7 @@ extends "res://tests/framework/test_case.gd"
 ## and a boss win closes 春之境.
 
 const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
+const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
 const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
@@ -25,6 +26,7 @@ func _run() -> void:
 	_test_continue_is_one_shot()
 	_test_elite_offers_three()
 	_test_boss_closes_the_region()
+	_test_region_unlock_persistence()
 	_test_save_keeps_the_fight_results()
 	_test_baseline_matches_the_hero_sheet()
 	_test_the_spring_hero_fights_as_herself()
@@ -172,13 +174,38 @@ func _test_elite_offers_three() -> void:
 
 func _test_boss_closes_the_region() -> void:
 	var run := _fresh_run()
+	run.exploration.stamina = 4
 	run.exploration.mark_completed(&"battle_1")
 	BridgeScript.last_result = _result({"kind": BridgeScript.KIND_BOSS, "place": "boss"})
 	var outcome: Dictionary = BridgeScript.settle(run)
+	var transition: Dictionary = outcome.get("region_transition", {})
 	_check(run.exploration.completed.has(&"boss"), "the boss node is finished")
 	_check(run.exploration.finished, "beating the boss ends 春之境 (§3)")
-	_check(bool(outcome["finished_run"]), "the outcome reports the run as finished")
+	_check(run.exploration.finish_reason == "cleared", "a boss victory is a clear, not a defeat")
+	_check(run.exploration.stamina == 0, "remaining exploration stamina is discarded at the floor boundary")
+	_check(not run.exploration.can_interact(), "the player cannot keep exploring after the boss")
+	_check(not run.exploration.can_move_to(run.exploration.position + Vector2i.RIGHT), "the finished floor rejects further movement")
+	_check(bool(outcome["finished_run"]), "the outcome reports the current exploration as finished")
+	_check(String(transition.get("from_region", "")) == "spring", "the transition starts from 春之境")
+	_check(String(transition.get("next_region", "")) == "summer", "the next floor is 夏之境")
+	_check(String(transition.get("status", "")) == "locked", "夏之境 remains locked in this build")
+	_check(not bool(transition.get("can_enter", true)), "the locked next floor cannot be entered")
+	_check(str(outcome["message"]).contains("夏之境") and str(outcome["message"]).contains("尚未解锁"),
+		"the player-facing result explains why the next floor cannot open")
 	_check(run.collectibles.size() <= 1, "the boss pays at most one collectible")
+
+	# An unlocked next region is not a completed adventure: the current floor
+	# closes, while the map receives an explicit scene-transition request.
+	var available_run := _fresh_run()
+	available_run.exploration.stamina = 3
+	BridgeScript.last_result = _result({"kind": BridgeScript.KIND_BOSS, "place": "boss"})
+	var available_outcome: Dictionary = BridgeScript.settle(available_run, [&"spring", &"summer"], true)
+	var available_transition: Dictionary = available_outcome.get("region_transition", {})
+	_check(bool(available_transition.get("can_enter", false)), "an unlocked region with an available scene can be entered")
+	_check(str(available_transition.get("status", "")) == "available", "the transition distinguishes an enterable region")
+	_check(available_run.exploration.finished and available_run.exploration.stamina == 0, "the spring floor closes and discards its stamina before handoff")
+	_check(not bool(available_outcome.get("finished_run", true)), "entering the next region does not mark the whole adventure complete")
+	_check(str(available_transition.get("scene_path", "")).ends_with("summer_map.tscn"), "the transition carries the next region scene path")
 
 	# The boss pool may include the epic, the elite pool may not.
 	var boss_candidates: Array[String] = CollectibleCatalogScript.candidates_for("boss")
@@ -187,6 +214,19 @@ func _test_boss_closes_the_region() -> void:
 		if CollectibleCatalogScript.rarity_of(StringName(candidate_id)) == CollectibleCatalogScript.RARITY_EPIC:
 			has_epic = true
 	_check(has_epic, "the boss pool reaches epic (§15.4)")
+
+
+
+func _test_region_unlock_persistence() -> void:
+	var test_path := "user://test_region_progression.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
+	var initial: Array[StringName] = RegionProgressionScript.get_unlocked_region_ids(test_path)
+	_check(initial.has(&"spring") and not initial.has(&"summer"), "a fresh profile unlocks spring only")
+	_check(RegionProgressionScript.unlock_region(&"summer", test_path), "a valid region unlock is persisted")
+	var restored: Array[StringName] = RegionProgressionScript.get_unlocked_region_ids(test_path)
+	_check(restored.has(&"summer"), "the summer unlock survives reloading progression data")
+	_check(not RegionProgressionScript.unlock_region(&"unknown", test_path), "unknown region ids cannot be unlocked")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
 
 
 func _test_save_keeps_the_fight_results() -> void:

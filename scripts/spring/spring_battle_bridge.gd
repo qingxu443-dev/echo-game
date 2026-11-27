@@ -122,7 +122,7 @@ static func pack_carry(run_state) -> Dictionary:
 ## closes the current floor, discards its remaining stamina, and returns a
 ## progression request. The map decides whether the next region can actually load.
 static func settle(run, unlocked_region_ids: Array = [], next_region_scene_available: bool = false) -> Dictionary:
-	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false}
+	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false, "region_transition": {}}
 	if not has_result():
 		return outcome
 	var result: Dictionary = consume_result()
@@ -186,9 +186,23 @@ static func settle(run, unlocked_region_ids: Array = [], next_region_scene_avail
 			else:
 				run.add_coins(60)
 				outcome["message"] = "击败了首领。藏品已收集齐全，换得 60 花钿。"
-			# §3: 春之境 ends here; 夏之境 is not unlocked in this build.
+			# §3: 春之境 ends here. Entering the next region requires both
+			# a persistent unlock and a scene that exists in this build.
+			var transition: Dictionary = RegionProgressionScript.resolve_next(
+				RegionProgressionScript.REGION_SPRING,
+				unlocked_region_ids,
+				next_region_scene_available
+			)
+			outcome["region_transition"] = transition
+			match str(transition.get("status", "locked")):
+				"available":
+					outcome["message"] += " 下一层：%s，正在前往。" % str(transition.get("next_region_name", ""))
+				"content_unavailable":
+					outcome["message"] += " %s已解锁，但区域内容尚未开放，本次探索结束。" % str(transition.get("next_region_name", "下一层"))
+				_:
+					outcome["message"] += " 下一层：%s尚未解锁，当前探索结束。" % str(transition.get("next_region_name", "后续区域"))
 			run.exploration.finish("cleared")
-			outcome["finished_run"] = true
+			outcome["finished_run"] = not bool(transition.get("can_enter", false))
 		_:
 			pass
 

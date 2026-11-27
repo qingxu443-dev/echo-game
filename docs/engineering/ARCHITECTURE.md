@@ -72,7 +72,7 @@ wc -l scripts/**/*.gd
 | `battle_controller.gd` | 627 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
 | `battle_flow.gd` | 455 | 回合边界、遭遇构建、终止判定 | — |
 | `intent_planner.gd` | 446 | 敌方意图生成（通用招式 + 分派） | 专属技转到 `elite_skills.gd` |
-| `intent_resolver.gd` | 506 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
+| `intent_resolver.gd` | 555 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
 | `skill_executor.gd` | 281 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
 | `damage_pipeline.gd` | 93 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
 | `summon_service.gd` | 103 | 猎人通灵 | — |

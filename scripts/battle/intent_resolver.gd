@@ -13,6 +13,7 @@ const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
+const IntentSupportScript = preload("res://scripts/battle/intent_support.gd")
 
 const ABSOLUTE_GUARD_MARKED_MULTIPLIER: float = 0.7
 const ABSOLUTE_GUARD_PLAIN_MULTIPLIER: float = 0.5
@@ -450,6 +451,15 @@ static func _rot_curse(battle, intent) -> void:
 	)
 
 
+## Finds a living player standing on `cell`, or null if none.
+static func _player_at_cell(battle, cell: Vector2i):
+	for actor_id in battle.actors:
+		var actor = battle.actors[actor_id]
+		if actor.team == "player" and actor.is_alive() and actor.cell == cell:
+			return actor
+	return null
+
+
 static func _pursuit(battle, intent) -> void:
 	var actors = battle.actors
 	var source = actors[intent.source_actor_id]
@@ -460,27 +470,45 @@ static func _pursuit(battle, intent) -> void:
 	if path.is_empty() or path.size() > budget:
 		intent.cancel("invalid_pursuit_path")
 		return
+	var occupied: Dictionary = battle.get_occupied_cells(intent.source_actor_id)
 	var cursor: Vector2i = source.cell
+	var steps_used: int = 0
+	var blocking_player = null
+	var blocked_midway := false
 	for destination in path:
-		if not GridRulesScript.is_inside_bounds(destination, battle.grid_size):
-			intent.cancel("destination_out_of_bounds")
-			return
-		if battle.blocked_cells.has(destination) or battle.get_occupied_cells(intent.source_actor_id).has(destination):
-			intent.cancel("destination_blocked")
-			return
-		if GridRulesScript.manhattan_distance(cursor, destination) != 1:
-			intent.cancel("destination_not_adjacent")
-			return
+		if not GridRulesScript.is_inside_bounds(destination, battle.grid_size) or GridRulesScript.manhattan_distance(cursor, destination) != 1:
+			blocked_midway = true
+			break
+		if battle.blocked_cells.has(destination) or occupied.has(destination):
+			blocking_player = _player_at_cell(battle, destination)
+			blocked_midway = true
+			break
 		cursor = destination
+		steps_used += 1
+	# If an ally/wall blocked the planned tile, dynamically reroute with remaining
+	# movement budget so the enemy keeps closing instead of freezing in place.
+	if blocked_midway and blocking_player == null and steps_used < budget:
+		var hero = battle.get_defender()
+		if hero != null and hero.is_alive():
+			var detour: Array[Vector2i] = IntentSupportScript.pursuit_path(battle, cursor, hero.cell, intent.source_actor_id, budget - steps_used)
+			if not detour.is_empty():
+				cursor = detour[detour.size() - 1]
 	source.cell = cursor
+	# If the player deliberately stepped onto the enemy's charge tile to body-block,
+	# the enemy stops right in their face and delivers a collision strike!
+	if blocking_player != null and GridRulesScript.manhattan_distance(source.cell, blocking_player.cell) == 1:
+		var collide_dmg: int = IntentSupportScript.plain_attack_damage(source, 0.8)
+		battle._apply_damage(blocking_player.actor_id, collide_dmg, intent.source_actor_id, "basic_melee", "physical", true, intent.intent_id)
+		intent.mark_resolved()
+		battle._emit_event("enemy_action_resolved", intent.source_actor_id, blocking_player.actor_id, "pursuit_intercept")
+		return
 	intent.mark_resolved()
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", "pursuit")
 
 
-## Walks the intent's recorded reposition path step by step, re-validating each
-## cell against the CURRENT board (the player may have moved or the path may have
-## been blocked since planning). Cancels the whole intent if any step is illegal,
-## rather than teleporting through a wall.
+## Walks the intent's recorded reposition path step by step against the live board.
+## If the player body-blocks a planned step, stops adjacent and lets melee/rush
+## intents strike the blocker instead of canceling the entire enemy turn.
 static func _apply_reposition(battle, intent) -> bool:
 	var actors = battle.actors
 	if not actors.has(intent.source_actor_id):
@@ -489,18 +517,39 @@ static func _apply_reposition(battle, intent) -> bool:
 	if not source.is_alive():
 		intent.cancel("source_defeated")
 		return false
+	var occupied: Dictionary = battle.get_occupied_cells(intent.source_actor_id)
+	var budget: int = maxi(intent.move_path.size(), clampi(int(source.move_steps) if "move_steps" in source else 2, 1, 4))
 	var cursor: Vector2i = source.cell
+	var steps_used: int = 0
+	var blocking_player = null
+	var blocked_midway := false
 	for destination in intent.move_path:
-		if not GridRulesScript.is_inside_bounds(destination, battle.grid_size):
-			intent.cancel("reposition_out_of_bounds")
-			return false
-		if battle.blocked_cells.has(destination) or battle.get_occupied_cells(intent.source_actor_id).has(destination):
-			intent.cancel("reposition_blocked")
-			return false
-		if GridRulesScript.manhattan_distance(cursor, destination) != 1:
-			intent.cancel("reposition_not_adjacent")
-			return false
+		if not GridRulesScript.is_inside_bounds(destination, battle.grid_size) or GridRulesScript.manhattan_distance(cursor, destination) != 1:
+			blocked_midway = true
+			break
+		if battle.blocked_cells.has(destination) or occupied.has(destination):
+			blocking_player = _player_at_cell(battle, destination)
+			blocked_midway = true
+			break
 		cursor = destination
-	source.cell = cursor
-	battle._emit_event("actor_moved", intent.source_actor_id, "", "reposition dest=%s" % str(cursor))
+		steps_used += 1
+	if blocked_midway and blocking_player == null and steps_used < budget:
+		var hero = battle.get_defender()
+		if hero != null and hero.is_alive():
+			var detour: Array[Vector2i] = IntentSupportScript.pursuit_path(battle, cursor, hero.cell, intent.source_actor_id, budget - steps_used)
+			if not detour.is_empty():
+				cursor = detour[detour.size() - 1]
+	if cursor != source.cell:
+		source.cell = cursor
+		battle._emit_event("actor_moved", intent.source_actor_id, "", "reposition dest=%s" % str(cursor))
+	# Body-blocking a rushing enemy puts you right in front of its swing:
+	if blocking_player != null and GridRulesScript.manhattan_distance(source.cell, blocking_player.cell) == 1:
+		if intent.action_id == "basic_melee" or intent.action_id == "shadow_raid":
+			intent.target_cell = blocking_player.cell
+			intent.target_actor_id = blocking_player.actor_id
+			intent.affected_cells = [blocking_player.cell]
+		elif intent.action_id == "ward_stance":
+			# Rush-shield slams into a body-blocking hero on arrival!
+			var slam_dmg: int = IntentSupportScript.plain_attack_damage(source, 0.8)
+			battle._apply_damage(blocking_player.actor_id, slam_dmg, intent.source_actor_id, "basic_melee", "physical", true, intent.intent_id)
 	return true

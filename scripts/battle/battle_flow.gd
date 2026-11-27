@@ -133,6 +133,8 @@ static func start_encounter(
 		enemy_unit.tier = profile.tier
 		enemy_unit.ward_shield = profile.ward_shield
 		enemy_unit.skill_damage = profile.skill_damage
+		enemy_unit.ward_stance_percent = profile.ward_stance_percent
+		enemy_unit.ward_stance_node_bonus = profile.ward_stance_node_bonus
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		battle.actors[enemy_id] = enemy_unit
@@ -247,11 +249,29 @@ static func expire_oath_shields_for_current_turn(battle) -> void:
 		battle.oath_shield_expiry_turn.erase(actor_id)
 
 
+## Temp shields from 结界守护 (§15.2) live on the actor. Swept at the start of a
+## player turn, the same boundary the player's oath shield uses, so both kinds of
+## shield expire where the player expects them to.
+static func _expire_enemy_stance_shields(battle) -> void:
+	for actor_id in battle.actors:
+		var actor = battle.actors[actor_id]
+		if actor.team != "enemy" or actor.shield_expiry_turn < 0:
+			continue
+		if battle.turn_number < actor.shield_expiry_turn:
+			continue
+		var removed: int = actor.shield
+		actor.shield = 0
+		actor.shield_expiry_turn = -1
+		if removed > 0:
+			battle._emit_event("enemy_shield_expired", String(actor_id), String(actor_id), "removed=%d turn=%d" % [removed, battle.turn_number])
+
+
 static func begin_player_turn(battle) -> void:
 	var expired_statuses: int = battle.statuses.expire_all_boundary(&"player_phase_start")
 	if expired_statuses > 0:
 		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_start count=%d" % expired_statuses)
 	battle.turn_number += 1
+	_expire_enemy_stance_shields(battle)
 	battle.absolute_guard_countered_enemies.clear()
 	for actor_id in battle.actors.keys():
 		var player_actor = battle.actors[actor_id]

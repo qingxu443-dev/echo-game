@@ -216,6 +216,8 @@ static func _build_intent(battle, enemy, target, occupied: Dictionary, action_id
 			return _echo_bolt(battle, enemy, target, claimed_cells)
 		&"ward_ally":
 			return _ward_ally(battle, enemy, target)
+		&"ward_stance":
+			return _ward_stance(battle, enemy)
 	push_error("IntentPlanner: unknown action '%s' for archetype '%s'" % [action_id, enemy.archetype])
 	return null
 
@@ -286,6 +288,41 @@ static func _ward_ally(battle, enemy, target):
 		_intent_id(battle, enemy), enemy.actor_id, "ward_ally",
 		BattleIntentScript.TargetMode.ACTOR_LOCKED, best.actor_id, best.cell, [], amount, 1
 	)
+
+
+## 结界守护 (§15.2): a temporary shield worth 6% of max health plus 2% per
+## standing node. Shield strength is computed here (the planner owns the numbers)
+## and carried on the intent's damage field; the resolver only applies it.
+static func _ward_stance(battle, enemy):
+	var percent: float = _stance_percent_of(enemy)
+	if percent <= 0.0:
+		return null
+	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+		return null
+	var nodes: int = 0
+	for beacon in battle.alive_beacons():
+		if str(beacon.get("owner_id", "")) == String(enemy.actor_id):
+			nodes += 1
+	var bonus: float = _stance_node_bonus_of(enemy)
+	var amount: int = roundi(float(enemy.max_health) * (percent + bonus * float(nodes)))
+	if amount <= 0:
+		return null
+	return BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "ward_stance",
+		BattleIntentScript.TargetMode.NONE, "", enemy.cell, [], amount, 1
+	)
+
+
+static func _stance_percent_of(enemy) -> float:
+	if enemy == null or not ("ward_stance_percent" in enemy):
+		return 0.0
+	return maxf(0.0, float(enemy.ward_stance_percent))
+
+
+static func _stance_node_bonus_of(enemy) -> float:
+	if enemy == null or not ("ward_stance_node_bonus" in enemy):
+		return 0.0
+	return maxf(0.0, float(enemy.ward_stance_node_bonus))
 
 
 static func _ward_shield_of(enemy) -> int:

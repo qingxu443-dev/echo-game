@@ -184,7 +184,11 @@ static func _draw_enemy_order_card(canvas: CanvasItem, font: Font, controller) -
 		var intent = controller.intents[index]
 		var dot_color: Color = _intent_color(intent.action_id)
 		canvas.draw_circle(Vector2(rect.position.x + 18.0, y - 4.0), 4.5, dot_color)
-		var dmg_str: String = " (%d)" % intent.damage if intent.damage > 0 else ""
+		var dmg_str: String = ""
+		if intent.damage > 0:
+			# 结界/壁垒 payload is a shield, not damage - printing it as damage
+			# would tell the player to dodge a hit that is actually a buff.
+			dmg_str = " (盾 %d)" % intent.damage if _is_shield_action(intent.action_id) else " (%d)" % intent.damage
 		var line: String = "%d. %s · %s%s" % [index + 1, actor_name(controller, intent.source_actor_id), action_name(intent.action_id), dmg_str]
 		var text_col: Color = P.TEXT_FAINT if intent.state == IntentScript.IntentState.ACTIVE else P.TEXT_DISABLED
 		canvas.draw_string(font, Vector2(rect.position.x + 28.0, y), line, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 38.0, 13, text_col)
@@ -236,7 +240,10 @@ static func _draw_enemy_inspector_card(canvas: CanvasItem, font: Font, controlle
 		var a_col: Color = _intent_color(active_intent.action_id)
 		var skill_title: String = action_name(active_intent.action_id)
 		if active_intent.damage > 0:
-			skill_title += "  ·  %d 伤害" % active_intent.damage
+			if _is_shield_action(active_intent.action_id):
+				skill_title += "  ·  %d 护盾" % active_intent.damage
+			else:
+				skill_title += "  ·  %d 伤害" % active_intent.damage
 		canvas.draw_string(font, rect.position + Vector2(14.0, 132.0), skill_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, a_col)
 		_draw_wrapped(canvas, font, action_description(active_intent.action_id), rect.position + Vector2(14.0, 156.0), rect.size.x - 28.0, 13, P.TEXT_BODY, 3)
 	else:
@@ -319,6 +326,11 @@ static func actor_name(controller, actor_id: String) -> String:
 	return "未知单位"
 
 
+## Actions whose integer payload is a shield amount rather than damage.
+static func _is_shield_action(action_id: String) -> bool:
+	return action_id in ["ward_ally", "ward_stance"]
+
+
 static func action_name(action_id: String) -> String:
 	match action_id:
 		"charged_strike":
@@ -335,6 +347,10 @@ static func action_name(action_id: String) -> String:
 			return "地脉脉冲"
 		"echo_bolt":
 			return "回声弹"
+		"ward_ally":
+			return "古木壁垒"
+		"ward_stance":
+			return "结界守护"
 		"wait":
 			return "待机观察"
 		_:
@@ -357,6 +373,10 @@ static func action_description(action_id: String) -> String:
 			return "【满充能技】锁定十字 5 格紫框爆破！撤出全部紫格即可躲避。"
 		"echo_bolt":
 			return "锁定单格释放回声弹，走离紫框即可躲避。"
+		"ward_ally":
+			return "为 2 格内一名普通同伴套上 500 护盾。先拆掉被保护的对象，或让它与守卫拉开距离。"
+		"ward_stance":
+			return "【满充能技】为自己升起护盾，每个存活结界节点都会让它更厚。先拆节点，再决战。"
 		"wait":
 			return "当前无合法目标，原地待机。"
 		_:

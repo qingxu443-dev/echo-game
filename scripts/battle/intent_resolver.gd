@@ -55,6 +55,8 @@ static func resolve_one_active(battle) -> bool:
 				_pursuit(battle, intent)
 			"ward_ally":
 				_ward_ally(battle, intent)
+			"ward_stance":
+				_ward_stance(battle, intent)
 			"wait":
 				intent.mark_resolved()
 				battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", "wait")
@@ -238,6 +240,31 @@ static func _ward_ally(battle, intent) -> void:
 	battle._emit_event(
 		"enemy_ward_applied", intent.source_actor_id, intent.target_actor_id,
 		"requested=%d shield=%d" % [intent.damage, granted]
+	)
+
+
+## 结界守护: the boss raises a shield for two turns (§15.2). The expiry is set on
+## the actor and swept at the start of a later player turn, so "two rounds" means
+## two player turns during which the shield is visible and countable.
+static func _ward_stance(battle, intent) -> void:
+	var actors = battle.actors
+	if not actors.has(intent.source_actor_id):
+		intent.cancel("source_gone")
+		return
+	var source = actors[intent.source_actor_id]
+	if not source.is_alive():
+		intent.cancel("source_defeated")
+		return
+	var granted: int = source.grant_shield(intent.damage)
+	# turn_number increments at the START of each player turn, so +3 keeps the
+	# shield visible for the next two player turns and sweeps it on the third.
+	source.shield_expiry_turn = battle.turn_number + 3
+	if source.skill_charge_max > 0:
+		source.skill_charge = 0
+	intent.mark_resolved()
+	battle._emit_event(
+		"enemy_stance_raised", intent.source_actor_id, intent.source_actor_id,
+		"requested=%d shield=%d expires=%d" % [intent.damage, granted, source.shield_expiry_turn]
 	)
 
 

@@ -45,6 +45,8 @@ func _run() -> void:
 	_test_thousand_boughs_spawns_two_ward_nodes()
 	_test_ward_nodes_are_not_boss_objectives()
 	_test_breaking_ward_nodes_costs_defense()
+	_test_ward_stance_shield_scales_with_nodes()
+	_test_ward_stance_shield_expires()
 	_test_move_steps_must_be_positive()
 
 
@@ -360,6 +362,51 @@ func _test_breaking_ward_nodes_costs_defense() -> void:
 	_check(boss.defense == 385, "both nodes gone returns the sheet's defense", "defense=%d" % boss.defense)
 	battle.damage_beacon_at(second, 700, "sevrin", "probe")
 	_check(boss.defense == 385, "hitting an already-broken node cannot subtract twice", "defense=%d" % boss.defense)
+	battle.queue_free()
+
+
+## §15.2 结界守护: 6% max health + 2% per standing node, on a full charge bar.
+## 5040 HP gives 302 alone, 403 with one node, 504 with both.
+func _test_ward_stance_shield_scales_with_nodes() -> void:
+	var battle = _begin_boss_fight(&"boss_thousand_boughs")
+	var boss = battle.get_actor("boss_thousand_boughs_00")
+	battle.intents = PlannerScript.plan(battle)
+	var opening = battle.intents[0]
+	_check(opening.action_id == "ward_stance", "the boss opens with its stance", "action=%s" % opening.action_id)
+	_check(opening.damage == 504, "two nodes give 6% + 2x2% of 5040 = 504", "damage=%d" % opening.damage)
+	battle.end_player_turn()
+	_check(boss.shield == 504, "the stance raises the shield", "shield=%d" % boss.shield)
+
+	var nodes: Array[Dictionary] = _ward_node_list(battle)
+	battle.damage_beacon_at(nodes[0]["cell"], 700, "sevrin", "probe")
+	boss.skill_charge = boss.skill_charge_max
+	battle.intents = PlannerScript.plan(battle)
+	_check(battle.intents[0].damage == 403, "one node left means 6% + 2% of 5040 = 403", "damage=%d" % battle.intents[0].damage)
+	battle.queue_free()
+
+	var bare = _begin_boss_fight(&"boss_thousand_boughs")
+	for node in _ward_node_list(bare):
+		bare.damage_beacon_at(node["cell"], 700, "sevrin", "probe")
+	var bare_boss = bare.get_actor("boss_thousand_boughs_00")
+	bare_boss.skill_charge = bare_boss.skill_charge_max
+	bare.intents = PlannerScript.plan(bare)
+	_check(bare.intents[0].damage == 302, "no nodes left means the 6% base only", "damage=%d" % bare.intents[0].damage)
+	bare.queue_free()
+
+
+## "持续 2 回合" - the shield must be gone by the third player turn, or a boss
+## that never stops shielding becomes unkillable.
+func _test_ward_stance_shield_expires() -> void:
+	var battle = _begin_boss_fight(&"boss_thousand_boughs")
+	var boss = battle.get_actor("boss_thousand_boughs_00")
+	battle.intents = PlannerScript.plan(battle)
+	battle.end_player_turn()
+	_check(boss.shield > 0, "the shield exists right after the enemy phase")
+	for turn in range(2):
+		if battle.phase == battle.BattlePhase.FINISHED:
+			break
+		battle.end_player_turn()
+	_check(boss.shield == 0, "the shield lapses on the third player turn", "shield=%d" % boss.shield)
 	battle.queue_free()
 
 

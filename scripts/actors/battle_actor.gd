@@ -59,6 +59,13 @@ var tier: int = 0
 var ward_shield: int = 0
 ## Flat raw damage for this unit's signature skill; 0 means "derive from attack".
 var skill_damage: int = 0
+## 结界守护 coefficients (§15.2). Both zero except 千枝神将.
+var ward_stance_percent: float = 0.0
+var ward_stance_node_bonus: float = 0.0
+## Turn on which a temporary shield lapses; -1 means "no expiry". The player's
+## oath shield uses a table on the battle; an enemy stance is one actor's own
+## state, so it rides on the actor.
+var shield_expiry_turn: int = -1
 ## Weapons/armors stolen from destroyed Relic Chests; dropped onto the ground on death.
 var stolen_equipment: Array[Dictionary] = []
 

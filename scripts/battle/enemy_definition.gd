@@ -40,6 +40,11 @@ extends Resource
 ## on the base attack: the sheets carry attacks already cut by 30%, and without
 ## this field cutting the attack would quietly cut the skill too.
 @export var skill_damage: int = 0
+## 结界守护 (§15.2): shield itself for `ward_stance_percent` of max health plus
+## `ward_stance_node_bonus` per standing 结界 node, when the charge bar is full.
+## Zero on every sheet that has no such stance.
+@export var ward_stance_percent: float = 0.0
+@export var ward_stance_node_bonus: float = 0.0
 
 
 func is_valid() -> bool:
@@ -58,5 +63,7 @@ func is_valid() -> bool:
 	if ward_shield < 0:
 		return false
 	if skill_damage < 0:
+		return false
+	if ward_stance_percent < 0.0 or ward_stance_node_bonus < 0.0:
 		return false
 	return true

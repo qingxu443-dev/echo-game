@@ -305,19 +305,12 @@ static func _draw_hazard_tile(canvas: CanvasItem, cell: Vector2i, fill: Color, l
 ## compact board chips and by the bottom-left HUD breakdown card (no board clutter).
 static func incoming_threats_at(controller, cell: Vector2i) -> Dictionary:
 	var active := _active_intents(controller)
-	var entries: Array[Dictionary] = []
+	var entries := _projected_entries(controller, cell, active)
 	var total_dmg := 0
 	var hit_count := 0
-	for i in range(active.size()):
-		var intent = active[i]
-		if intent.target_cell != cell and not intent.affected_cells.has(cell):
-			continue
-		var info := _label_for_intent(controller, intent, _order_symbol(i))
-		if info.is_empty():
-			continue
-		entries.append(info)
-		if int(info.get("dmg", 0)) > 0:
-			total_dmg += int(info["dmg"])
+	for entry in entries:
+		total_dmg += int(entry["dmg"])
+		if entry.get("hit", false):
 			hit_count += 1
 	var caution := ""
 	if hit_count == 0:
@@ -333,45 +326,58 @@ static func incoming_threats_at(controller, cell: Vector2i) -> Dictionary:
 	return {"entries": entries, "total_dmg": total_dmg, "hit_count": hit_count, "caution": caution}
 
 
-static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
-	var focused := _focused_source_ids(controller, fx_state)
-	var has_focus := not focused.is_empty()
-	var active := _active_intents(controller)
-	var buckets: Dictionary = {}  # Vector2i -> Array[Dictionary]
-
+static func _projected_entries(controller, cell: Vector2i, active: Array, focused: Dictionary = {}) -> Array[Dictionary]:
+	var defender := BattleThreatPreview.defender_at(controller, cell)
+	var entries: Array[Dictionary] = []
 	for i in range(active.size()):
 		var intent = active[i]
-		if has_focus and not focused.has(intent.source_actor_id):
+		if not BattleThreatPreview.targets_cell(intent, defender, cell):
 			continue
-		var info := _label_for_intent(controller, intent, _order_symbol(i))
-		if info.is_empty():
-			continue
-		var cell: Vector2i = info["cell"]
+		var info := _label_for_intent(controller, intent, _order_symbol(i), defender)
+		if not info.is_empty() and (focused.is_empty() or focused.has(intent.source_actor_id)):
+			entries.append(info)
+	return entries
+
+
+static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	var focused := _focused_source_ids(controller, fx_state)
+	var active := _active_intents(controller)
+	var buckets: Dictionary = {}
+	for intent in active:
+		var cell: Vector2i = intent.target_cell
+		if intent.target_mode == IntentScript.TargetMode.ACTOR_LOCKED:
+			var target = controller.get_actor(intent.target_actor_id)
+			if target != null:
+				cell = target.cell
 		if not buckets.has(cell):
-			buckets[cell] = []
-		(buckets[cell] as Array).append(info)
+			buckets[cell] = _projected_entries(controller, cell, active, focused)
 
 	# Render AT MOST ONE tiny chip per tile (near floor center, never a tall tower
 	# blocking standees behind it). Full multi-hit breakdown lives above the hero HUD.
 	for cell in buckets:
 		var entries: Array = buckets[cell]
+		if entries.is_empty():
+			continue
 		var total_dmg := 0
 		var hit_count := 0
 		for e in entries:
-			if int(e.get("dmg", 0)) > 0:
-				total_dmg += int(e["dmg"])
+			total_dmg += int(e["dmg"])
+			if e.get("hit", false):
 				hit_count += 1
 		var chip_pos := P.cell_center(cell) + Vector2(0.0, 7.0)
 		if hit_count >= 2:
 			_draw_telegraph_tag(canvas, chip_pos, "⚠ -%d (%d击)" % [total_dmg, hit_count], Color("#ffecd2"), Color(0.58, 0.10, 0.12, 0.94))
 		else:
 			var e0: Dictionary = entries[0]
+			for entry in entries:
+				if entry.get("hit", false):
+					e0 = entry
+					break
 			var short_txt: String = str(e0.get("short", e0["text"]))
 			_draw_telegraph_tag(canvas, chip_pos, short_txt, e0["color"])
 
 
-static func _label_for_intent(controller, intent, ord_sym: String) -> Dictionary:
-	var shown: int = intent.preview_health_damage(controller)
+static func _label_for_intent(controller, intent, ord_sym: String, defender: BattleActor) -> Dictionary:
 	var name := action_label_zh(intent.action_id)
 	var color := P.TELEGRAPH_CHARGE_MARK
 	match intent.action_id:
@@ -386,12 +392,16 @@ static func _label_for_intent(controller, intent, ord_sym: String) -> Dictionary
 		"spring_bloom":
 			color = P.HAZARD_SPRING_LINE
 		"rot_curse":
+			BattleThreatPreview.apply(controller, intent, defender)
 			return {"cell": intent.target_cell, "text": "%s 降防 %d" % [ord_sym, intent.damage], "short": "%s -%d防" % [ord_sym, intent.damage], "color": P.TELEGRAPH_PULSE_MARK, "dmg": 0}
 		"charged_strike", "basic_melee", "sakura_shock", "shadow_raid":
 			color = P.TELEGRAPH_CHARGE_MARK
 		_:
 			return {}
-	return {"cell": intent.target_cell, "text": "%s %s -%d" % [ord_sym, name, shown], "short": "%s -%d" % [ord_sym, shown], "color": color, "dmg": shown}
+	var source = controller.get_actor(intent.source_actor_id)
+	var hit: bool = intent.damage > 0 and source != null and source.is_alive() and (defender == null or defender.is_alive())
+	var shown := BattleThreatPreview.apply(controller, intent, defender)
+	return {"cell": intent.target_cell, "text": "%s %s -%d" % [ord_sym, name, shown], "short": "%s -%d" % [ord_sym, shown], "color": color, "dmg": shown, "hit": hit}
 
 
 static func action_label_zh(action_id: String) -> String:

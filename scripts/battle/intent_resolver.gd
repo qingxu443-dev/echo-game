@@ -435,13 +435,9 @@ static func _rot_curse(battle, intent) -> void:
 	if target == null or not target.is_alive() or target.team != "player":
 		intent.cancel("curse_target_gone")
 		return
-	var distance: int = GridRulesScript.manhattan_distance(source.cell, target.cell)
-	if distance < 1 or distance > ROT_CURSE_MAX_RANGE:
-		intent.cancel("curse_out_of_range")
-		battle._emit_event("enemy_action_missed", intent.source_actor_id, intent.target_actor_id, "action=rot_curse")
-		return
-	if not GridRulesScript.has_clear_line_of_sight(source.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(intent.source_actor_id)):
-		intent.cancel("curse_line_blocked")
+	var failure := rot_curse_position_failure(battle, String(source.actor_id), source.cell, target.cell)
+	if not failure.is_empty():
+		intent.cancel(failure)
 		battle._emit_event("enemy_action_missed", intent.source_actor_id, intent.target_actor_id, "action=rot_curse")
 		return
 	var amount: int = maxi(0, intent.damage)
@@ -458,6 +454,16 @@ static func _rot_curse(battle, intent) -> void:
 		"enemy_curse_applied", intent.source_actor_id, target.actor_id,
 		"requested=%d defense_penalty=%d expires_after_turn=%d" % [amount, target.defense_penalty, target.defense_penalty_expiry_turn]
 	)
+
+## Range and sight are shared by enemy execution and the stationary forecast.
+static func rot_curse_position_failure(battle, source_id: String, origin: Vector2i, target_cell: Vector2i) -> String:
+	var distance: int = GridRulesScript.manhattan_distance(origin, target_cell)
+	if distance < 1 or distance > ROT_CURSE_MAX_RANGE:
+		return "curse_out_of_range"
+	if not GridRulesScript.has_clear_line_of_sight(origin, target_cell, battle.blocked_cells, battle.get_sight_blockers(source_id)):
+		return "curse_line_blocked"
+	return ""
+
 
 
 ## Finds a living player standing on `cell`, or null if none.

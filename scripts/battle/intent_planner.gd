@@ -262,6 +262,8 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 
 
 static func _is_ranged_kit(actions: Array[StringName]) -> bool:
+	if actions.has(&"basic_melee"):
+		return false
 	for a in [&"aimed_shot", &"lock_on", &"light_shot", &"ground_pulse", &"echo_bolt", &"spring_bloom"]:
 		if actions.has(a):
 			return true
@@ -280,15 +282,18 @@ static func _has_ready_ortho_cleave(enemy, actions: Array[StringName]) -> bool:
 static func _compute_move_path(battle, enemy, target, reserved_cells: Dictionary = {}, formation: Dictionary = {}) -> Array[Vector2i]:
 	var steps: int = _move_steps_of(enemy)
 	var actions: Array[StringName] = actions_for(enemy)
-	if actions.has(&"aimed_shot") or actions.has(&"lock_on") or actions.has(&"light_shot"):
-		var shot = EnemySkillCatalogScript.get_skill(&"aimed_shot")
-		var keep: int = shot.reposition_min_range if shot.reposition_min_range > 0 else shot.min_range
-		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, keep, shot.max_range, true, steps, true, reserved_cells, formation)
-	if actions.has(&"ground_pulse") or actions.has(&"echo_bolt") or actions.has(&"spring_bloom"):
-		var spec_id: StringName = &"spring_bloom" if actions.has(&"spring_bloom") else (&"ground_pulse" if actions.has(&"ground_pulse") else &"echo_bolt")
-		var pulse = EnemySkillCatalogScript.get_skill(spec_id)
-		var need_sight: bool = actions.has(&"rot_curse") or actions.has(&"spring_bloom")
-		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, pulse.min_range, pulse.max_range, false, steps, need_sight, reserved_cells, formation)
+	# Hybrid bruisers carrying basic_melee (e.g. 千枝神将 with mid-range quake)
+	# press forward aggressively instead of kiting backward like pure casters.
+	if not actions.has(&"basic_melee"):
+		if actions.has(&"aimed_shot") or actions.has(&"lock_on") or actions.has(&"light_shot"):
+			var shot = EnemySkillCatalogScript.get_skill(&"aimed_shot")
+			var keep: int = shot.reposition_min_range if shot.reposition_min_range > 0 else shot.min_range
+			return IntentSupportScript.ranged_reposition_path(battle, enemy, target, keep, shot.max_range, true, steps, true, reserved_cells, formation)
+		if actions.has(&"ground_pulse") or actions.has(&"echo_bolt") or actions.has(&"spring_bloom"):
+			var spec_id: StringName = &"spring_bloom" if actions.has(&"spring_bloom") else (&"ground_pulse" if actions.has(&"ground_pulse") else &"echo_bolt")
+			var pulse = EnemySkillCatalogScript.get_skill(spec_id)
+			var need_sight: bool = actions.has(&"rot_curse") or actions.has(&"spring_bloom")
+			return IntentSupportScript.ranged_reposition_path(battle, enemy, target, pulse.min_range, pulse.max_range, false, steps, need_sight, reserved_cells, formation)
 	return IntentSupportScript.melee_tactical_path(battle, enemy, target, steps, _has_ready_ortho_cleave(enemy, actions), reserved_cells, formation)
 
 

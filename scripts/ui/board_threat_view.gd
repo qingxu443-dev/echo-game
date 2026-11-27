@@ -27,9 +27,32 @@ static func draw(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
 	draw_danger_vignette(canvas, controller, fx_state)
 
 
+## Draws glowing emerald energy beams flowing from living 结界 crystals into
+## their owner boss so the player immediately sees what the crystals feed.
+static func _draw_ward_node_tethers(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	var t: float = float(fx_state.get("time", 0.0))
+	var pulse: float = 0.65 + 0.35 * sin(t * 3.0)
+	for b_cell in controller.beacons:
+		var node: Dictionary = controller.beacons[b_cell]
+		if str(node.get("kind", "")) != "ward_node" or int(node.get("health", 0)) <= 0:
+			continue
+		var owner_id: String = str(node.get("owner_id", ""))
+		var owner = controller.get_actor(owner_id) if not owner_id.is_empty() else null
+		if owner == null or not owner.is_alive():
+			continue
+		var p0 := P.cell_center(b_cell)
+		var p1 := P.cell_center(owner.cell)
+		canvas.draw_line(p0, p1, Color(0.37, 0.85, 0.69, 0.22 * pulse), 7.0, true)
+		canvas.draw_dashed_line(p0, p1, Color(0.56, 0.94, 0.81, 0.78 * pulse), 2.2, 6.0)
+		for k in range(2):
+			var u := fposmod(t * 0.55 + float(k) * 0.5, 1.0)
+			canvas.draw_circle(p0.lerp(p1, u), 4.0, Color(0.85, 1.0, 0.95, 0.92))
+
+
 ## Draws subtle tactical formation links beneath living coordinated enemies so
 ## the player can read the formation at a glance and see it break on a kill.
 static func draw_formation_links(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	_draw_ward_node_tethers(canvas, controller, fx_state)
 	var formation: Dictionary = IntentPlannerScript.analyze_formation(controller)
 	if formation.is_empty():
 		return

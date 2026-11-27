@@ -219,6 +219,15 @@ static func _draw_ward_node(canvas: CanvasItem, controller, cell: Vector2i, node
 	var ratio: float = clampf(float(node.get("health", 0)) / float(maxi(1, int(node.get("max_health", 1)))), 0.0, 1.0)
 	if ratio > 0.0:
 		canvas.draw_rect(Rect2(rect.position, Vector2(bar_w * ratio, bar_h)), Color("#5fd8b0"), true)
+	# Clear overhead nameplate so the player instantly knows why to break it.
+	var font := ThemeDB.fallback_font
+	var def_bonus: int = int(node.get("ward_defense", 80))
+	var tag: String = "击破削防!" if in_danger else ("结界 +%d防" % def_bonus)
+	var tag_col := P.GOLD_PALE if in_danger else Color("#b8ffea")
+	var tag_box := Rect2(center.x - 38.0, center.y - 62.0, 76.0, 17.0)
+	canvas.draw_rect(tag_box, Color(0.06, 0.14, 0.12, 0.86), true)
+	canvas.draw_rect(tag_box, glow, false, 1.1)
+	canvas.draw_string(font, tag_box.position + Vector2(0.0, 12.5), tag, HORIZONTAL_ALIGNMENT_CENTER, tag_box.size.x, 10, tag_col)
 
 
 # --- standee actors ----------------------------------------------------------------

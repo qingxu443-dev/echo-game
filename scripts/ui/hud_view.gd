@@ -196,6 +196,20 @@ static func _draw_enemy_order_card(canvas: CanvasItem, font: Font, controller) -
 		canvas.draw_rect(badge, f_bg, true)
 		canvas.draw_rect(badge, Color(f_col.r, f_col.g, f_col.b, 0.85), false, 1.2)
 		canvas.draw_string(font, badge.position + Vector2(0.0, 15.0), "阵·" + str(formation.get("name_zh", "")), HORIZONTAL_ALIGNMENT_CENTER, badge.size.x, 11, f_col)
+	else:
+		var ward_cnt := 0
+		var ward_def := 0
+		for b_cell in controller.beacons:
+			var b: Dictionary = controller.beacons[b_cell]
+			if str(b.get("kind", "")) == "ward_node" and int(b.get("health", 0)) > 0:
+				ward_cnt += 1
+				ward_def += int(b.get("ward_defense", 80))
+		if ward_cnt > 0:
+			var w_col := Color("#74ebd5")
+			var w_badge := Rect2(rect.end.x - 134.0, rect.position.y + 8.0, 124.0, 22.0)
+			canvas.draw_rect(w_badge, Color(0.08, 0.20, 0.18, 0.92), true)
+			canvas.draw_rect(w_badge, w_col, false, 1.2)
+			canvas.draw_string(font, w_badge.position + Vector2(0.0, 15.0), "结界×%d (+%d防)" % [ward_cnt, ward_def], HORIZONTAL_ALIGNMENT_CENTER, w_badge.size.x, 11, w_col)
 
 	var y: float = rect.position.y + 48.0
 	for index in range(mini(controller.intents.size(), 4)):

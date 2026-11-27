@@ -261,10 +261,9 @@ func spawn_ward_nodes(count: int = 2, health: int = WARD_NODE_HEALTH, defense_bo
 		return 0
 	var occupied: Dictionary = get_occupied_cells()
 	var candidates: Array[Vector2i] = [
-		boss.cell + Vector2i.UP, boss.cell + Vector2i.RIGHT,
-		boss.cell + Vector2i.DOWN, boss.cell + Vector2i.LEFT,
-		boss.cell + Vector2i(1, 1), boss.cell + Vector2i(1, -1),
-		boss.cell + Vector2i(-1, 1), boss.cell + Vector2i(-1, -1),
+		boss.cell + Vector2i(-2, 0), boss.cell + Vector2i(2, 0), boss.cell + Vector2i(-1, -1), boss.cell + Vector2i(1, -1),
+		boss.cell + Vector2i(-2, 1), boss.cell + Vector2i(2, 1), boss.cell + Vector2i.LEFT, boss.cell + Vector2i.RIGHT,
+		boss.cell + Vector2i.UP, boss.cell + Vector2i.DOWN,
 	]
 	var placed: int = 0
 	for cell in candidates:

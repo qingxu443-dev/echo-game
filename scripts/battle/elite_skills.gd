@@ -59,7 +59,7 @@ static func ward_ally(battle, enemy, target):
 ## and carried on the intent's damage field; the resolver only applies it.
 ## 结界守护是自身增益，没有目标。签名仍收一个 target，是因为规划器用同一张
 ## Callable 表调用九条专属技，参数必须一致；多出来的这一个在这里是死参。
-static func ward_stance(battle, enemy, _target):
+static func ward_stance(battle, enemy, target):
 	var spec = EnemySkillCatalogScript.get_skill(&"ward_stance")
 	var percent: float = IntentSupportScript.stance_percent_of(enemy)
 	if percent <= 0.0:
@@ -74,10 +74,19 @@ static func ward_stance(battle, enemy, _target):
 	var amount: int = roundi(float(enemy.max_health) * (percent + bonus * float(nodes)))
 	if amount <= 0:
 		return null
-	return BattleIntentScript.new(
+	var intent = BattleIntentScript.new(
 		IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "ward_stance",
 		BattleIntentScript.TargetMode.NONE, "", enemy.cell, [], amount, spec.execution_priority
 	)
+	# High-mobility bosses advance aggressively while raising their ward instead
+	# of standing motionless in the backline.
+	if target != null and GridRulesScript.manhattan_distance(enemy.cell, target.cell) > 1:
+		var steps: int = clampi(int(enemy.move_steps) if "move_steps" in enemy else 1, 1, 4)
+		var charge_path: Array[Vector2i] = IntentSupportScript.pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, steps)
+		if not charge_path.is_empty():
+			intent.move_path = charge_path
+			intent.target_cell = charge_path[charge_path.size() - 1]
+	return intent
 
 
 ## §15.1 樱落领域: a three-tile sweep that leaves 凋零 on every cell it cuts.

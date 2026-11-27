@@ -133,41 +133,48 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 		if intent.state != IntentScript.IntentState.ACTIVE:
 			continue
 		var source = controller.get_actor(intent.source_actor_id)
+		# Show planned movement/charge trail for any moving intent (e.g. high-mobility boss rush)
+		if not intent.move_path.is_empty() and intent.action_id != "shadow_raid":
+			for path_cell in intent.move_path:
+				var m_pts := P.cell_diamond(path_cell, 7.0)
+				canvas.draw_colored_polygon(m_pts, P.TELEGRAPH_PURSUIT_FILL)
+				P.draw_polyline_closed(canvas, m_pts, P.TELEGRAPH_PURSUIT_LINE, 1.8)
+		var origin_cell: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else (source.cell if source != null else Vector2i.ZERO)
 		match intent.action_id:
 			"ground_pulse", "echo_bolt":
 				for area_cell in intent.affected_cells:
 					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_PULSE_FILL, P.TELEGRAPH_PULSE_LINE, pulse)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -38.0), P.cell_center(intent.target_cell), P.TELEGRAPH_PULSE_LINE, 20.0)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -38.0), P.cell_center(intent.target_cell), P.TELEGRAPH_PULSE_LINE, 20.0)
 			"aimed_shot", "light_shot":
 				for area_cell in intent.affected_cells:
 					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_SHOT_FILL, P.TELEGRAPH_SHOT_LINE, pulse)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -36.0), P.cell_center(intent.target_cell), P.TELEGRAPH_SHOT_LINE, 8.0)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -36.0), P.cell_center(intent.target_cell), P.TELEGRAPH_SHOT_LINE, 8.0)
 			"charged_strike":
 				for area_cell in intent.affected_cells:
 					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_CHARGE_FILL, P.TELEGRAPH_CHARGE_LINE, pulse)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -32.0), P.cell_center(intent.target_cell), P.TELEGRAPH_CHARGE_LINE, 12.0)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -32.0), P.cell_center(intent.target_cell), P.TELEGRAPH_CHARGE_LINE, 12.0)
 			"blight_field":
 				for area_cell in intent.affected_cells:
 					_draw_hazard_tile(canvas, area_cell, P.HAZARD_BLIGHT_FILL, P.HAZARD_BLIGHT_LINE, pulse)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -32.0), P.cell_center(intent.target_cell), P.HAZARD_BLIGHT_LINE, 12.0)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -32.0), P.cell_center(intent.target_cell), P.HAZARD_BLIGHT_LINE, 12.0)
 			"spring_bloom":
 				for area_cell in intent.affected_cells:
 					_draw_hazard_tile(canvas, area_cell, P.HAZARD_SPRING_FILL, P.HAZARD_SPRING_LINE, pulse)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(intent.target_cell), P.HAZARD_SPRING_LINE, 10.0)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(intent.target_cell), P.HAZARD_SPRING_LINE, 10.0)
 			"sakura_shock":
 				for area_cell in intent.affected_cells:
 					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_CHARGE_FILL, P.TELEGRAPH_CHARGE_LINE, pulse)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -30.0), P.cell_center(intent.target_cell), P.TELEGRAPH_CHARGE_LINE, 10.0)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(intent.target_cell), P.TELEGRAPH_CHARGE_LINE, 10.0)
 			"basic_melee":
 				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_CHARGE_FILL, P.RING_MELEE, pulse)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -28.0), P.cell_center(intent.target_cell), P.RING_MELEE, 8.0)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -28.0), P.cell_center(intent.target_cell), P.RING_MELEE, 8.0)
 			"lock_on":
 				# The mark itself deals no damage; it paints the hero the archer
 				# has chosen so the next turn's arrow is not a surprise.

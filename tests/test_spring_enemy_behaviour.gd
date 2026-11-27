@@ -170,7 +170,7 @@ func _test_elite_and_boss_movement_matches_the_document() -> void:
 		"rotten_blossom_witch": 1,
 		"sakura_beast": 1,
 		"boss_petalfall": 2,
-		"boss_thousand_boughs": 1,
+		"boss_thousand_boughs": 3,
 		"boss_spring_echo": 1,
 	}
 	for archetype in table:

@@ -31,6 +31,9 @@ extends Resource
 ## Empty means "the battlefield's default zone" - the southern three rows - so a
 ## level only has to state this when its shape is unusual.
 @export var deploy_cells: Array[Vector2i] = []
+## Optional multiplier for the four core enemy stats in this encounter.
+## Defaults to neutral so ordinary and elite encounters remain unchanged.
+@export var enemy_stat_multiplier: float = 1.0
 
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 
@@ -53,6 +56,8 @@ func is_valid() -> bool:
 		if not EnemyCatalogScript.has_definition(archetype):
 			return false
 	if ward_nodes < 0 or ward_nodes > 4:
+		return false
+	if enemy_stat_multiplier <= 0.0:
 		return false
 	return true
 

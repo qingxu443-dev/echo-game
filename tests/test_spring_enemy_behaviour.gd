@@ -18,7 +18,6 @@ const PlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
-const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 
 ## The fourteen archetypes the spring templates can field (§13-§15).
 const SPRING_ARCHETYPES := [
@@ -507,7 +506,7 @@ func _test_single_target_attacks_choose_players_not_chests() -> void:
 	var battle = _spawn("petal_archer", Vector2i(2, 3), Vector2i(7, 3))
 	var hero = battle.get_defender()
 	var archer = battle.get_actor("petal_archer_00")
-	var chest_cell := Vector2i(5, 3)
+	var chest_cell := Vector2i(6, 4)
 	battle.beacons[chest_cell] = {
 		"id": "single_target_probe", "cell": chest_cell,
 		"health": 2, "max_health": 2, "opened": false, "loot": {},

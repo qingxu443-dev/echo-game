@@ -200,7 +200,7 @@ godot --headless --path . --script res://tests/test_core_rules.gd
 test_battle_controller                 123 ok
 ...
 -----
-suites=29 assertions=2347 failures=0 broken=0
+suites=33 assertions=2347 failures=0 broken=0
 doc-numbers: ok (2347)
 module-sizes: ok (33 rows)
 ```

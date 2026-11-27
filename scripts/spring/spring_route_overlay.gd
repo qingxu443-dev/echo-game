@@ -143,9 +143,34 @@ static func _draw_side_panel(canvas: CanvasItem, font: Font, run) -> void:
 			var next_name: String = run.title_of(next_place) if next_place != null else "空地 (%d,%d)" % [next_cell.x, next_cell.y]
 			canvas.draw_string(font, panel.position + Vector2(18.0, 124.0), "下一站：%s" % next_name, HORIZONTAL_ALIGNMENT_LEFT, 284.0, 13.5, ROUTE_NEXT)
 			canvas.draw_string(font, panel.position + Vector2(18.0, 152.0), "所需体力：%d 点" % run.exploration.cost_to(next_cell), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.CYAN)
-			canvas.draw_string(font, panel.position + Vector2(18.0, 184.0), "点击高亮格或右下「推进下一站」出发", HORIZONTAL_ALIGNMENT_LEFT, 286.0, 12, P.TEXT_MUTED)
+			canvas.draw_string(font, panel.position + Vector2(18.0, 184.0), "自动沿路线推进中（点击可立即出发）", HORIZONTAL_ALIGNMENT_LEFT, 286.0, 12, ROUTE_NEXT)
 		else:
 			canvas.draw_string(font, panel.position + Vector2(18.0, 124.0), "已抵达路线终点，请完成首领决战。", HORIZONTAL_ALIGNMENT_LEFT, 284.0, 13, HARD_GLOW)
+
+
+## Advances automatically along the locked route whenever no overlay/dialog is
+## blocking the map, giving a brief visual beat so the player sees each leg.
+static func tick_auto_march(view, run, delta: float) -> bool:
+	if run == null or run.route_plan == null or not run.route_plan.is_locked_active():
+		return false
+	if run.exploration.finished:
+		return false
+	var plan: SpringRoutePlan = run.route_plan
+	if view.event_open or view.shop_open or not view.reward_choices.is_empty() or view.revive_prompt or view.confirm_end:
+		plan.auto_step_timer = -1.0
+		return false
+	if not plan.has_next_stop():
+		plan.auto_step_timer = -1.0
+		return false
+	if plan.auto_step_timer < 0.0:
+		plan.auto_step_timer = SpringRoutePlan.AUTO_STEP_DELAY
+		return false
+	plan.auto_step_timer -= delta
+	if plan.auto_step_timer <= 0.0:
+		plan.auto_step_timer = -1.0
+		_step_next(view, run)
+		return true
+	return false
 
 
 static func draw_bottom_controls(view, run) -> bool:
@@ -161,7 +186,7 @@ static func draw_bottom_controls(view, run) -> bool:
 
 	# Locked execution phase
 	var can_step: bool = plan.has_next_stop() and run.exploration.can_move_to(plan.next_stop())
-	view._draw_button(ADVANCE_BTN, "推进下一站", can_step)
+	view._draw_button(ADVANCE_BTN, "立即推进下一站", can_step)
 	view._draw_button(view.END_BTN, "结束探索", true)
 	if run.exploration.can_interact():
 		var place: SpringPlace = run.exploration.place_here()
@@ -234,6 +259,7 @@ static func _step_next(view, run) -> void:
 		view.status_message = "体力不足以推进至下一站（需 %d / 剩 %d）。" % [run.exploration.cost_to(target), run.exploration.stamina]
 		return
 	plan.advance_cursor()
+	plan.auto_step_timer = SpringRoutePlan.AUTO_STEP_DELAY if plan.has_next_stop() else -1.0
 	view.selected_cell = target
 	view.status_message = "定轨推进：抵达第 %d / %d 站「%s」· 剩余体力 %d。" % [plan.cursor, plan.waypoints.size(), view._place_label(target), run.exploration.stamina]
 	view._save()

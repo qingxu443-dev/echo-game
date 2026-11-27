@@ -104,8 +104,8 @@ func _process(delta: float) -> void:
 		if pos.y > VIEW.y + 8.0:
 			pos.y = -8.0
 		petal["pos"] = pos
+	RouteOverlayScript.tick_auto_march(self, run, delta)
 	queue_redraw()
-
 
 # --- geometry ----------------------------------------------------------------
 

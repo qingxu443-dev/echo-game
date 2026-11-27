@@ -9,10 +9,14 @@ extends RefCounted
 ## restricted to stepping sequentially through the locked waypoints until the
 ## route reaches the boss or the run ends.
 
+const AUTO_STEP_DELAY: float = 0.45
+
 var hard_mode: bool = false
 var locked: bool = false
 var waypoints: Array[Vector2i] = []
 var cursor: int = 0
+## Runtime-only countdown (seconds) for automatic stepping along a locked route.
+var auto_step_timer: float = -1.0
 
 
 static func create(is_hard: bool = false) -> SpringRoutePlan:
@@ -132,9 +136,10 @@ func lock_plan(template: SpringMapTemplate, stamina_budget: int) -> Dictionary:
 		return {"ok": false, "message": err}
 	locked = true
 	cursor = 0
+	auto_step_timer = 0.35
 	return {
 		"ok": true,
-		"message": "定轨锁定！共 %d 站，须按路线顺序推进至首领（王）。" % waypoints.size(),
+		"message": "定轨锁定！共 %d 站，正在按路线自动启程…" % waypoints.size(),
 	}
 
 

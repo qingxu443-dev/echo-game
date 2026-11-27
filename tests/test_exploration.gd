@@ -212,19 +212,26 @@ func _test_hard_mode_route_planning_and_forced_execution() -> void:
 
 	var locked: Dictionary = plan.lock_plan(run.template, run.exploration.stamina)
 	_check(bool(locked["ok"]) and plan.is_locked_active(), "locking switches hard mode into forced execution")
+	_check(plan.auto_step_timer > 0.0, "locking arms automatic marching along the route")
 	_check(plan.is_allowed_destination(mid_cell), "the first planned waypoint is the only allowed next move")
 	_check(not plan.is_allowed_destination(run.template.boss_cell), "skipping ahead to the boss is refused while an earlier stop is pending")
+
+	# Auto-march pauses while an overlay is open and resumes once clear.
+	var mock_view := _MockMapView.new()
+	mock_view.event_open = true
+	_check(not SpringRouteOverlay.tick_auto_march(mock_view, run, 1.0), "auto-march pauses while an overlay is open")
+	mock_view.event_open = false
+	SpringRouteOverlay.tick_auto_march(mock_view, run, 0.01)
+	_check(SpringRouteOverlay.tick_auto_march(mock_view, run, 1.0) and run.exploration.position == mid_cell, "auto-march automatically steps to the first planned stop")
 
 	# Save / load roundtrip preserves hard mode, locked route, and cursor.
 	var snapshot: Dictionary = run.to_dict()
 	var restored := SpringRun.from_dict(snapshot)
 	_check(restored != null and restored.route_plan.hard_mode and restored.route_plan.locked, "save roundtrip preserves hard-mode locked state")
-	_check(restored.route_plan.waypoints == plan.waypoints and restored.route_plan.cursor == 0, "save roundtrip preserves waypoints and cursor")
+	_check(restored.route_plan.waypoints == plan.waypoints and restored.route_plan.cursor == 1, "save roundtrip preserves waypoints and cursor")
 
-	# Stepping strictly follows mid -> boss.
-	_check(run.exploration.move_to(mid_cell), "moving to the first planned stop succeeds")
-	plan.advance_cursor()
-	_check(plan.next_stop() == run.template.boss_cell, "advancing cursor unlocks the boss as the next stop")
+	# Advancing past the first stop unlocks and reaches the boss.
+	_check(plan.next_stop() == run.template.boss_cell, "auto-march advanced cursor so boss is now the next stop")
 	_check(plan.is_allowed_destination(run.template.boss_cell), "boss stop is now allowed")
 	_check(run.exploration.move_to(run.template.boss_cell), "moving to the boss stop succeeds within stamina")
 	plan.advance_cursor()
@@ -236,3 +243,23 @@ func _test_hard_mode_route_planning_and_forced_execution() -> void:
 		var direct := SpringRoutePlan.create(true)
 		var res := direct.toggle_waypoint(tmpl.boss_cell, tmpl, ExplorationState.STAMINA_MAX)
 		_check(bool(res["ok"]) and direct.can_lock(tmpl, ExplorationState.STAMINA_MAX), "template %d supports a valid boss-tail route within stamina" % tid)
+
+
+class _MockMapView:
+	var event_open: bool = false
+	var shop_open: bool = false
+	var reward_choices: Array = []
+	var revive_prompt: bool = false
+	var confirm_end: bool = false
+	var selected_cell: Vector2i = Vector2i(-1, -1)
+	var status_message: String = ""
+	var entered_count: int = 0
+
+	func _place_label(cell: Vector2i) -> String:
+		return str(cell)
+
+	func _save() -> void:
+		pass
+
+	func _enter_here() -> void:
+		entered_count += 1

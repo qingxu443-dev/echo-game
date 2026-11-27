@@ -240,7 +240,7 @@ static func settle_and_transition(run, scene_tree: SceneTree) -> Dictionary:
 		outcome["region_transition"] = transition
 		outcome["finished_run"] = true
 		outcome["message"] = "夏之境已解锁，但无法载入区域场景；本次探索已结束。"
-	if bool(outcome.get("finished_run", false)):
+	if not transition.is_empty() and bool(outcome.get("finished_run", false)):
 		last_transition_message = str(outcome.get("message", ""))
 	return outcome
 

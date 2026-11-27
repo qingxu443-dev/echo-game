@@ -35,7 +35,8 @@ if ($Godot -eq "" -or -not (Test-Path $Godot)) {
 # Generating the .godot cache first is what the onboarding note asks for:
 # without it, suites that read .tres files report "crashed or failed to parse"
 # on a fresh clone. CI runs the same step before the suites.
-& $Godot --headless --path . --import *> $null
+& $Godot --headless --path . --import
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $runnerArgs = @("--headless", "--path", ".", "--script", "res://tests/run_suites.gd")
 if ($Fix) { $runnerArgs += @("--", "--fix") }

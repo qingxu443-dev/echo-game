@@ -44,7 +44,7 @@ func _run() -> void:
 
 	for name in suites:
 		var output: Array = []
-		OS.execute(engine, ["--headless", "--path", ".", "--script", "res://tests/%s.gd" % name], output, true)
+		var exit_code := OS.execute(engine, ["--headless", "--path", ".", "--script", "res://tests/%s.gd" % name], output, true)
 		var text := "".join(PackedStringArray(output))
 		var result := _parse_result(text)
 
@@ -60,6 +60,11 @@ func _run() -> void:
 		var script_error := _first_script_error(text)
 		if not script_error.is_empty():
 			print(_row(name, "SCRIPT ERROR: " + script_error))
+			broken += 1
+			continue
+
+		if exit_code != 0 and result.failures == 0:
+			print(_row(name, "EXIT %d after a successful RESULT" % exit_code))
 			broken += 1
 			continue
 

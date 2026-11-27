@@ -82,7 +82,7 @@ jobs:
             echo "::error::could not read 断言总数 from docs/engineering/BASELINE.md"
             exit 1
           fi
-          echo "BASELINE.md declares at least $EXPECTED assertions"
+          echo "BASELINE.md declares exactly $EXPECTED assertions"
           # Invoked through bash so the run does not depend on the executable bit
           # surviving a checkout on any platform.
           GODOT="$GODOT_BIN" EXPECTED_ASSERTIONS="$EXPECTED" bash ./tests/run_all.sh

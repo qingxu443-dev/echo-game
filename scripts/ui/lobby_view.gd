@@ -10,7 +10,6 @@ extends Control
 const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
 const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
 const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
-const SPRING_SAVE_PATH := "user://spring_run.json"
 const BACKGROUND_PATH := "res://assets/ui/lobby_atelier_bg.png"
 const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
 const AtelierPrepOverlayScript = preload("res://scripts/ui/atelier_prep_overlay.gd")
@@ -91,7 +90,7 @@ func _ready() -> void:
 
 func refresh_save_summary() -> void:
 	spring_resume_info.clear()
-	var restored := SpringRun.load_from_file(SPRING_SAVE_PATH)
+	var restored := SpringRun.load_from_file(SpringRun.SAVE_PATH)
 	if restored != null and not restored.exploration.finished:
 		spring_resume_info = {
 			"active": true,
@@ -214,6 +213,15 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 		status_notice = "目标地图场景不可用。"
 		queue_redraw()
 		return false
+	var tree := get_tree()
+	if tree == null:
+		return true
+	var error := tree.change_scene_to_file(target_path)
+	if error != OK:
+		status_notice = "目标地图场景无法打开。"
+		queue_redraw()
+		return false
+	# Godot adds the destination scene at the end of the frame.
 	if str(entry.get("id", "")) == "spring":
 		if hard_mode:
 			SpringBattleBridge.requested_mode = "hard"
@@ -221,14 +229,8 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 			SpringBattleBridge.requested_mode = "normal"
 		else:
 			SpringBattleBridge.requested_mode = ""
-	SpringBattleBridge.stage_starting_loadout(AtelierStashScript.take_loadout_items())
-	var tree := get_tree()
-	if tree == null:
-		return true
-	var error := tree.change_scene_to_file(target_path)
-	if error != OK:
-		push_error("Lobby: unable to open %s. Error: %s" % [target_path, error])
-		return false
+	else:
+		SpringBattleBridge.stage_starting_loadout(AtelierStashScript.take_loadout_items())
 	return true
 
 

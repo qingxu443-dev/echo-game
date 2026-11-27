@@ -181,6 +181,10 @@ static func camera_label() -> String:
 	return "%s (%d/4)" % [CAMERA_LABELS[camera_quadrant], camera_quadrant + 1]
 
 
+static func view_grid_size() -> Vector2i:
+	return board_grid_size if camera_quadrant % 2 == 0 else Vector2i(board_grid_size.y, board_grid_size.x)
+
+
 static func to_view_cell(cell: Vector2i) -> Vector2i:
 	var lx: int = board_grid_size.x - 1
 	var ly: int = board_grid_size.y - 1

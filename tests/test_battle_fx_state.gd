@@ -22,6 +22,7 @@ func _run() -> void:
 	_test_damage_event_sets_flash_and_popup()
 	_test_loot_event_reports_status()
 	_test_snap_after_camera_rotation()
+	_test_rectangular_board_projection()
 	_test_enemy_step_prep()
 	_test_banner_text_delegation()
 
@@ -161,3 +162,23 @@ func _test_banner_text_delegation() -> void:
 	_check(fallback == "原样消息", "banner falls back to the caller status outside lessons")
 	# hero_name 有非空中文回落
 	_check(not BattleBannerText.hero_name(controller).is_empty(), "hero name never empty")
+
+
+func _test_rectangular_board_projection() -> void:
+	var old_size := Palette.board_grid_size
+	var old_camera := Palette.camera_quadrant
+	Palette.board_grid_size = Vector2i(6, 9)
+	for quadrant in range(4):
+		Palette.camera_quadrant = quadrant
+		var expected := Vector2i(6, 9) if quadrant % 2 == 0 else Vector2i(9, 6)
+		var view_size := Palette.view_grid_size()
+		_check(view_size == expected, "rectangular board view bounds match camera quadrant %d" % quadrant)
+		var tiles := {}
+		for x in range(view_size.x):
+			for y in range(view_size.y):
+				var logical := Palette.from_view_cell(Vector2i(x, y))
+				if Rect2i(Vector2i.ZERO, Palette.board_grid_size).has_point(logical):
+					tiles[logical] = true
+		_check(tiles.size() == 54, "the renderer can visit every logical tile in quadrant %d" % quadrant)
+	Palette.board_grid_size = old_size
+	Palette.camera_quadrant = old_camera

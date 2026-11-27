@@ -49,7 +49,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 
 1. **分阶段验证、统一方向**：旧版规划的“五人共享 AP 队伍 + 多角色大卡池 + 类似集成战略”远超当前原型阶段开发体量，且导致已有内容严重割裂（如瑟弗林 12000 血 vs 樱 1800 血、画风横跨中世纪重甲 / 日系和风 / 萌系召唤物）。因此**仅在当前测试版本先以单角色瑟弗林**把 2.5D 战棋与肉鸽核心循环打透，底层多角色框架继续保留，后续再在统一美学与数值口径下逐步扩充新角色。
 2. **修复旧版战斗缺乏策略深度的问题**：旧版存在 1v1 关卡过易、5 AP 行动过剩、近战隔空必中、敌人单独消耗整回合寻路发呆、多怪重叠锁定同一格导致“挪一格全躲”等问题；本次按《陷阵之志》思路引入**位移击退破招、敌方分流拆箱、AP 联动充能与分步敌方回合**，让每一步都具备真实博弈压力。
-3. **关于本次分支的 CI 状态**：本分支包含 35 个自动化测试套件，工程基线拟更新至 **2489 条断言**；GitHub Actions 尚待复验，当前不把预期数量视为测试通过。
+3. **关于本次分支的 CI 状态**：本分支包含 35 个自动化测试套件，工程基线拟更新至 **2490 条断言**；GitHub Actions 尚待复验，当前不把预期数量视为测试通过。
 
 ---
 
@@ -76,7 +76,7 @@ godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_
 | **开发与验证平台** | Windows 10/11（64 位），目标分辨率 `1280 × 720`（横屏） |
 | **移动端方向** | Android 横屏（本阶段优先完成 Windows 桌面验证，暂未验证 Android 导出） |
 | **技能组版本** | **守誓者 V2**（裁决印记 / 誓盾庇护 / 绝对守护 + 被动「不屈誓约」） |
-| **自动化验证** | 本 PR 分支拟采用 35 个测试套件、2489 条断言的工程基线；GitHub Actions（Ubuntu + Windows）待复验（基线见 `docs/engineering/BASELINE.md`） |
+| **自动化验证** | 本 PR 分支拟采用 35 个测试套件、2490 条断言的工程基线；GitHub Actions（Ubuntu + Windows）待复验（基线见 `docs/engineering/BASELINE.md`） |
 | **待人工验证** | Windows 桌面交互与画面表现、Android 导出与真机表现 |
 
 ---
@@ -200,15 +200,15 @@ godot --headless --path . --script res://tests/test_core_rules.gd
 test_battle_controller                 144 ok
 ...
 -----
-suites=35 assertions=2489 failures=0 broken=0
-doc-numbers: ok (2489)
+suites=35 assertions=2490 failures=0 broken=0
+doc-numbers: ok (2490)
 doc-suites: ok (35)
 module-sizes: ok (60 rows)
 ```
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。
 * 末尾三行分别是套件汇总、文档数字校验、模块行数校验；任何一项不一致都会让退出码变成 `1`。套件汇总里的断言总数必须与 `BASELINE.md` 相等——多一条也要在同一个改动里把基线抬上去。
-* 本 PR 分支的预期基线为 **35 个套件、2489 条断言**；是否零失败以 GitHub Actions 实际结果为准。逐套件明细见 `docs/engineering/BASELINE.md`。
+* 本 PR 分支的预期基线为 **35 个套件、2490 条断言**；是否零失败以 GitHub Actions 实际结果为准。逐套件明细见 `docs/engineering/BASELINE.md`。
 * 任何代码改动均应重跑测试并以零失败为合并前提；无头测试不能替代 `F5` 主场景的交互与画面人工检查。
 
 ---

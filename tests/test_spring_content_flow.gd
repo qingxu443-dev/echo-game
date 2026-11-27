@@ -118,6 +118,8 @@ func _test_defeat_finishes_the_node() -> void:
 	_check(run.coins == 100, "a loss pays nothing")
 	_check(not bool(outcome.get("finished_run", false)), "the first loss leaves the run alive")
 	_check(not run.exploration.finished, "the run is not over yet")
+	var restored := SpringRun.from_dict(run.to_dict())
+	_check(restored.revive_prompt and not restored.revive_used, "a restored defeat still requires the continuation decision")
 	_check(str(outcome["message"]).contains("补给"), "the outcome points at the continuation")
 
 
@@ -161,6 +163,8 @@ func _test_elite_offers_three() -> void:
 		_check(CollectibleCatalogScript.rarity_of(choice) != CollectibleCatalogScript.RARITY_EPIC,
 			"candidate %s is not epic (§14)" % String(choice))
 	_check(run.collectibles.is_empty(), "the choice is not granted until the player picks")
+	var restored := SpringRun.from_dict(run.to_dict())
+	_check(restored.reward_choices == choices, "reloading preserves the exact unclaimed elite choices")
 
 	# Owning everything leaves no candidates rather than duplicates.
 	var loaded := _fresh_run()

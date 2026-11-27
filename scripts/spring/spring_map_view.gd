@@ -13,7 +13,6 @@ const EndingScript = preload("res://scripts/spring/spring_ending.gd")
 const RouteOverlayScript = preload("res://scripts/spring/spring_route_overlay.gd")
 
 const MENU_SCENE_PATH := "res://scenes/lobby/lobby.tscn"
-const SAVE_PATH := "user://spring_run.json"
 const VIEW: Vector2 = Vector2(1280.0, 720.0)
 
 const CELL_SIZE: float = 88.0
@@ -47,8 +46,8 @@ var shop_open: bool = false
 var shop_tab: int = 0
 var shop_sell_page: int = 0
 var shop_message: String = ""
-var reward_choices: Array[StringName] = []
-var revive_prompt: bool = false
+var save_path := SpringRun.SAVE_PATH
+var atelier_save_path := AtelierStash.SAVE_PATH
 
 
 func _ready() -> void:
@@ -57,29 +56,34 @@ func _ready() -> void:
 	var req_mode: String = BridgeScript.consume_requested_mode()
 	if run == null:
 		if req_mode == "hard" or req_mode == "normal":
-			_clear_save()
 			start_new_run(int(Time.get_unix_time_from_system()) % 100000, req_mode == "hard")
 		else:
-			var restored := SpringRun.load_from_file(SAVE_PATH)
+			var restored := SpringRun.load_from_file(save_path)
 			if restored != null and not restored.exploration.finished:
 				run = restored
 				status_message = "已恢复本局：模板 %d · 剩余体力 %d。" % [run.template_id, run.exploration.stamina]
 			else:
 				start_new_run(int(Time.get_unix_time_from_system()) % 100000, false)
 	_apply_returned_battle()
+	if not run.pending_event.is_empty():
+		event_place = run.template.place_by_id(StringName(run.pending_event["place"]))
+		event_result = run.pending_event["result"]
+		event_open = event_place != null
 	_init_petals()
 	queue_redraw()
 
 
 func start_new_run(seed_value: int, hard_mode: bool = false) -> void:
 	run = SpringRun.begin(seed_value, hard_mode)
-	SpringBattleBridge.apply_starting_loadout_to_run(run)
+	for item in AtelierStash.take_loadout_items(atelier_save_path):
+		run.add_battle_item(item)
 	selected_cell = Vector2i(-1, -1)
 	if hard_mode:
 		status_message = "【困难·一笔画】长按棋盘拖动连接任意数量节点，结尾必须落于「王」！"
 	else:
 		status_message = "抵达 %s。点击地点查看路程与体力消耗。" % _place_label(run.template.start_cell)
 	confirm_end = false
+	_save()
 
 func _init_petals() -> void:
 	petals.clear()
@@ -157,9 +161,9 @@ func _draw() -> void:
 		EventViewScript.draw(self, run, _event_id_for(event_place), event_result)
 	elif shop_open:
 		ShopViewScript.draw(self, run.shop, run, shop_tab, shop_sell_page, shop_message)
-	elif not reward_choices.is_empty():
+	elif not run.reward_choices.is_empty():
 		_draw_reward_choices()
-	elif revive_prompt:
+	elif run.revive_prompt:
 		_draw_revive_prompt()
 
 
@@ -385,12 +389,12 @@ func _gui_input(event: InputEvent) -> void:
 		queue_redraw()
 		accept_event()
 		return
-	if not reward_choices.is_empty():
+	if not run.reward_choices.is_empty():
 		_handle_reward_tap(point)
 		queue_redraw()
 		accept_event()
 		return
-	if revive_prompt:
+	if run.revive_prompt:
 		_handle_revive_tap(point)
 		queue_redraw()
 		accept_event()
@@ -457,13 +461,15 @@ func _try_move() -> void:
 	_save()
 
 
-func _save() -> void:
-	if run != null:
-		run.save_to_file(SAVE_PATH)
+func _save() -> bool:
+	if run.save_to_file(save_path):
+		return true
+	status_message = "春之境存档写入失败。"
+	return false
 
 
 func _clear_save() -> void:
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
 
 
 func _enter_here() -> void:
@@ -490,9 +496,6 @@ func _enter_here() -> void:
 
 # --- content entry points ----------------------------------------------------
 
-## §16.1: a fight keeps the map position and the remaining stamina, so nothing
-## about the explorer changes here - only the save, so the pre-fight state is what
-## a crash would come back to.
 func _start_battle(place: SpringPlace, kind: String) -> void:
 	if place.payload == &"":
 		status_message = "「%s」没有配置遭遇。" % run.title_of(place)
@@ -500,7 +503,9 @@ func _start_battle(place: SpringPlace, kind: String) -> void:
 	if not BridgeScript.prepare(run, place.payload, place.id, kind):
 		status_message = "「%s」的编成缺失，无法开战。" % run.title_of(place)
 		return
-	_save()
+	if not _save():
+		BridgeScript.clear_pending()
+		return
 	var error := get_tree().change_scene_to_file(BridgeScript.BATTLE_SCENE_PATH)
 	if error != OK:
 		BridgeScript.clear_pending()
@@ -544,19 +549,14 @@ func _apply_returned_battle() -> void:
 		return
 	var outcome: Dictionary = BridgeScript.settle(run)
 	status_message = str(outcome.get("message", status_message))
-	var choices: Array = outcome.get("reward_choices", [])
-	reward_choices = []
-	for choice in choices:
-		reward_choices.append(StringName(choice))
-	revive_prompt = bool(outcome.get("needs_revive", false))
+	if not run.pending_event.is_empty() and run.exploration.completed.has(StringName(run.pending_event["place"])):
+		run.pending_event.clear()
 	if run.pending_hidden_reveal:
 		run.pending_hidden_reveal = false
 		_reveal_hidden_place()
 	_save()
 
 
-## Finds the first free cell in the same deterministic order the template uses,
-## so a reveal lands somewhere reachable rather than on an occupied cell.
 func _reveal_hidden_place() -> void:
 	for cell in FactoryScript.LAYOUT_ORDER:
 		if run.reveal_hidden(cell):
@@ -575,9 +575,9 @@ func _draw_reward_choices() -> void:
 	draw_rect(panel, P.GOLD, false, 2.0)
 	draw_string(font, Vector2(216.0, 196.0), "精英战利品 · 三选一", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, P.GOLD_PALE)
 	draw_string(font, Vector2(216.0, 226.0), "只出现普通与稀有品质；已拥有的不会重复出现。", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
-	for index in range(reward_choices.size()):
+	for index in range(run.reward_choices.size()):
 		var rect := reward_card_rect(index)
-		var collectible_id: StringName = reward_choices[index]
+		var collectible_id: StringName = run.reward_choices[index]
 		draw_rect(rect, P.PANEL, true)
 		draw_rect(rect, P.BUTTON_BORDER, false, 1.4)
 		draw_string(font, rect.position + Vector2(18.0, 30.0), CollectibleCatalogScript.name_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 36.0, 18, P.GOLD_LIGHT)
@@ -624,6 +624,7 @@ func _choose_event_option(event_id: StringName, index: int) -> void:
 		status_message = "；".join(result.get("log", []))
 		return
 	event_result = result
+	run.pending_event = {"place": String(event_place.id), "result": result}
 	run.event_log[String(event_id)] = {"option": index, "log": result.get("log", [])}
 	if bool(result.get("reveal_hidden", false)):
 		_reveal_hidden_place()
@@ -633,27 +634,25 @@ func _choose_event_option(event_id: StringName, index: int) -> void:
 func _close_event() -> void:
 	var battle_id := StringName(str(event_result.get("battle", "")))
 	if battle_id != &"" and event_place != null:
-		# The event hands the fight the place's own id, so winning it finishes the
-		# event node instead of leaving a defeated encounter on the board.
 		var kind: String = BridgeScript.KIND_BATTLE
 		if EncounterCatalogScript.is_elite_or_boss(battle_id):
 			kind = BridgeScript.KIND_ELITE
-		event_open = false
-		event_result = {}
 		if not BridgeScript.prepare(run, battle_id, event_place.id, kind):
 			status_message = "这场伏击的编成缺失。"
-			run.complete_place(event_place)
 		else:
-			_save()
+			if not _save():
+				BridgeScript.clear_pending()
+				return
 			var error := get_tree().change_scene_to_file(BridgeScript.BATTLE_SCENE_PATH)
 			if error != OK:
 				BridgeScript.clear_pending()
-				push_error("无法进入战斗场景。Error: %s" % error)
-		return
+				status_message = "无法进入战斗场景。Error: %s" % error
+			return
 	if event_place != null:
 		run.complete_place(event_place)
 	event_open = false
 	event_result = {}
+	run.pending_event.clear()
 	status_message = "「%s」已了结。" % (run.title_of(event_place) if event_place != null else "事件")
 	_save()
 
@@ -700,14 +699,14 @@ func _close_shop() -> void:
 
 
 func _handle_reward_tap(point: Vector2) -> void:
-	for index in range(reward_choices.size()):
+	for index in range(run.reward_choices.size()):
 		if not reward_card_rect(index).has_point(point):
 			continue
-		var collectible_id: StringName = reward_choices[index]
+		var collectible_id: StringName = run.reward_choices[index]
 		run.grant_collectible(collectible_id)
 		var applied: Dictionary = run.apply_collectible_effect(collectible_id)
 		status_message = "获得藏品「%s」：%s" % [run.collectible_name(collectible_id), str(applied.get("message", ""))]
-		reward_choices = []
+		run.reward_choices.clear()
 		if run.pending_hidden_reveal:
 			run.pending_hidden_reveal = false
 			_reveal_hidden_place()
@@ -719,13 +718,13 @@ func _handle_revive_tap(point: Vector2) -> void:
 	if REVIVE_YES.has_point(point):
 		var outcome: Dictionary = BridgeScript.continue_run(run)
 		status_message = str(outcome.get("message", ""))
-		revive_prompt = false
+		run.revive_prompt = false
 		if not bool(outcome.get("ok", false)):
 			run.exploration.finish("defeat")
 		_save()
 		return
 	if REVIVE_NO.has_point(point):
-		revive_prompt = false
+		run.revive_prompt = false
 		run.exploration.finish("defeat")
 		_save()
 

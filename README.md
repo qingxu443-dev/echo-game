@@ -74,9 +74,10 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 
 ## 打包 Windows 试玩包
 
-仓库已内置 Windows Desktop 导出预设（`export_presets.cfg`：单文件内嵌资源 exe）。本机装有 4.7.2 导出模板后执行：
+仓库已内置 Windows Desktop 导出预设（`export_presets.cfg`：单文件内嵌资源 exe，排除测试脚本及素材源图）。本机装有 4.7.2 导出模板后执行：
 
 ```sh
+mkdir -p build
 godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_x64.exe
 ```
 
@@ -86,7 +87,7 @@ godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_
 
 ## 自动化测试与工程守卫
 
-项目当前基线为 **37 个套件、2603 条断言、0 失败**（明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)）。首次克隆需先执行一次 `godot --headless --path . --import` 生成资源缓存，随后一条命令运行全部套件与 7 项守卫：
+项目当前基线为 **37 个套件、2629 条断言、0 失败**（明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)）。首次克隆需先执行一次 `godot --headless --path . --import` 生成资源缓存，随后一条命令运行全部套件与 7 项守卫：
 
 ```bash
 # macOS / Linux / Git Bash
@@ -106,10 +107,10 @@ tests/run_all.sh --fix      # PowerShell: .\tests\run_all.ps1 -Fix
 正常通过示例（退出码 `0`）：
 
 ```text
-suites=37 assertions=2603 failures=0 broken=0
-doc-numbers: ok (2603)
+suites=37 assertions=2629 failures=0 broken=0
+doc-numbers: ok (2629)
 doc-suites: ok (37)
-module-sizes: ok (70 rows)
+module-sizes: ok (75 rows)
 module-lines: ok (limit 600)
 table-shape: ok
 field-readers: ok

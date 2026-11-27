@@ -164,7 +164,7 @@ static func tick_auto_march(view, run, delta: float) -> bool:
 		plan.fail_flash_timer = maxf(0.0, plan.fail_flash_timer - delta)
 	if not plan.is_locked_active() or run.exploration.finished:
 		return false
-	if view.event_open or view.shop_open or not view.reward_choices.is_empty() or view.revive_prompt or view.confirm_end:
+	if view.event_open or view.shop_open or not run.reward_choices.is_empty() or run.revive_prompt or view.confirm_end:
 		plan.auto_step_timer = -1.0
 		return false
 	if not plan.has_next_stop():
@@ -209,7 +209,7 @@ static func draw_bottom_controls(view, run) -> bool:
 static func handle_gui_event(view, run, event: InputEvent) -> bool:
 	if run == null or run.route_plan == null or not run.route_plan.hard_mode:
 		return false
-	if view.event_open or view.shop_open or not view.reward_choices.is_empty() or view.revive_prompt or view.confirm_end or run.exploration.finished:
+	if view.event_open or view.shop_open or not run.reward_choices.is_empty() or run.revive_prompt or view.confirm_end or run.exploration.finished:
 		return false
 	var plan: SpringRoutePlan = run.route_plan
 

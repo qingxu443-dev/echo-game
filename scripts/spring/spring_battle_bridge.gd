@@ -46,17 +46,6 @@ static func stage_starting_loadout(items: Array[Dictionary]) -> void:
 		starting_loadout.append(item.duplicate(true))
 
 
-static func apply_starting_loadout_to_run(run) -> int:
-	if run == null or starting_loadout.is_empty():
-		return 0
-	var count := 0
-	for item in starting_loadout:
-		run.add_battle_item(item)
-		count += 1
-	starting_loadout.clear()
-	return count
-
-
 static func apply_starting_loadout_to_run_state(run_state) -> int:
 	if run_state == null or starting_loadout.is_empty():
 		return 0
@@ -180,6 +169,7 @@ static func settle(run) -> Dictionary:
 			run.exploration.finish("defeat")
 			outcome["finished_run"] = true
 		else:
+			run.revive_prompt = true
 			outcome["needs_revive"] = true
 			outcome["message"] += "可以用 %d 份补给续行一次。" % CONTINUE_SUPPLY_COST
 		return outcome
@@ -210,6 +200,7 @@ static func settle(run) -> Dictionary:
 				run.add_supplies(2)
 				outcome["message"] = "击败了精英。藏品已收集齐全，换得 40 花钿与 2 份补给。"
 			else:
+				run.reward_choices.assign(choices)
 				outcome["reward_choices"] = choices
 		KIND_BOSS:
 			# §15.4: one random exclusive reward. Drawn once - calling the roll

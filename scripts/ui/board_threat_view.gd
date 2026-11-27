@@ -299,7 +299,39 @@ static func _draw_hazard_tile(canvas: CanvasItem, cell: Vector2i, fill: Color, l
 	P.draw_polyline_closed(canvas, P.cell_diamond(cell, 7.0), Color(line.r, line.g, line.b, 0.45 * pulse), 1.4)
 
 
-# --- stacked telegraph labels + total damage summary --------------------------
+# --- incoming threat summary & ultra-compact board chips ----------------------
+
+## Single source of truth for everything about to hit `cell`: used both by the
+## compact board chips and by the bottom-left HUD breakdown card (no board clutter).
+static func incoming_threats_at(controller, cell: Vector2i) -> Dictionary:
+	var active := _active_intents(controller)
+	var entries: Array[Dictionary] = []
+	var total_dmg := 0
+	var hit_count := 0
+	for i in range(active.size()):
+		var intent = active[i]
+		if intent.target_cell != cell and not intent.affected_cells.has(cell):
+			continue
+		var info := _label_for_intent(controller, intent, _order_symbol(i))
+		if info.is_empty():
+			continue
+		entries.append(info)
+		if int(info.get("dmg", 0)) > 0:
+			total_dmg += int(info["dmg"])
+			hit_count += 1
+	var caution := ""
+	if hit_count == 0:
+		for intent in active:
+			if (not intent.move_path.is_empty() and intent.move_path.has(cell)) or (intent.action_id == "pursuit" and intent.affected_cells.has(cell)):
+				caution = "⚠ 拦路截击：站此路径会被冲锋撞击"
+				break
+		if caution.is_empty():
+			for intent in active:
+				if _reactive_cells_for_intent(controller, intent).has(cell):
+					caution = "⚠ 贴身追击：敌方近战将转身或追步劈砍"
+					break
+	return {"entries": entries, "total_dmg": total_dmg, "hit_count": hit_count, "caution": caution}
+
 
 static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
 	var focused := _focused_source_ids(controller, fx_state)
@@ -319,44 +351,23 @@ static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dict
 			buckets[cell] = []
 		(buckets[cell] as Array).append(info)
 
-	# Warn if the active hero is standing on a reactive-melee or intercept path tile.
-	var hero = controller.get_active_character()
-	if hero != null and hero.is_alive():
-		var on_intercept := false
-		var on_reactive := false
-		for intent in active:
-			if (not intent.move_path.is_empty() and intent.move_path.has(hero.cell)) or (intent.action_id == "pursuit" and intent.affected_cells.has(hero.cell)):
-				on_intercept = true
-			if _reactive_cells_for_intent(controller, intent).has(hero.cell):
-				on_reactive = true
-		if on_intercept and not is_cell_in_danger(controller, hero.cell):
-			if not buckets.has(hero.cell):
-				buckets[hero.cell] = []
-			(buckets[hero.cell] as Array).append({"text": "⚠ 拦路截击", "color": Color("#ffba5a"), "dmg": 0})
-		elif on_reactive and not is_cell_in_danger(controller, hero.cell):
-			if not buckets.has(hero.cell):
-				buckets[hero.cell] = []
-			(buckets[hero.cell] as Array).append({"text": "⚠ 贴身追击", "color": Color("#ffba5a"), "dmg": 0})
-
+	# Render AT MOST ONE tiny chip per tile (near floor center, never a tall tower
+	# blocking standees behind it). Full multi-hit breakdown lives above the hero HUD.
 	for cell in buckets:
 		var entries: Array = buckets[cell]
-		var base_pos := P.cell_center(cell)
-		var has_actor := has_living_actor_at(controller, cell)
-		if has_actor:
-			base_pos += Vector2(0.0, -P.STANDEE_HEIGHT - 10.0)
 		var total_dmg := 0
 		var hit_count := 0
 		for e in entries:
 			if int(e.get("dmg", 0)) > 0:
 				total_dmg += int(e["dmg"])
 				hit_count += 1
-		var row_h := 17.0
-		for idx in range(entries.size()):
-			var e: Dictionary = entries[idx]
-			var txt: String = ("! " + str(e["text"])) if (has_actor and idx == 0 and hit_count == 1) else str(e["text"])
-			_draw_telegraph_tag(canvas, base_pos - Vector2(0.0, float(idx) * row_h), txt, e["color"])
+		var chip_pos := P.cell_center(cell) + Vector2(0.0, 7.0)
 		if hit_count >= 2:
-			_draw_telegraph_tag(canvas, base_pos - Vector2(0.0, float(entries.size()) * row_h + 2.0), "⚠ 合计 -%d" % total_dmg, Color("#ffecd2"), Color(0.56, 0.11, 0.13, 0.94))
+			_draw_telegraph_tag(canvas, chip_pos, "⚠ -%d (%d击)" % [total_dmg, hit_count], Color("#ffecd2"), Color(0.58, 0.10, 0.12, 0.94))
+		else:
+			var e0: Dictionary = entries[0]
+			var short_txt: String = str(e0.get("short", e0["text"]))
+			_draw_telegraph_tag(canvas, chip_pos, short_txt, e0["color"])
 
 
 static func _label_for_intent(controller, intent, ord_sym: String) -> Dictionary:
@@ -369,18 +380,18 @@ static func _label_for_intent(controller, intent, ord_sym: String) -> Dictionary
 		"aimed_shot", "light_shot", "locked_shot":
 			color = P.TELEGRAPH_SHOT_MARK
 		"lock_on":
-			return {"cell": intent.target_cell, "text": "%s 锁命" % ord_sym, "color": P.TELEGRAPH_SHOT_MARK, "dmg": 0}
+			return {"cell": intent.target_cell, "text": "%s 锁命" % ord_sym, "short": "%s 锁命" % ord_sym, "color": P.TELEGRAPH_SHOT_MARK, "dmg": 0}
 		"blight_field":
 			color = P.HAZARD_BLIGHT_LINE
 		"spring_bloom":
 			color = P.HAZARD_SPRING_LINE
 		"rot_curse":
-			return {"cell": intent.target_cell, "text": "%s 降防 %d" % [ord_sym, intent.damage], "color": P.TELEGRAPH_PULSE_MARK, "dmg": 0}
+			return {"cell": intent.target_cell, "text": "%s 降防 %d" % [ord_sym, intent.damage], "short": "%s -%d防" % [ord_sym, intent.damage], "color": P.TELEGRAPH_PULSE_MARK, "dmg": 0}
 		"charged_strike", "basic_melee", "sakura_shock", "shadow_raid":
 			color = P.TELEGRAPH_CHARGE_MARK
 		_:
 			return {}
-	return {"cell": intent.target_cell, "text": "%s %s %d" % [ord_sym, name, shown], "color": color, "dmg": shown}
+	return {"cell": intent.target_cell, "text": "%s %s -%d" % [ord_sym, name, shown], "short": "%s -%d" % [ord_sym, shown], "color": color, "dmg": shown}
 
 
 static func action_label_zh(action_id: String) -> String:

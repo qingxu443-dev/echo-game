@@ -256,11 +256,12 @@ func trigger_beacon_fx(event: Dictionary, controller) -> void:
 	var source = controller.get_actor(source_id)
 	for b_cell in controller.beacons:
 		if str(controller.beacons[b_cell]["id"]) == str(event.get("target_id", "")):
-			impact_flashes.append({"cell": b_cell, "color": Palette.TELEGRAPH_CHARGE_LINE, "age": 0.0, "duration": 0.38})
+			var is_ward := str(controller.beacons[b_cell].get("kind", "")) == "ward_node"
+			impact_flashes.append({"cell": b_cell, "color": Color("#6ef2c8") if is_ward else Palette.TELEGRAPH_CHARGE_LINE, "age": 0.0, "duration": 0.38})
 			append_popup(
 				Palette.cell_center(b_cell) + Vector2(-24.0, -54.0),
-				"宝箱 -%d" % applied,
-				Palette.WARN,
+				("结界 -%d" if is_ward else "宝箱 -%d") % applied,
+				Color("#8ef5d4") if is_ward else Palette.WARN,
 				0.95
 			)
 			if source != null:

@@ -13,6 +13,7 @@ const P = preload("res://scripts/ui/theme_palette.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const BoardObjectsViewScript = preload("res://scripts/ui/board_objects_view.gd")
+const BoardThreatViewScript = preload("res://scripts/ui/board_threat_view.gd")
 const EnemySkillCatalogScript = preload("res://scripts/battle/enemy_skill_catalog.gd")
 
 const PORTRAIT_DIR: String = "res://assets/actors/portraits/"
@@ -36,6 +37,7 @@ static func draw_status(canvas: CanvasItem, controller, status_message: String, 
 	_draw_active_mods(canvas, font, controller)
 	_draw_guide_banner(canvas, font, status_message)
 	_draw_portrait_card(canvas, font, controller)
+	_draw_incoming_threat_card(canvas, font, controller, fx_state)
 	_draw_enemy_order_card(canvas, font, controller)
 	_draw_enemy_inspector_card(canvas, font, controller, fx_state)
 
@@ -183,6 +185,48 @@ static func _draw_portrait_card(canvas: CanvasItem, font: Font, controller) -> v
 
 
 # --- top-right: enemy turn order + hovered enemy skill inspector ------------
+
+static func _draw_incoming_threat_card(canvas: CanvasItem, font: Font, controller, fx_state: Dictionary) -> void:
+	if controller.phase != controller.BattlePhase.PLAYER:
+		return
+	var hero = controller.get_active_character()
+	if hero == null or not hero.is_alive():
+		return
+	var target_cell: Vector2i = hero.cell
+	var title_prefix := "当前站位将受击"
+	var summary := BoardThreatViewScript.incoming_threats_at(controller, hero.cell)
+	if fx_state.has("hover_cell"):
+		var hc: Vector2i = fx_state["hover_cell"]
+		if P.is_inside_board(hc, controller.grid_size) and hc != hero.cell:
+			var hover_sum := BoardThreatViewScript.incoming_threats_at(controller, hc)
+			if not (hover_sum["entries"] as Array).is_empty() or not str(hover_sum["caution"]).is_empty():
+				target_cell = hc
+				title_prefix = "悬停格将受击"
+				summary = hover_sum
+	var entries: Array = summary["entries"]
+	var caution: String = str(summary["caution"])
+	if entries.is_empty() and caution.is_empty():
+		return
+	var total_dmg: int = int(summary["total_dmg"])
+	var hit_count: int = int(summary["hit_count"])
+	var rows: int = entries.size() + (1 if not caution.is_empty() else 0)
+	var h: float = 34.0 + float(rows) * 19.0 + 8.0
+	var rect := Rect2(P.PORTRAIT_CARD_RECT.position.x, P.PORTRAIT_CARD_RECT.position.y - h - 8.0, P.PORTRAIT_CARD_RECT.size.x, h)
+	var lethal: bool = total_dmg > 0 and target_cell == hero.cell and total_dmg >= hero.health + hero.shield
+	var border := Color("#ff4d4f") if (hit_count > 0) else Color("#ffae52")
+	_draw_card(canvas, rect, Color(0.18, 0.08, 0.09, 0.96) if hit_count > 0 else Color(0.17, 0.13, 0.08, 0.96), border)
+	canvas.draw_rect(Rect2(rect.position, Vector2(4.0, rect.size.y)), border, true)
+	var hdr: String = "⚠ %s：-%d (%d击)" % [title_prefix, total_dmg, hit_count] if hit_count > 0 else "⚠ %s警戒" % ("当前站位" if target_cell == hero.cell else "悬停格")
+	if lethal:
+		hdr += " [致死!]"
+	canvas.draw_string(font, rect.position + Vector2(12.0, 21.0), hdr, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 18.0, 12, Color("#ffe9d6"))
+	var y: float = rect.position.y + 40.0
+	for e in entries:
+		canvas.draw_string(font, Vector2(rect.position.x + 14.0, y), str(e["text"]), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 24.0, 12, e["color"])
+		y += 19.0
+	if not caution.is_empty():
+		canvas.draw_string(font, Vector2(rect.position.x + 14.0, y), caution, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 24.0, 11, Color("#ffd18a"))
+
 
 static func _draw_enemy_order_card(canvas: CanvasItem, font: Font, controller) -> void:
 	var rect := P.ORDER_CARD_RECT

@@ -190,6 +190,16 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 				canvas.draw_rect(pill, Color(0.62, 0.12, 0.10, 0.94), true)
 				canvas.draw_rect(pill, Color("#ffae52"), false, 1.4)
 				canvas.draw_string(ThemeDB.fallback_font, pill.position + Vector2(0.0, 13.0), "⚠ 命中触发反击!", HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 10, Color("#fff5e0"))
+		var skill_def = SkillRegistryScript.get_skill(StringName(sid))
+		if skill_def != null:
+			for b_cell in controller.beacons:
+				var b: Dictionary = controller.beacons[b_cell]
+				if str(b.get("kind", "")) != "ward_node" or int(b.get("health", 0)) <= 0:
+					continue
+				if CharacterSkillRuntimeScript.can_aim_ward_node(controller, skill_def, b_cell):
+					var wpts := P.cell_diamond(b_cell, inset)
+					canvas.draw_colored_polygon(wpts, Color(0.37, 0.92, 0.72, 0.28))
+					P.draw_polyline_closed(canvas, wpts, Color("#9effdf"), 2.6)
 		return
 	if mode == "ally":
 		for actor_id in controller.actors:

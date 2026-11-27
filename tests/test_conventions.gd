@@ -1,0 +1,70 @@
+extends "res://tests/framework/test_case.gd"
+
+## 约定守卫套件：把"数据声明的 id 必须有人接"变成每次 CI 都跑的红绿灯。
+##
+## 第十三轮之前，这类错只有玩家按下去才发现：目录里写了个拼错的 action_id，
+## 规划器 push_error 然后敌人站着不动；技能目录加了新技能忘了登记执行器，
+## 点击无声无息。这些都不是靠"下次更仔细"，是让 CI 在合并前就红。
+
+const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
+const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
+const EnemySkillCatalogScript = preload("res://scripts/battle/enemy_skill_catalog.gd")
+const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
+const SpringShopScript = preload("res://scripts/spring/spring_shop.gd")
+
+
+func _run() -> void:
+	_test_every_skill_has_an_executor()
+	_test_every_enemy_action_is_in_the_catalogue()
+	_test_every_loot_kind_is_known()
+	_test_every_shop_id_resolves()
+	_report()
+
+
+## 每个可施放的技能都必须有登记的执行器。角色目录加技能 = 加数据；忘了在
+## CharacterSkillRuntime 登记执行器，就是按了没反应。
+func _test_every_skill_has_an_executor() -> void:
+	var executors: Dictionary = CharacterSkillRuntimeScript._executors
+	_check(executors.size() > 0, "the executor table is built")
+	for skill in SkillRegistryScript.all_skills():
+		if skill.is_passive:
+			continue
+		_check(executors.has(skill.executor_id), "skill '%s' dispatches to a registered executor" % skill.skill_id)
+
+
+## 敌人数据里写下的每个 action 都必须能在技能参数表里查到——这是规划器
+## 报错前的最后一道闸，数据错字在这里就红，不用等实机。
+func _test_every_enemy_action_is_in_the_catalogue() -> void:
+	var dir := DirAccess.open("res://data/enemies")
+	var checked: int = 0
+	for file_name in dir.get_files():
+		if not file_name.ends_with(".tres"):
+			continue
+		var definition = load("res://data/enemies/" + file_name)
+		if definition == null:
+			continue
+		for action_id in definition.actions:
+			checked += 1
+			_check(EnemySkillCatalogScript.has(action_id), "%s uses a known action '%s'" % [file_name, action_id])
+	_check(checked >= 10, "the enemy sheets declare actions to check (%d seen)" % checked)
+
+
+## 战利品的 kind 决定它走交付/出售的哪条路；表外的 kind 会被所有分支静默跳过。
+func _test_every_loot_kind_is_known() -> void:
+	var known: Array[String] = [
+		LootCatalogScript.KIND_WEAPON,
+		LootCatalogScript.KIND_ARMOR,
+		LootCatalogScript.KIND_CONSUMABLE,
+		LootCatalogScript.KIND_SKILL_UPGRADE,
+	]
+	var definitions: Array = LootCatalogScript._definitions
+	_check(definitions.size() >= 10, "the loot catalogue publishes its sheets (%d items)" % definitions.size())
+	for definition in definitions:
+		_check(known.has(str(definition.kind)), "loot '%s' carries a known kind" % str(definition.id))
+
+
+## 商店手抄了目录的 id 清单（它不访问目录的私有表）。清单里任何 id 在目录里
+## 查不到，就是货架上一件永远买不到的东西。
+func _test_every_shop_id_resolves() -> void:
+	for item_id in SpringShopScript._catalog_ids():
+		_check(not LootCatalogScript.get_item(item_id).is_empty(), "the shop's '%s' resolves in the catalogue" % String(item_id))

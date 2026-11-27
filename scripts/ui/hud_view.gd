@@ -13,6 +13,7 @@ const P = preload("res://scripts/ui/theme_palette.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const BoardObjectsViewScript = preload("res://scripts/ui/board_objects_view.gd")
+const EnemySkillCatalogScript = preload("res://scripts/battle/enemy_skill_catalog.gd")
 
 const PORTRAIT_DIR: String = "res://assets/actors/portraits/"
 
@@ -395,43 +396,16 @@ static func _is_shield_action(action_id: String) -> bool:
 
 
 static func action_name(action_id: String) -> String:
-	match action_id:
-		"charged_strike":
-			return "重戟横扫"
-		"basic_melee":
-			return "近战挥击"
-		"pursuit":
-			return "逼近追击"
-		"aimed_shot":
-			return "贯通狙击"
-		"light_shot":
-			return "轻矢点射"
-		"ground_pulse":
-			return "地脉脉冲"
-		"echo_bolt":
-			return "回声弹"
-		"ward_ally":
-			return "古木壁垒"
-		"ward_stance":
-			return "结界守护"
-		"blight_field":
-			return "樱落领域"
-		"spring_bloom":
-			return "春痕绽放"
-		"sakura_shock":
-			return "樱庭震荡"
-		"lock_on":
-			return "百花锁命"
-		"locked_shot":
-			return "锁命箭"
-		"shadow_raid":
-			return "逐影突袭"
-		"rot_curse":
-			return "腐樱诅咒"
-		"wait":
-			return "待机观察"
-		_:
-			return action_id
+	# The label lives in the enemy skill catalogue - one source. This used to be
+	# a hand-written match copy, and six names had already drifted apart from the
+	# catalogue's ("重戟横扫" vs "蓄力横扫", "轻矢点射" vs "点射", ...). If an id
+	# has no spec (a typo in data), fall back to the raw id so the log says the
+	# truth instead of guessing a pretty name.
+	if EnemySkillCatalogScript.has(StringName(action_id)):
+		var spec = EnemySkillCatalogScript.get_skill(StringName(action_id))
+		if spec != null and not String(spec.label_zh).is_empty():
+			return String(spec.label_zh)
+	return action_id
 
 
 static func action_description(action_id: String) -> String:

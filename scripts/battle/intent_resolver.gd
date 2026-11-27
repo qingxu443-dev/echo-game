@@ -161,6 +161,7 @@ static func redirect_to_guardian(battle, intent, guardian_id: String) -> void:
 			# target without re-checking distance at resolve time. A melee is
 			# therefore legally redirected to Sevrin anywhere inside the
 			# two-cell taunt radius, not only when adjacent.
+			## CONTRACT: _test_guard_taunt_pulls_a_dodged_melee_within_two_cells
 			legal = distance <= 2
 		_:
 			# Charged strikes are AREA_LOCKED sweeps; the mode filter above

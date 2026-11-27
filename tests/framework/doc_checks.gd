@@ -272,6 +272,112 @@ static func fix_module_sizes() -> int:
 
 
 ## Prints every check and returns whether all of them passed.
+## 数据字段必须有人读。
+##
+## 第十轮手工扫出三个纯写入死字段（skill 的 effect_id / duration_player_phases、
+## summon 的 icon），第十三轮数据化拆包又造出 label_zh 零读者——每次仓库自己
+## 长回来的同一类腐烂。这条守卫把那两次手工扫描变成每次 CI 的机器检查。
+##
+## 规则（调过参，避免狼来了）：
+##  - 只查 *_definition.gd（数据类）；
+##  - 读者 = 其它文件里的 `.field`（非赋值）或 `.get("field")` 字典键；
+##  - 自身文件里 is_valid() 之外的裸名出现也算读（to_dict/from_dict 这类序列化
+##    正是裸名消费——loot_item_definition 整类就是这种形态）；
+##  - is_valid() 里的自校验不算——只有校验认识它的字段，就是死字段。
+##
+## 例外只增不减没有意义：给字段接上读者后请把条目删掉。
+const FIELD_READER_EXCEPTIONS := {
+}
+
+static func check_field_readers() -> Array[String]:
+	var problems: Array[String] = []
+	var index := _script_index()
+	var all_text: Dictionary = {}
+	for file_name in index:
+		all_text[file_name] = read_text(index[file_name])
+	for file_name in index:
+		if not file_name.ends_with("_definition.gd"):
+			continue
+		var own: String = all_text[file_name]
+		var body: String = _strip_is_valid(own)
+		for match in _export_field_re.search_all(own):
+			var field: String = match.get_string(1)
+			var exceptions: Array = FIELD_READER_EXCEPTIONS.get(file_name, [])
+			if exceptions.has(field):
+				continue
+			if _field_has_reader(field, file_name, body, all_text):
+				continue
+			problems.append("%s.%s has no reader - a field nothing obeys" % [file_name, field])
+	return problems
+
+
+static func _strip_is_valid(text: String) -> String:
+	var start := text.find("func is_valid(")
+	if start < 0:
+		return text
+	var rest := text.substr(start + 1)
+	var next_func := rest.find("\nfunc ")
+	var next_static := rest.find("\nstatic func ")
+	var cut := rest.length()
+	if next_func >= 0:
+		cut = mini(cut, next_func)
+	if next_static >= 0:
+		cut = mini(cut, next_static)
+	return text.substr(0, start) + rest.substr(cut)
+
+
+static func _field_has_reader(field: String, own_file: String, own_body: String, all_text: Dictionary) -> bool:
+	# Bare-name use in the declaring file outside is_valid (to_dict, from_dict,
+	# describe, ...) - but an assignment is a write, not a read.
+	var bare := _compile("\\b%s\\b(?!\\s*=(?!=))" % field)
+	if bare.search(own_body) != null:
+		return true
+	var dotted := _compile("\\.%s\\b(?!\\s*=(?!=))" % field)
+	var dict_key := _compile("\\.get\\(\"%s\"\\)" % field)
+	for other in all_text:
+		if other == own_file:
+			continue
+		var t: String = all_text[other]
+		if dotted.search(t) != null or dict_key.search(t) != null:
+			return true
+	return false
+
+
+## 注释里的承诺必须指向一个测试：`## CONTRACT: <测试函数名>`。
+##
+## 嘲讽两格拉扯（注释说两格合法、结算层悄悄取消）与续行重置（注释说进区域
+## 重置、没有任何重置点）都是"注释承诺≠实现承诺"，且两次都是零测试覆盖。
+## 这条守卫让谎话变成构建失败：立约可以，把测试名写上；没有测试的承诺不许进注释。
+const CONTRACT_RE := "## CONTRACT: (\\S+)"
+
+static func check_contract_tags() -> Array[String]:
+	var problems: Array[String] = []
+	var index := _script_index()
+	var tests_text := _read_all_suite_text()
+	var regex := _compile(CONTRACT_RE)
+	for file_name in index:
+		var text: String = read_text(index[file_name])
+		for match in regex.search_all(text):
+			var token: String = match.get_string(1)
+			if not tests_text.contains(token):
+				problems.append("%s promises '%s' but no test mentions it" % [file_name, token])
+	return problems
+
+
+static func _read_all_suite_text() -> String:
+	var combined := ""
+	var dir := DirAccess.open("res://tests")
+	if dir == null:
+		return combined
+	for file_name in dir.get_files():
+		if file_name.ends_with(".gd"):
+			combined += read_text("res://tests/" + file_name)
+	return combined
+
+
+static var _export_field_re: RegEx = _compile("@export(?:_multiline)? var (\\w+)")
+
+
 static func report() -> bool:
 	var ok := true
 	var expected := expected_assertions()
@@ -330,6 +436,24 @@ static func report() -> bool:
 			print("table-shape: ", problem)
 		print("table-shape: %d row(s) would render shifted" % shape.size())
 		ok = false
+	var readers := check_field_readers()
+	if readers.is_empty():
+		print("field-readers: ok")
+	else:
+		for problem in readers:
+			print("field-readers: ", problem)
+		print("field-readers: %d dead field(s); wire it up or delete it" % readers.size())
+		ok = false
+
+	var promises := check_contract_tags()
+	if promises.is_empty():
+		print("contracts: ok")
+	else:
+		for problem in promises:
+			print("contracts: ", problem)
+		print("contracts: %d promise(s) without a test; name the test in the tag" % promises.size())
+		ok = false
+
 	return ok
 
 

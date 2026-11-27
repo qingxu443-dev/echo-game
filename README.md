@@ -90,13 +90,13 @@ python tools/fetch_windows_template.py
 ./tools/build_windows.ps1 -Godot 'C:/Godot/Godot_v4.7.2-stable_win64_console.exe'
 ```
 
-产物在 `build/windows/`，含 ZIP、exe、来源提交/校验值、资源清单、日志和测试者说明。构建复现与待人工验收表见 [Windows 交接](docs/engineering/WINDOWS_DELIVERY.md)，初次运行见 [测试说明](docs/engineering/TESTER_WINDOWS_0.1.md)。Windows 实机验收交由人工，Android 暂缓。`build/` 不入库。
+产物在 `build/windows/`，含 ZIP、exe、来源提交/校验值、资源清单、日志和测试者说明。构建复现与待人工验收表见 [Windows 交接](docs/delivery/WINDOWS_DELIVERY.md)，初次运行见 [测试说明](docs/delivery/TESTER_WINDOWS_0.1.md)。Windows 实机验收交由人工，Android 暂缓。`build/` 为本地产物目录，不入库。
 
 ---
 
 ## 自动化测试与工程守卫
 
-基线是**覆盖下限**，由 [`tests/framework/baseline.json`](tests/framework/baseline.json) 单独声明；当前套件数与断言数以运行输出为准，逐套件明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)。新增测试不需要改任何共享文档。
+基线是**覆盖下限**，由 [`tests/framework/baseline.json`](tests/framework/baseline.json) 单独声明；当前套件数与断言数以运行输出为准，逐套件明细见 [`docs/engineering/quality/BASELINE.md`](docs/engineering/quality/BASELINE.md)。新增测试不需要改任何共享文档。
 
 ```bash
 # macOS / Linux / Git Bash
@@ -107,7 +107,7 @@ tests\run_all.bat
 .\tests\run_all.ps1 -Godot "C:\Godot\Godot_v4.7.2-stable_win64_console.exe"
 ```
 
-模块行数变动时可用 `--fix` 原地同步 `docs/engineering/ARCHITECTURE.md`：
+模块行数变动时可用 `--fix` 原地同步 `docs/engineering/architecture/ARCHITECTURE.md`：
 
 ```bash
 tests/run_all.sh --fix      # PowerShell: .\tests\run_all.ps1 -Fix
@@ -130,16 +130,18 @@ contracts: ok
 
 ## 文档导航
 
-实机缺陷定位与回归结果见 [实机修复记录](docs/engineering/PLAYTEST_FIXES_2026-11-27.md)。
+实机缺陷定位与回归结果见 [实机修复记录](docs/engineering/quality/PLAYTEST_FIXES_2026-11-27.md)。
 
-`docs/` 分为 `design/`（设计规范）、`engineering/`（工程基准）与 `archive/`（只读历史）三层，阅读顺序见 [`docs/README.md`](docs/README.md)：
+`docs/` 按用途分为 `design/`（世界观 / 规则 / 角色 / 内容 / 美术）、`engineering/`（架构 / 质量 / 决策）、`planning/`（状态 / 任务）、`delivery/`（验收）与 `archive/`（只读历史）。完整目录说明与逐篇摘要见 [`docs/README.md`](docs/README.md)。
 
 | 分组 | 文档 |
 | :--- | :--- |
-| **世界观与美术** | [`ECHO_WORLD_OVERVIEW_1.0`](docs/design/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md)、[`ECHO_OPENING_PROLOGUE_1.0`](docs/design/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md)、[`ECHO_VISUAL_ART_DIRECTION_1.1`](docs/design/ECHO_VISUAL_ART_DIRECTION_1.1_zh-CN.md) |
-| **机制与法则** | [`ECHO_SYSTEM_LAWS_v1.0`](docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md)、[`CORE_COMBAT_RULES_v0.1`](docs/design/CORE_COMBAT_RULES_v0.1_zh-CN.md)、[`BATTLE_EVENT_TIMELINE_v0.1`](docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md)、[`ENEMY_AI_AND_TELEGRAPH_v0.1`](docs/design/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md) |
-| **角色与数值** | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](docs/design/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md)、[`skill_design_principles`](docs/design/skill_design_principles_zh-CN.md)、[`combat_stats`](docs/design/combat_stats_zh-CN.md)、[`battle_status_system`](docs/design/battle_status_system_zh-CN.md) |
-| **工程与基线** | [`ARCHITECTURE`](docs/engineering/ARCHITECTURE.md)、[`PROJECT_STATUS`](docs/engineering/PROJECT_STATUS.md)、[`BASELINE`](docs/engineering/BASELINE.md)、[`DECISIONS_AND_OPEN_QUESTIONS`](docs/engineering/DECISIONS_AND_OPEN_QUESTIONS.md) |
+| **世界观与美术** | [`ECHO_WORLD_OVERVIEW_1.0`](docs/design/world/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md)、[`ECHO_OPENING_PROLOGUE_1.0`](docs/design/world/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md)、[`ECHO_VISUAL_ART_DIRECTION_1.1`](docs/design/art/ECHO_VISUAL_ART_DIRECTION_1.1_zh-CN.md) |
+| **机制与法则** | [`ECHO_SYSTEM_LAWS_v1.0`](docs/design/systems/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md)、[`CORE_COMBAT_RULES_v0.1`](docs/design/systems/CORE_COMBAT_RULES_v0.1_zh-CN.md)、[`BATTLE_EVENT_TIMELINE_v0.1`](docs/design/systems/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md)、[`ENEMY_AI_AND_TELEGRAPH_v0.1`](docs/design/systems/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md) |
+| **角色与数值** | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](docs/design/characters/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md)、[`数值主规格`](docs/design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md)、[`skill_design_principles`](docs/design/systems/skill_design_principles_zh-CN.md)、[`battle_status_system`](docs/design/systems/battle_status_system_zh-CN.md) |
+| **赛季内容** | [`未尽之春设计汇总`](docs/design/content/ECHO_SPRING_THAT_NEVER_FINISHED_DESIGN_SUMMARY_2026-11-26.md) |
+| **工程与基线** | [`ARCHITECTURE`](docs/engineering/architecture/ARCHITECTURE.md)、[`BASELINE`](docs/engineering/quality/BASELINE.md)、[`DECISIONS_AND_OPEN_QUESTIONS`](docs/engineering/decisions/DECISIONS_AND_OPEN_QUESTIONS.md) |
+| **计划与交付** | [`PROJECT_STATUS`](docs/planning/PROJECT_STATUS.md)、[`TASK_PLAN`](docs/planning/TASK_PLAN.md)、[`TESTER_WINDOWS_0.1`](docs/delivery/TESTER_WINDOWS_0.1.md)、[`WINDOWS_DELIVERY`](docs/delivery/WINDOWS_DELIVERY.md) |
 | **历史归档** | [`README_LEGACY`](docs/archive/README_LEGACY.md)、[`sevrin_skill_kit`](docs/archive/sevrin_skill_kit_zh-CN.md)、[`GODOT_ENGINE_VALIDATION`](docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md) |
 
 ## 仓库结构
@@ -151,7 +153,7 @@ contracts: ok
 │   ├── enemies/         # 敌人与 Boss 档案（.tres）
 │   ├── levels/          # 教学关卡配置（.tres）
 │   └── loot/            # 武器、护甲、道具与角色铭文配置（.tres）
-├── docs/                # design / engineering / archive 文档
+├── docs/                # design / engineering / planning / delivery / archive
 ├── scenes/              # 主菜单、工坊大厅、春之境地图与战斗场景
 ├── scripts/
 │   ├── actors/          # 战斗单位与状态模型

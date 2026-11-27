@@ -15,7 +15,7 @@
 
 ## 已有基础
 
-教学三关、樱与瑟弗林技能、春之境三模板及两种探索模式、事件行商、工坊补给、单局恢复、棋盘四机位和 Windows 导出已有实现。既有测试与 CI 结果见 [BASELINE](BASELINE.md)。M0–M2 早期重构、表现层拆分、CI 和 D-01 参数化已有实现，更新旧文档时标记其实际完成范围。
+教学三关、樱与瑟弗林技能、春之境三模板及两种探索模式、事件行商、工坊补给、单局恢复、棋盘四机位和 Windows 导出已有实现。既有测试与 CI 结果见 [BASELINE](../engineering/quality/BASELINE.md)。M0–M2 早期重构、表现层拆分、CI 和 D-01 参数化已有实现，更新旧文档时标记其实际完成范围。
 
 ## 近期阶段与里程碑
 
@@ -73,7 +73,7 @@
 
 ## M5 Windows 试玩交付
 
-- [x] **ECHO-501 · P1 · 可重复构建**。依赖 105、206。自动执行匹配版本导入、全量回归、Windows 导出和包体清单检查。验收为日志能定位失败，测试和素材源图排除在试玩包外。实施入口与真实构建证据见 WINDOWS_DELIVERY；交互和最终验收仍待人工。
+- [x] **ECHO-501 · P1 · 可重复构建**。依赖 105、206。自动执行匹配版本导入、全量回归、Windows 导出和包体清单检查。验收为日志能定位失败，测试和素材源图排除在试玩包外。实施入口与真实构建证据见 `docs/delivery/WINDOWS_DELIVERY.md`；交互和最终验收仍待人工。
 - [ ] **ECHO-502 · P1 · 性能基线**。依赖 303。测量主菜单、地图、多敌/Boss 战斗、加载和长局内存。验收为目标设备有帧时间及加载记录，只有实测瓶颈进入优化任务。
 - [ ] **ECHO-503 · P1 · 发布候选验收**。依赖 306、501、502。执行干净环境安装/启动、升级旧档和完整试玩。验收为构建提交、版本、校验值、运行说明和已知问题可追溯。M4 中影响本次交付的任务在 003 确定。
 - [ ] **ECHO-504 · P1 · 交付与问题回流**。依赖 503。整理试玩说明、反馈入口、版本记录与回滚方案。验收为测试者可按说明启动并提供可复现反馈。已实现随 ZIP 附带操作/已知问题/反馈/存档备份与回滚说明，待人工完成 503 后演练并签收。
@@ -97,7 +97,7 @@
 
 ## 人员与资源
 
-2026-11-28 用户指令：Android 暂缓；Windows 界面与实机验收交由人工。301～306、502/503 的人工通过结果不由 agent 代填。工程构建 501 及 504 的交接材料已实现；待验收表和当前问题见 [WINDOWS_DELIVERY](WINDOWS_DELIVERY.md)。601～612 的规则/设计/素材依赖继续保留，不把未获裁决的玩法直接投入实现。
+2026-11-28 用户指令：Android 暂缓；Windows 界面与实机验收交由人工。301～306、502/503 的人工通过结果不由 agent 代填。工程构建 501 及 504 的交接材料已实现；待验收表和当前问题见 [WINDOWS_DELIVERY](../delivery/WINDOWS_DELIVERY.md)。601～612 的规则/设计/素材依赖继续保留，不把未获裁决的玩法直接投入实现。
 
 近期计划按一名熟悉 Godot 的全职开发者估算。策划约需 3–5 人日落实规则和数值，QA 约需 4–7 人日完成首轮验收及复测，美术/技术美术根据试玩问题参与。新增区域、序幕和角色的生产工作独立估算。
 
@@ -105,12 +105,12 @@
 
 ## 来源与维护
 
-- [现行架构与审计](ARCHITECTURE.md)
+- [现行架构与审计](../engineering/architecture/ARCHITECTURE.md)
 - [项目状态](PROJECT_STATUS.md)
-- [实现欠账 D-01 至 D-04](IMPLEMENTATION_DEBT_v1.0_zh-CN.md)
-- [春之境设计与未决事项](../design/ECHO_SPRING_THAT_NEVER_FINISHED_DESIGN_SUMMARY_2026-11-26.md)
-- [既有框架方案](FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)
-- [战斗待决事项裁决记录](../design/ECHO_COMBAT_PENDING_DECISIONS_v0.3.2_zh-CN.md)
+- [实现欠账 D-01 至 D-04](../engineering/quality/IMPLEMENTATION_DEBT_v1.0_zh-CN.md)
+- [春之境设计与未决事项](../design/content/ECHO_SPRING_THAT_NEVER_FINISHED_DESIGN_SUMMARY_2026-11-26.md)
+- [既有框架方案](../archive/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)
+- [战斗待决事项裁决记录](../engineering/decisions/ECHO_COMBAT_PENDING_DECISIONS_v0.3.2_zh-CN.md)
 
 既有规格中已经完成或被后续决定替代的条目，通过 001 对账，当前清单按最新明确决定维护。任务是否完成以合入 main 的提交和对应验证记录为准。
 
@@ -118,6 +118,6 @@
 
 本轮记录：ECHO-202 / Codex / `fix/armor-per-cast-accounting` 实施提交 / 专项 36 条、全量 42 套件 2981 断言 / 同名实施 PR / 实际工时未精确计量。修复前原始 26 条场景中 5 条失败，修复后扩展场景全绿。Boss 败北裁决仍保留待定。
 
-本轮实施记录：ECHO-001/002/003 的范围与决策登记见 [当前范围对账](CURRENT_SCOPE_AND_DECISIONS.md)，登记关闭不等于 Boss/通灵/正式数值已裁决。ECHO-203/204/205/206 / Codex / `fix/tactical-integration-boundaries` / 专项 60 条与既有两角色、道具、暂停、部署回归 / 本批实施 PR / 工时未精确计量。ECHO-401 接续 #82/#91，本批已核对统一清理与正常入口。
+本轮实施记录：ECHO-001/002/003 的范围与决策登记见 [当前范围对账](../engineering/decisions/CURRENT_SCOPE_AND_DECISIONS.md)，登记关闭不等于 Boss/通灵/正式数值已裁决。ECHO-203/204/205/206 / Codex / `fix/tactical-integration-boundaries` / 专项 60 条与既有两角色、道具、暂停、部署回归 / 本批实施 PR / 工时未精确计量。ECHO-401 接续 #82/#91，本批已核对统一清理与正常入口。
 
 2026-11-28 实施记录：ECHO-402～406 / Codex / `refactor/gameplay-coordination` / 协调边界 30 条、击退契约 58 条及全量回归 / 本批实施 PR / 工时未精确计量。SpringMapFlow 负责恢复/保存/切换/待决交互，视图退至上限内并移除豁免；BattleRewards 由模式驱动，旧已结算暂停档不重发；两击退入口同核，保留碰撞事件差异并统一声明可打断的蓄势；InputMap 命名键位与错误载荷拒绝；SkillDefinition 为说明单源，锁定依赖后真实素材两次输出 SHA-256 一致。

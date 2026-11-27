@@ -1,8 +1,8 @@
 # ECHO — 决策记录与待决问题
 
 > **现状核对（2026-11-25，`main` @ `3e4c83b`）**：本文件是决策记录，翻译时保留原始决策原文的语义。与当前实现的差异已按 `main` 最新增补直接核正进正文，其余差异标注如下：
-> - 「临时猎人伙伴」在实现中已演变为**猎人通灵技**——不占场的单次支援打击，两回合冷却，不生成战场单位（见 `docs/engineering/PROJECT_STATUS.md` 的 P0）。
-> - 「待决问题」中的事件结算顺序与伤害公式两项，已由 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/design/combat_stats_zh-CN.md` 分别落地。
+> - 「临时猎人伙伴」在实现中已演变为**猎人通灵技**——不占场的单次支援打击，两回合冷却，不生成战场单位（见 `docs/planning/PROJECT_STATUS.md` 的 P0）。
+> - 「待决问题」中的事件结算顺序与伤害公式两项，已由 `docs/design/systems/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md` 分别落地。
 
 统一使用以下标签：
 
@@ -69,7 +69,7 @@
 
 ## 0.3 战斗裁决记录（2026-11-26，授权自治）
 
-所有者于 2026-11-26 将 `docs/design/ECHO_COMBAT_PENDING_DECISIONS_v0.3.2_zh-CN.md` 的全部 15 项待决事项授权维护者裁定，条件是**不引入报错、不对现有实现产生负面影响**。逐条结论见该文件的「裁决记录」小节，此处只记结论与影响面。
+所有者于 2026-11-26 将 `docs/engineering/decisions/ECHO_COMBAT_PENDING_DECISIONS_v0.3.2_zh-CN.md` 的全部 15 项待决事项授权维护者裁定，条件是**不引入报错、不对现有实现产生负面影响**。逐条结论见该文件的「裁决记录」小节，此处只记结论与影响面。
 
 **改动代码的 5 项**：
 
@@ -95,9 +95,9 @@
 - 伤害、死亡、状态效果、预告取消与触发的最终事件结算顺序是什么？
 - 最终的伤害、护甲、生命与控制公式是什么？
 
-> **现状标注**：后两项已落地——事件结算顺序见 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md`；伤害公式见 `docs/design/combat_stats_zh-CN.md`（递减收益：`原始伤害 × 1000 ÷ (1000 + 对应抗性)`）。
+> **现状标注**：后两项已落地——事件结算顺序见 `docs/design/systems/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md` 与 `docs/design/systems/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md`；伤害公式见 `docs/design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md`（递减收益：`原始伤害 × 1000 ÷ (1000 + 对应抗性)`）。
 
-## 由 `docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md`（Draft）提出的提案 — 待所有者评审
+## 由 `docs/design/systems/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md`（Draft）提出的提案 — 待所有者评审
 
 系统法则文档为 Draft 状态，向本文件提出两项变更。两者均未在下方生效，因为草案不能凭自身权威修改已确认规则。
 

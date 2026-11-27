@@ -16,7 +16,7 @@ ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗
 2. 进入大厅，点击「选择地图」。教学遗迹依序推进三关。春之境普通模式选格并确认移动，困难模式先绘制以首领格为终点的路线。
 3. 战斗中左键移动或选目标，`1–4` 选技能，`Q/E` 转镜头，`B` 打开背包，Enter/Space 结束回合。
 4. 自动化先执行 `godot --headless --path . --import`，再从根目录执行 `GODOT=/path/to/godot bash tests/run_all.sh`。Windows 也可执行 `./tests/run_all.ps1 -Godot <Godot-console.exe>`，该入口包含导入。
-5. Windows 构建执行 `python tools/fetch_windows_template.py` 和 `./tools/build_windows.ps1 -Godot <Godot-console.exe>`，工具核对匹配模板后生成带校验值和日志的 ZIP。复现与待人工验收见 [Windows 交接](WINDOWS_DELIVERY.md)。
+5. Windows 构建执行 `python tools/fetch_windows_template.py` 和 `./tools/build_windows.ps1 -Godot <Godot-console.exe>`，工具核对匹配模板后生成带校验值和日志的 ZIP。复现与待人工验收见 [Windows 交接](../../delivery/WINDOWS_DELIVERY.md)。
 
 ## 场景、状态与核心循环
 
@@ -37,7 +37,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 - **春之境**。地图由种子选定模板与随机事件，移动消耗探索体力。事件、行商和战斗共享本局资源。战斗经桥接传递遭遇、生命与装备背包，返回后更新节点、发奖励或要求续行。Boss 胜利后按持久解锁和场景存在性决定是否进入下一层。存档恢复原地图、事件、行商库存、路线与未完成的选择。中断正在进行的战斗时，地图从战前检查点恢复。
 - **工坊**。跨局残晶用于购买、打包或退款。教学出征通过桥接传入补给，春之境新局从工坊领用并立即存档。恢复已有春之境时保留工坊新打包的物品。春之境地图内的行商使用局内资源。
 - **数据和资源**。`data/characters`、`enemies`、`levels`、`loot`、`summons` 供各目录加载。技能、春之境事件与地图模板也有编译进 GDScript 的显式目录。`assets/` 存放立绘、头像、背景、素材源图及导入配置。
-- **工程边界**。`tests/` 负责引擎内回归和守卫，`docs/design/` 记录设计，`docs/engineering/` 记录现状和验证入口，`docs/archive/` 保留历史。以 [逐套件基线](BASELINE.md) 核对明细与变更记录，覆盖下限在 `tests/framework/baseline.json`。
+- **工程边界**。`tests/` 负责引擎内回归和守卫，`docs/design/` 记录设计，`docs/engineering/` 记录现状和验证入口，`docs/archive/` 保留历史。以 [逐套件基线](../quality/BASELINE.md) 核对明细与变更记录，覆盖下限在 `tests/framework/baseline.json`。
 
 ## 逐模块索引
 
@@ -226,4 +226,4 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 - `BattleRewards` 由教学视图驱动，单场 `rewards_settled` 随账本保存和重置；春之境继续由事务结算。BattleFlow 不认识工坊奖励或桥接模式。
 - `KnockbackService` 统一碰撞、位移和意图同步；SkillEffects/SkillExecutor 保留兼容委托，均打断显式 interruptible 蓄势，保留既有碰撞事件开关差异。
 - `project.godot` 声明 `echo_*` 动作，InputRouter 消费命名输入并保持默认键位；地图取消与全局暂停读取各自命名动作。暂停载荷校验场景与坐标/生命边界后再应用。
-- 技能完整说明直接读 SkillDefinition，短提示由字段生成；素材工具锁定与复现见 [工具说明](../../tools/README.md)。
+- 技能完整说明直接读 SkillDefinition，短提示由字段生成；素材工具锁定与复现见 [工具说明](../../../tools/README.md)。

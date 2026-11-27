@@ -1,6 +1,6 @@
 # 工具环境与复现
 
-Windows 工程包使用 `python tools/fetch_windows_template.py` 获取经版本与 SHA-256 核对的官方 release 模板，再执行 `./tools/build_windows.ps1 -Godot <Godot-console.exe>`。构建器包含全量回归、导出、实际 PCK 内容与 exe 启动检查，生成附日志和校验值的 ZIP；完整复现与人工验收边界见 [WINDOWS_DELIVERY](../docs/engineering/WINDOWS_DELIVERY.md)。构建工具不依赖素材处理的第三方 Python 包。
+Windows 工程包使用 `python tools/fetch_windows_template.py` 获取经版本与 SHA-256 核对的官方 release 模板，再执行 `./tools/build_windows.ps1 -Godot <Godot-console.exe>`。构建器包含全量回归、导出、实际 PCK 内容与 exe 启动检查，生成附日志和校验值的 ZIP；完整复现与人工验收边界见 [WINDOWS_DELIVERY](../docs/delivery/WINDOWS_DELIVERY.md)。构建工具不依赖素材处理的第三方 Python 包。
 
 游戏运行不依赖 Python。Godot 使用仓库标注的 4.7.2 Standard，正式玩法参数来自 `data/*.tres` 与类型化技能目录；技能栏完整说明直接读取 SkillDefinition，短提示由射程、形状和段数生成，不再维护第二份招式数字表。修改自然语言说明仍须与所属目录字段一同审阅。
 

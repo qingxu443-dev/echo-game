@@ -8,7 +8,7 @@
 > **v1.1 相对 v1.0 的改动**：把三条纪律掰正。
 > 1. **删去**「每一条世界规则都必须能对应到一处已实现的机制」——那句话把本文档写成了代码的镜像，导致代码一动文档就欠账。
 > 2. **删去** §5「实现状态对照」——那不是世界规则，是工程快照，已迁至《实现欠账清单》。
-> 3. **法则内不再出现可调数值**——行动点数、衰减常数、预告提前量一律降级为「参数」，具体取值只存在于 `combat_stats` / `BASELINE` / 关卡 `.tres`。
+> 3. **法则内不再出现可调数值**——行动点数、衰减常数、预告提前量一律降级为「参数」，具体取值只存在于数值主规格 / `BASELINE` / 关卡 `.tres`。
 
 ---
 
@@ -205,12 +205,12 @@
 
 | 文档 | 关系 | 说明 |
 |---|---|---|
-| `docs/design/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md` | **并行，负责氛围** | 按 §1.2，不产出世界规则 |
-| `docs/design/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md` | 并行，负责开场演出 | 同上 |
-| `docs/design/combat_stats_zh-CN.md` | **引用其参数值** | 本文档声明参数语义，该文档提供默认值 |
-| `docs/design/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md` | **引用其机制** | 本文档只补法则一的世界解释 |
-| `docs/design/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md` | 角色规格，本文档不涉 | 角色机制以其为准 |
-| `docs/engineering/DECISIONS_AND_OPEN_QUESTIONS.md` | 建议增补 | 「绝不 retarget」一类条目可从「独立确认规则」改为「法则一的推论」 |
+| `docs/design/world/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md` | **并行，负责氛围** | 按 §1.2，不产出世界规则 |
+| `docs/design/world/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md` | 并行，负责开场演出 | 同上 |
+| `docs/design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md` | **引用其参数值** | 本文档声明参数语义，该文档提供默认值 |
+| `docs/design/systems/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md` | **引用其机制** | 本文档只补法则一的世界解释 |
+| `docs/design/characters/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md` | 角色规格，本文档不涉 | 角色机制以其为准 |
+| `docs/engineering/decisions/DECISIONS_AND_OPEN_QUESTIONS.md` | 建议增补 | 「绝不 retarget」一类条目可从「独立确认规则」改为「法则一的推论」 |
 | **《实现欠账清单》** | **对账用** | 法则与实现的差距记录于此，**不进本文档** |
 
 ---

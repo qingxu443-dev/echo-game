@@ -49,7 +49,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 
 1. **分阶段验证、统一方向**：旧版规划的“五人共享 AP 队伍 + 多角色大卡池 + 类似集成战略”远超当前原型阶段开发体量，且导致已有内容严重割裂（如瑟弗林 12000 血 vs 樱 1800 血、画风横跨中世纪重甲 / 日系和风 / 萌系召唤物）。因此**仅在当前测试版本先以单角色瑟弗林**把 2.5D 战棋与肉鸽核心循环打透，底层多角色框架继续保留，后续再在统一美学与数值口径下逐步扩充新角色。
 2. **修复旧版战斗缺乏策略深度的问题**：旧版存在 1v1 关卡过易、5 AP 行动过剩、近战隔空必中、敌人单独消耗整回合寻路发呆、多怪重叠锁定同一格导致“挪一格全躲”等问题；引入**位移击退破招、敌方分流拆箱、AP 联动充能与分步敌方回合**，让每一步都具备真实博弈压力。
-3. **关于当前 CI 测试状态说明**：37 个自动化测试套件与工程基线（`docs/engineering/BASELINE.md`）已按 2.5D 新底层、春之境内容层与敌人行为层同步，本地实跑 **2603 条断言、0 失败、0 报错**。
+3. **关于当前 CI 测试状态说明**：37 个自动化测试套件与工程基线（`docs/engineering/quality/BASELINE.md`）已按 2.5D 新底层、春之境内容层与敌人行为层同步，本地实跑 **2603 条断言、0 失败、0 报错**。
 
 ---
 
@@ -61,7 +61,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_x64.exe
 ```
 
-导出后建议做一次冒烟（启动数秒确认窗口与渲染正常）；测试交付惯例见 `docs/engineering/TESTER_WINDOWS_0.1.md`。`build/` 为本地产物目录，不入库。
+导出后建议做一次冒烟（启动数秒确认窗口与渲染正常）；测试交付惯例见 `docs/delivery/TESTER_WINDOWS_0.1.md`。`build/` 为本地产物目录，不入库。
 
 ## 历史基线说明（原 Prototype 0.1 / 0.3 内容完整保留）
 
@@ -76,7 +76,7 @@ godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_
 | **开发与验证平台** | Windows 10/11（64 位），目标分辨率 `1280 × 720`（横屏） |
 | **移动端方向** | Android 横屏（本阶段优先完成 Windows 桌面验证，暂未验证 Android 导出） |
 | **技能组版本** | **守誓者 V2**（裁决印记 / 誓盾庇护 / 绝对守护 + 被动「不屈誓约」） |
-| **自动化验证** | 2026-11-26 完成 Godot 4.7.2 导入与主场景无头运行；37 个测试套件当前 **2603 条断言，0 失败**（基线见 `docs/engineering/BASELINE.md`）；每次推送到 main 或开 PR 时由 GitHub Actions 在 Ubuntu 与 Windows 两个 runner 上复跑（`.github/workflows/suites.yml`） |
+| **自动化验证** | 2026-11-26 完成 Godot 4.7.2 导入与主场景无头运行；37 个测试套件当前 **2603 条断言，0 失败**（基线见 `docs/engineering/quality/BASELINE.md`）；每次推送到 main 或开 PR 时由 GitHub Actions 在 Ubuntu 与 Windows 两个 runner 上复跑（`.github/workflows/suites.yml`） |
 | **待人工验证** | Windows 桌面交互与画面表现、Android 导出与真机表现 |
 
 ---
@@ -208,7 +208,7 @@ module-sizes: ok (60 rows)
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。
 * 末尾三行分别是套件汇总、文档数字校验、模块行数校验；任何一项不一致都会让退出码变成 `1`。套件汇总里的断言总数必须与 `BASELINE.md` 相等——多一条也要在同一个改动里把基线抬上去。
-* 当前基线为 **37 个套件、2603 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
+* 当前基线为 **37 个套件、2603 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/quality/BASELINE.md`。
 * 任何代码改动均应重跑测试并以零失败为合并前提；无头测试不能替代 `F5` 主场景的交互与画面人工检查。
 
 ---
@@ -225,16 +225,16 @@ module-sizes: ok (60 rows)
 
 ## 文档导航
 
-`docs/` 分 `design/`（设计规范）、`engineering/`（工程基准）、`archive/`（只读历史）三层，判断标准与阅读顺序见 [`docs/README.md`](docs/README.md)。
+`docs/` 分 `design/`（设计规范）、`engineering/`（工程基准）、`archive/`（只读历史）三层，判断标准与阅读顺序见 [`docs/README.md`](../README.md)。
 
 | 分组 | 文档 | 说明 |
 |---|---|---|
-| **世界观与美术** | [`ECHO_WORLD_OVERVIEW_1.0`](docs/design/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md)、[`ECHO_OPENING_PROLOGUE_1.0`](docs/design/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md)、[`ECHO_VISUAL_ART_DIRECTION_1.1`](docs/design/ECHO_VISUAL_ART_DIRECTION_1.1_zh-CN.md) | 氛围、叙事与美术参考，**不产出世界规则** |
-| **机制与法则** | [`ECHO_SYSTEM_LAWS_v1.0`](docs/design/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md)（Draft）、[`CORE_COMBAT_RULES_v0.1`](docs/design/CORE_COMBAT_RULES_v0.1_zh-CN.md)、[`BATTLE_EVENT_TIMELINE_v0.1`](docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md)、[`ENEMY_AI_AND_TELEGRAPH_v0.1`](docs/design/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md) | 世界法则与机制解释；冲突时以系统法则为准 |
-| **角色与技能** | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](docs/design/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md)、[`skill_design_principles`](docs/design/skill_design_principles_zh-CN.md)、[`sevrin_skill_kit`](docs/archive/sevrin_skill_kit_zh-CN.md)（历史版本） | 当前技能结构以 V2 规范为准 |
-| **数值与状态** | [`combat_stats`](docs/design/combat_stats_zh-CN.md)、[`battle_status_system`](docs/design/battle_status_system_zh-CN.md) | 伤害公式、抗性与状态系统 |
-| **工程** | [`ARCHITECTURE`](docs/engineering/ARCHITECTURE.md)、[`PROJECT_STATUS`](docs/engineering/PROJECT_STATUS.md)、[`DECISIONS_AND_OPEN_QUESTIONS`](docs/engineering/DECISIONS_AND_OPEN_QUESTIONS.md)、[`FRAMEWORK_PROPOSAL_v1.0`](docs/engineering/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)、[`engineering/BASELINE`](docs/engineering/BASELINE.md) | 模块边界、进度、待决事项、重构方案与测试基线 |
-| **验证** | [`GODOT_ENGINE_VALIDATION`](docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md)（历史）、[`TESTER_WINDOWS_0.1`](docs/engineering/TESTER_WINDOWS_0.1.md)、[`godot_validation_checklist`](docs/engineering/godot_validation_checklist_zh-CN.md) | 引擎验证记录与人工验证指引 |
+| **世界观与美术** | [`ECHO_WORLD_OVERVIEW_1.0`](../design/world/ECHO_WORLD_OVERVIEW_1.0_zh-CN.md)、[`ECHO_OPENING_PROLOGUE_1.0`](../design/world/ECHO_OPENING_PROLOGUE_1.0_zh-CN.md)、[`ECHO_VISUAL_ART_DIRECTION_1.1`](../design/art/ECHO_VISUAL_ART_DIRECTION_1.1_zh-CN.md) | 氛围、叙事与美术参考，**不产出世界规则** |
+| **机制与法则** | [`ECHO_SYSTEM_LAWS_v1.0`](../design/systems/ECHO_SYSTEM_LAWS_v1.0_zh-CN.md)（Draft）、[`CORE_COMBAT_RULES_v0.1`](../design/systems/CORE_COMBAT_RULES_v0.1_zh-CN.md)、[`BATTLE_EVENT_TIMELINE_v0.1`](../design/systems/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md)、[`ENEMY_AI_AND_TELEGRAPH_v0.1`](../design/systems/ENEMY_AI_AND_TELEGRAPH_v0.1_zh-CN.md) | 世界法则与机制解释；冲突时以系统法则为准 |
+| **角色与技能** | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](../design/characters/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md)、[`skill_design_principles`](../design/systems/skill_design_principles_zh-CN.md)、[`sevrin_skill_kit`](sevrin_skill_kit_zh-CN.md)（历史版本） | 当前技能结构以 V2 规范为准 |
+| **数值与状态** | [`数值主规格`](../design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md)、[`battle_status_system`](../design/systems/battle_status_system_zh-CN.md) | 伤害公式、抗性与状态系统 |
+| **工程** | [`ARCHITECTURE`](../engineering/architecture/ARCHITECTURE.md)、[`PROJECT_STATUS`](../planning/PROJECT_STATUS.md)、[`DECISIONS_AND_OPEN_QUESTIONS`](../engineering/decisions/DECISIONS_AND_OPEN_QUESTIONS.md)、[`FRAMEWORK_PROPOSAL_v1.0`](FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)、[`engineering/BASELINE`](../engineering/quality/BASELINE.md) | 模块边界、进度、待决事项、重构方案与测试基线 |
+| **验证** | [`GODOT_ENGINE_VALIDATION`](GODOT_ENGINE_VALIDATION_zh-CN.md)（历史）、[`TESTER_WINDOWS_0.1`](../delivery/TESTER_WINDOWS_0.1.md)、[`godot_validation_checklist`](godot_validation_checklist_zh-CN.md) | 引擎验证记录与人工验证指引 |
 
 ## 仓库结构
 

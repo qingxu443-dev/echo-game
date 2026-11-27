@@ -117,6 +117,6 @@ tests/run_all.sh        # bash
 tests\run_all.bat       # Windows
 ```
 
-纯文档或纯参数改动不应改变断言总数；断言数变化须在 `docs/engineering/BASELINE.md` 记录原因。
+纯文档或纯参数改动不应改变断言总数；断言数变化须在 `docs/engineering/quality/BASELINE.md` 记录原因。
 
 **核对纪律**：静态读代码、测试中存在断言、实际运行通过——三者是不同状态，不得混为一谈。本表只记录第一类的结论，运行验证须另行记录。

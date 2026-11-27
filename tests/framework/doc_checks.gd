@@ -18,8 +18,8 @@ extends RefCounted
 ##     had already drifted when the title menu merged, while that file's own
 ##     opening line claims it describes what currently exists.
 
-const BASELINE_PATH := "docs/engineering/BASELINE.md"
-const ARCHITECTURE_PATH := "docs/engineering/ARCHITECTURE.md"
+const BASELINE_PATH := "docs/engineering/quality/BASELINE.md"
+const ARCHITECTURE_PATH := "docs/engineering/architecture/ARCHITECTURE.md"
 ## 唯一保存可变基线的机器文件。文档一律不写套件数/断言数，避免每个 PR
 ## 都改同一批行、互相冲突。这里记录的是下限：实际值只许高于它。
 const BASELINE_JSON_PATH := "tests/framework/baseline.json"
@@ -37,10 +37,10 @@ const MODULE_LINE_DEBT := {
 
 const TOTAL_SCAN_FILES := [
 	"README.md",
-	"docs/engineering/ARCHITECTURE.md",
-	"docs/engineering/PROJECT_STATUS.md",
-	"docs/engineering/TESTER_WINDOWS_0.1.md",
-	"docs/engineering/IMPLEMENTATION_DEBT_v1.0_zh-CN.md",
+	"docs/engineering/architecture/ARCHITECTURE.md",
+	"docs/planning/PROJECT_STATUS.md",
+	"docs/delivery/TESTER_WINDOWS_0.1.md",
+	"docs/engineering/quality/IMPLEMENTATION_DEBT_v1.0_zh-CN.md",
 ]
 
 ## Lines that talk about something other than the current total: earlier runs,
@@ -472,6 +472,24 @@ static func report() -> bool:
 		print("contracts: %d promise(s) without a test; name the test in the tag" % promises.size())
 		ok = false
 
+	var links := check_doc_links()
+	if links.is_empty():
+		print("doc-links: ok")
+	else:
+		for problem in links:
+			print("doc-links: ", problem)
+		print("doc-links: %d broken link(s); fix the path or restore the file" % links.size())
+		ok = false
+
+	var index_entries := check_doc_index()
+	if index_entries.is_empty():
+		print("doc-index: ok")
+	else:
+		for problem in index_entries:
+			print("doc-index: ", problem)
+		print("doc-index: %d document(s) missing from docs/README.md; classify them first" % index_entries.size())
+		ok = false
+
 	return ok
 
 
@@ -481,3 +499,74 @@ static func _count_module_rows() -> int:
 		if _module_row_re.search(line) != null:
 			rows += 1
 	return rows
+
+
+## 文档搬家最容易留下的是断链，而此前没有任何守卫检查它。
+## 只校验仓库内相对链接与以 `docs/` 开头的根相对链接；外链、锚点和 mailto 跳过。
+static var _md_link_re: RegEx = _compile("\\]\\(([^)]+)\\)")
+
+static func check_doc_links() -> Array[String]:
+	var problems: Array[String] = []
+	var pending: Array[String] = ["res://"]
+	while not pending.is_empty():
+		var folder: String = pending.pop_back()
+		var dir := DirAccess.open(folder)
+		if dir == null:
+			continue
+		for file_name in dir.get_files():
+			if file_name.ends_with(".md"):
+				_check_md_links(folder.path_join(file_name), problems)
+		for child in dir.get_directories():
+			if not child.begins_with("."):
+				pending.append(folder.path_join(child))
+	return problems
+
+
+## 新文档必须先进 `docs/README.md` 的目录表。否则它会悄悄落在某个角落，
+## 下一次目录调整时又变成“没人知道该放哪”的冲突源。
+static func check_doc_index() -> Array[String]:
+	var problems: Array[String] = []
+	var index_path := "res://docs/README.md"
+	var listed := {}
+	for match in _md_link_re.search_all(read_text(index_path)):
+		var target: String = match.get_string(1).strip_edges()
+		if target.is_empty() or target.begins_with("http://") or target.begins_with("https://") or target.begins_with("mailto:") or target.begins_with("#"):
+			continue
+		var path_part: String = target.split("#", true, 1)[0]
+		if path_part.is_empty():
+			continue
+		listed[index_path.get_base_dir().path_join(path_part).simplify_path()] = true
+	var pending: Array[String] = ["res://docs"]
+	while not pending.is_empty():
+		var folder: String = pending.pop_back()
+		var dir := DirAccess.open(folder)
+		if dir == null:
+			continue
+		for file_name in dir.get_files():
+			if file_name.ends_with(".md"):
+				var doc_path := folder.path_join(file_name)
+				if doc_path != index_path and not listed.has(doc_path):
+					problems.append("%s is not listed in docs/README.md" % doc_path.trim_prefix("res://"))
+		for child in dir.get_directories():
+			if not child.begins_with("."):
+				pending.append(folder.path_join(child))
+	return problems
+
+
+static func _check_md_links(path: String, problems: Array[String]) -> void:
+	for match in _md_link_re.search_all(read_text(path)):
+		var target: String = match.get_string(1).strip_edges()
+		if target.is_empty() or target.begins_with("http://") or target.begins_with("https://") or target.begins_with("mailto:") or target.begins_with("#"):
+			continue
+		var path_part: String = target.split("#", true, 1)[0]
+		if path_part.is_empty():
+			continue
+		var resolved: String
+		if path_part.begins_with("docs/"):
+			resolved = "res://" + path_part
+		elif path_part.begins_with("/"):
+			resolved = "res://" + path_part.trim_prefix("/")
+		else:
+			resolved = path.get_base_dir().path_join(path_part).simplify_path()
+		if not FileAccess.file_exists(resolved) and not DirAccess.dir_exists_absolute(resolved):
+			problems.append("%s links to missing %s" % [path.trim_prefix("res://"), target])

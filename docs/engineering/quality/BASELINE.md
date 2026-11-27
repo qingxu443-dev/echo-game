@@ -176,7 +176,7 @@ RESULT test_core_rules assertions=18 failures=0
 
 ## 与重构计划的关系
 
-- `docs/engineering/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md` 的 M0–M4 每一步，合并前都必须与本表对比。
+- `docs/archive/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md` 的 M0–M4 每一步，合并前都必须与本表对比。
 - M2（拆控制器）期间**不允许修改测试文件**；若某步必须改测试，说明对外行为变了，应回退。
 - v1 技能废弃会减少 `test_battle_echo_counter`、`test_skill_definitions` 以及部分 `test_battle_controller` 用例，届时本表需同步下调，并在变更说明中列出删除的用例清单。
 

@@ -145,7 +145,6 @@ static func start_encounter(
 		enemy_unit.skill_charge = 3
 		TacticalPressureScript.init_enemy_pressure(enemy_unit)
 		battle.actors[enemy_id] = enemy_unit
-	TacticalPressureScript.reset_battle(battle)
 
 	# Spawn 2 Relic Beacons as stationary defense objectives on the board
 	_spawn_default_beacons(battle, spawn_cells, enemy_cells, candidate_blockers, chest_items)

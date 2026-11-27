@@ -216,3 +216,5 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 3. **把相互依赖的内容按功能收拢**。从小场景与其私有脚本开始，保留共享的角色、敌人和装备 Resource 目录。素材工具的依赖锁定、资源路径与 Windows 打包冒烟可独立验证；当前没有 Android 导出配置及真机结果。 [Godot 项目组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/project_organization.html)
 
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。
+
+压力计次与击杀返 AP 额度现由每场 `BattleLedger` 持有，随遭遇统一重置并自动进入暂停快照；旧快照的顶层 pressure 字段由 `BattleSession.restore()` 迁入账本，不再使用进程全局实例 ID 索引。

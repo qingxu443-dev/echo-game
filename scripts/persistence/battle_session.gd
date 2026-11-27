@@ -15,8 +15,6 @@ static func capture(view: Node) -> Dictionary:
 		"ledger": SessionCodec.fields(battle.ledger), "fx": SessionCodec.fields(view.fx),
 		"camera": UiPalette.camera_quadrant, "actors": [], "intents": [], "statuses": [], "view": {},
 		"loot_state": LootCatalog._rng.state, "loot_seed": LootCatalog._rng.seed,
-		"pressure_sequence": TacticalPressure._action_seq.get(battle.get_instance_id(), 0),
-		"pressure_refunds": TacticalPressure._ap_refunds.get(battle.get_instance_id(), {}).duplicate(true),
 	}
 	for actor in battle.actors.values(): data.actors.append(SessionCodec.fields(actor))
 	for intent in battle.intents: data.intents.append(SessionCodec.fields(intent))
@@ -47,6 +45,12 @@ static func restore(view: Node, data: Dictionary) -> bool:
 	SessionCodec.apply_fields(battle, data.controller)
 	SessionCodec.apply_fields(battle.ap, data.ap)
 	SessionCodec.apply_fields(battle.ledger, data.get("ledger", {}))
+	# Older snapshots stored pressure counters outside the ledger.
+	if not data.get("ledger", {}).has("pressure_sequence"):
+		battle.ledger.pressure_sequence = int(data.get("pressure_sequence", 0))
+		var refunds: Dictionary = data.get("pressure_refunds", {})
+		battle.ledger.pressure_refund_turn = int(refunds.get("turn", -1))
+		battle.ledger.pressure_refund_count = int(refunds.get("count", 0))
 	for row in data.actors:
 		var actor := BattleActor.new(str(row.actor_id), str(row.team), row.cell, int(row.max_health))
 		SessionCodec.apply_fields(actor, row)
@@ -66,8 +70,6 @@ static func restore(view: Node, data: Dictionary) -> bool:
 	SessionCodec.apply_fields(view.fx, data.get("fx", {}))
 	LootCatalog._rng.seed = int(data.get("loot_seed", 0))
 	LootCatalog._rng.state = int(data.get("loot_state", 0))
-	TacticalPressure._action_seq[battle.get_instance_id()] = int(data.get("pressure_sequence", 0))
-	TacticalPressure._ap_refunds[battle.get_instance_id()] = data.get("pressure_refunds", {}).duplicate(true)
 	for key in VIEW_FIELDS:
 		if data.get("view", {}).has(key):
 			if key == "pending_rewards": view.pending_rewards.assign(data.view[key])

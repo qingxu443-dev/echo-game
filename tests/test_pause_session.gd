@@ -102,7 +102,7 @@ func _test_battle_roundtrip() -> void:
 	current_scene = resumed
 	shell.open_pause()
 	var after := BattleSession.capture(resumed)
-	for key in ["controller", "actors", "ap", "ledger", "statuses", "intents", "run_state", "fx", "loot_state", "pressure_refunds"]:
+	for key in ["controller", "actors", "ap", "ledger", "statuses", "intents", "run_state", "fx", "loot_state", "camera"]:
 		_check(JSON.stringify(SessionCodec.encode(snapshot[key])) == JSON.stringify(SessionCodec.encode(after[key])), "resume restores exact %s state without replaying actions" % key)
 	_check(not FileAccess.file_exists(SessionSave.path()), "successful resume consumes the suspend slot to prevent reward replay")
 	shell.resume()

@@ -172,17 +172,25 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 		var p_intent = _pursuit(battle, enemy, target)
 		if p_intent != null:
 			return p_intent
+	# Cornered ranged archer fallback: if pinned adjacent with no retreat tile,
+	# strike back in melee instead of passing the turn helplessly.
+	if (actions.has(&"light_shot") or actions.has(&"aimed_shot")) and GridRulesScript.manhattan_distance(enemy.cell, target.cell) == 1:
+		var fallback_melee = _basic_melee(battle, enemy, target)
+		if fallback_melee != null:
+			return fallback_melee
 	return _wait_intent(battle, enemy)
 
 
 static func _compute_move_path(battle, enemy, target) -> Array[Vector2i]:
 	var steps: int = _move_steps_of(enemy)
-	if enemy.archetype == "marksman":
+	var actions: Array[StringName] = actions_for(enemy)
+	if actions.has(&"aimed_shot") or actions.has(&"lock_on") or actions.has(&"light_shot"):
 		var shot = EnemySkillCatalogScript.get_skill(&"aimed_shot")
 		var keep: int = shot.reposition_min_range if shot.reposition_min_range > 0 else shot.min_range
 		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, keep, shot.max_range, true, steps)
-	if enemy.archetype == "area_controller":
-		var pulse = EnemySkillCatalogScript.get_skill(&"ground_pulse")
+	if actions.has(&"ground_pulse") or actions.has(&"echo_bolt") or actions.has(&"spring_bloom"):
+		var spec_id: StringName = &"spring_bloom" if actions.has(&"spring_bloom") else (&"ground_pulse" if actions.has(&"ground_pulse") else &"echo_bolt")
+		var pulse = EnemySkillCatalogScript.get_skill(spec_id)
 		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, pulse.min_range, pulse.max_range, false, steps)
 	return IntentSupportScript.pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, steps)
 

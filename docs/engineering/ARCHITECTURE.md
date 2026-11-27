@@ -71,7 +71,7 @@ wc -l scripts/**/*.gd
 |---|---|---|---|
 | `battle_controller.gd` | 628 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
 | `battle_flow.gd` | 455 | 回合边界、遭遇构建、终止判定 | — |
-| `intent_planner.gd` | 336 | 敌方意图生成（通用招式 + 分派） | 专属技转到 `elite_skills.gd` |
+| `intent_planner.gd` | 344 | 敌方意图生成（通用招式 + 分派） | 专属技转到 `elite_skills.gd` |
 | `intent_resolver.gd` | 506 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
 | `skill_executor.gd` | 281 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
 | `damage_pipeline.gd` | 93 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
@@ -92,11 +92,11 @@ wc -l scripts/**/*.gd
 | `oathkeeper_v2_skill_catalog.gd` | 54 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
 | `sakura_skill_catalog.gd` | 103 | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | **当前版本不参战**，数据与框架保留待后续接入；测试仍覆盖 |
 | `enemy_definition.gd` / `enemy_catalog.gd` | — | 敌人属性档案（Resource）与目录（M1，现有 17 份：原型 3 + 春之境 14） | 数值外置于 `data/enemies/*.tres`；`actions` 列表决定该原型按优先级尝试哪些行动 |
-| `intent_planner.gd` | 336 | 按 `actions` 顺序挑行动；多怪目标分流（`claimed_cells` 防抢同一格）、远程风筝取位；通用招式（蓄力斩/近战/追击/远程）的几何 | 只读不写状态；专属技一律走 `EliteSkills.executors()` 查表，本文件不认识它们 |
+| `intent_planner.gd` | 344 | 按 `actions` 顺序挑行动；多怪目标分流（`claimed_cells` 防抢同一格）、远程风筝取位；通用招式（蓄力斩/近战/追击/远程）的几何 | 只读不写状态；专属技一律走 `EliteSkills.executors()` 查表，本文件不认识它们 |
 | `elite_skills.gd` | 274 | 九条精英与 Boss 专属技的几何：给友军上盾、留地格、两段式锁命、带路径突袭、降防 | 与规划器同签名 `(battle, enemy, target)`；加一条专属技只改本文件与数据表 |
 | `enemy_skill_catalog.gd` | 101 | 16 条敌人招式的数值表：倍率、射程、伤害类型、充能门槛、地格比例 | **所有敌人技能数字的唯一来源**；未注册的 action 会报错而不是退化成近战 |
 | `enemy_skill_definition.gd` | 68 | 单条敌人招式的数据结构（Resource），与玩家侧 `SkillDefinition` 对称 | 带 `is_valid()`；`damage_multiplier == 0` 表示「用档案里的 skill_damage」 |
-| `intent_support.gd` | 251 | 规划器与专属技共用的几何工具：三格带、路径搜索、风筝取位、意图 id | 无状态；不产生意图，只算格子 |
+| `intent_support.gd` | 253 | 规划器与专属技共用的几何工具：三格带、路径搜索、风筝取位、意图 id | 无状态；不产生意图，只算格子 |
 | `encounter_definition.gd` | 77 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
 | `run_state.gd` | 320 | 单局 Roguelite 状态：跨关血量、武器/护甲装备槽、背包、技能铭文强化与 `reset()` 清空 | 仅存活于单局内存，通关开新局或战败重开时全部清空 |
@@ -160,7 +160,7 @@ wc -l scripts/**/*.gd
 | `settlement_view.gd` | 169 | 结算面板、完好遗迹宝箱开箱战利品展示、三选一肉鸽强化与其点击区；`spring=true` 时只留「返回春之境」一个出口 |
 | `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
 | `main_menu.gd` | 188 | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；两个选项（进入大厅 / 退出） |
-| `lobby_view.gd` | 579 | 黄昏营地大厅：看板立绘互动、未尽之春断点状态展示，以及右下角「选择地图」按钮与区域选择浮层（教学遗迹 / 未尽之春 / 筹备中） |
+| `lobby_view.gd` | 593 | 黄昏营地大厅：看板立绘互动、未尽之春断点状态展示，以及右下角「选择地图」按钮与区域选择浮层（教学遗迹 / 未尽之春 / 筹备中） |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 

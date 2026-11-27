@@ -15,18 +15,18 @@ const BACKGROUND_PATH := "res://assets/ui/lobby_atelier_bg.png"
 
 const MAP_ENTRIES: Array[Dictionary] = [
 	{
-		"id": "tutorial", "tag": "TUTORIAL · 3 关", "title": "序章 · 遗迹教学", "subtitle": "出战角色：瑟弗林（守誓者）",
-		"desc_lines": ["2.5D 等距战棋基础演练（每回合 3 AP）。", "掌握击退破招、AP 联动敌方充能、", "遗迹宝箱抢宝与装备背包循环。"],
-		"cta": "前往教学", "scene_path": BATTLE_SCENE_PATH, "accent": Color("#d4b77b"), "locked": false,
+		"id": "tutorial", "chapter": "CHAPTER 01", "chapter_zh": "章节 1", "tag": "序章 · 3 关教学", "title": "遗迹教学", "subtitle": "出战角色：瑟弗林（守誓者）",
+		"desc_lines": ["2.5D 战棋基础演练（每回合 3 AP）", "击退破招 · AP 充能 · 遗迹宝箱"],
+		"cta": "进入章节 1", "scene_path": BATTLE_SCENE_PATH, "accent": Color("#d4b77b"), "locked": false,
 	},
 	{
-		"id": "spring", "tag": "SEASON MAP · 5×5", "title": "春之境 · 未尽之春", "subtitle": "出战角色：樱（折樱剑士）",
-		"desc_lines": ["5×5 节点大地图探索，权衡体力与路线。", "触发十段奇遇、逛春日行商、收集藏品，", "直面四名精英专属技与 Boss 千枝神将。"],
-		"cta": "进入春之境", "scene_path": SPRING_SCENE_PATH, "accent": Color("#e89ab0"), "locked": false,
+		"id": "spring", "chapter": "CHAPTER 02", "chapter_zh": "章节 2", "tag": "赛季大地图 · 5×5", "title": "春之境 · 未尽之春", "subtitle": "出战角色：樱（花之誓）",
+		"desc_lines": ["5×5 探索 · 十段奇遇 · 春日行商", "精英专属技 · 首领千枝神将"],
+		"cta": "进入章节 2", "scene_path": SPRING_SCENE_PATH, "accent": Color("#e89ab0"), "locked": false,
 	},
 	{
-		"id": "upcoming", "tag": "COMING SOON", "title": "更多区域 · 筹备中", "subtitle": "后续章节与多角色拓展",
-		"desc_lines": ["底层多角色框架与队伍切换已预留接口。", "后续版本将在此陆续开放新的远征区域，", "以及更多可同行出战的同伴角色。"],
+		"id": "upcoming", "chapter": "CHAPTER 03", "chapter_zh": "章节 3", "tag": "COMING SOON", "title": "未竟之域 · 筹备中", "subtitle": "后续章节与多角色拓展",
+		"desc_lines": ["新区域与同行同伴开发中", "敬请期待后续版本开放"],
 		"cta": "暂未开放", "scene_path": "", "accent": Color("#7c8796"), "locked": true,
 	},
 ]
@@ -44,6 +44,7 @@ const GEAR_LINES: Array[String] = [
 ]
 
 var background: Texture2D
+var chapter_portraits: Dictionary = {}
 var elapsed: float = 0.0
 var motes: Array[Dictionary] = []
 var mouse_norm: Vector2 = Vector2.ZERO
@@ -52,6 +53,7 @@ var parallax_smooth: Vector2 = Vector2.ZERO
 var map_selector_open: bool = false
 var selected_map_index: int = 0
 var hovered_map_index: int = -1
+var hovered_nav_btn: String = ""
 var hover_expedition: bool = false
 var hover_back: bool = false
 var hovered_hotspot: String = ""
@@ -71,6 +73,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
 	background = _load_texture(BACKGROUND_PATH)
+	chapter_portraits["tutorial"] = _load_texture("res://assets/actors/portraits/sevrin.png")
+	chapter_portraits["spring"] = _load_texture("res://assets/actors/portraits/sakura.png")
 	_init_motes()
 	refresh_save_summary()
 	_show_dialogue("瑟弗林", SEVRIN_LINES[0], 6.0)
@@ -136,69 +140,33 @@ func _process(delta: float) -> void:
 
 # --- geometry (1280x720 scaled cleanly to viewport) --------------------------
 
-func _sx() -> float:
-	return maxf(1.0, size.x) / 1280.0
-
-
-func _sy() -> float:
-	return maxf(1.0, size.y) / 720.0
-
-
-func back_button_rect() -> Rect2:
-	return Rect2(26.0 * _sx(), 22.0 * _sy(), 108.0 * _sx(), 34.0 * _sy())
-
-
-func expedition_button_rect() -> Rect2:
-	return Rect2(928.0 * _sx(), 580.0 * _sy(), 316.0 * _sx(), 102.0 * _sy())
-
-
-## Interactive Atelier hotspots aligned with lobby_atelier_bg.png.
-func sevrin_hotspot_rect() -> Rect2:
-	return Rect2(490.0 * _sx(), 230.0 * _sy(), 240.0 * _sx(), 440.0 * _sy())
-
-
-func table_map_hotspot_rect() -> Rect2:
-	return Rect2(240.0 * _sx(), 450.0 * _sy(), 260.0 * _sx(), 165.0 * _sy())
-
-
-func gear_hotspot_rect() -> Rect2:
-	return Rect2(760.0 * _sx(), 340.0 * _sy(), 170.0 * _sx(), 290.0 * _sy())
-
-
-func selector_panel_rect() -> Rect2:
-	return Rect2(116.0 * _sx(), 92.0 * _sy(), 1048.0 * _sx(), 536.0 * _sy())
-
-
-func close_selector_rect() -> Rect2:
-	var panel := selector_panel_rect()
-	return Rect2(panel.end.x - 54.0 * _sx(), panel.position.y + 16.0 * _sy(), 36.0 * _sx(), 36.0 * _sy())
-
+func _sx() -> float: return maxf(1.0, size.x) / 1280.0
+func _sy() -> float: return maxf(1.0, size.y) / 720.0
+func back_button_rect() -> Rect2: return Rect2(26.0 * _sx(), 22.0 * _sy(), 108.0 * _sx(), 34.0 * _sy())
+func expedition_button_rect() -> Rect2: return Rect2(928.0 * _sx(), 580.0 * _sy(), 316.0 * _sx(), 102.0 * _sy())
+func sevrin_hotspot_rect() -> Rect2: return Rect2(490.0 * _sx(), 230.0 * _sy(), 240.0 * _sx(), 440.0 * _sy())
+func table_map_hotspot_rect() -> Rect2: return Rect2(240.0 * _sx(), 450.0 * _sy(), 260.0 * _sx(), 165.0 * _sy())
+func gear_hotspot_rect() -> Rect2: return Rect2(760.0 * _sx(), 340.0 * _sy(), 170.0 * _sx(), 290.0 * _sy())
+func selector_panel_rect() -> Rect2: return Rect2(Vector2.ZERO, size)
+func close_selector_rect() -> Rect2: return Rect2(44.0 * _sx(), 36.0 * _sy(), 116.0 * _sx(), 50.0 * _sy())
+func home_selector_rect() -> Rect2: return Rect2(160.0 * _sx(), 36.0 * _sy(), 116.0 * _sx(), 50.0 * _sy())
 
 func map_card_rect(index: int) -> Rect2:
-	var panel := selector_panel_rect()
-	var card_w: float = 308.0 * _sx()
-	var card_h: float = 382.0 * _sy()
-	var gap: float = 24.0 * _sx()
+	var card_w: float = 346.0 * _sx()
+	var gap: float = 76.0 * _sx()
 	var total_w: float = card_w * float(MAP_ENTRIES.size()) + gap * float(MAP_ENTRIES.size() - 1)
-	var start_x: float = panel.position.x + (panel.size.x - total_w) * 0.5
-	var top_y: float = panel.position.y + 92.0 * _sy()
-	return Rect2(start_x + float(index) * (card_w + gap), top_y, card_w, card_h)
-
+	return Rect2((size.x - total_w) * 0.5 + float(index) * (card_w + gap), 216.0 * _sy(), card_w, 356.0 * _sy())
 
 func spring_normal_button_rect() -> Rect2:
 	var r := map_card_rect(1)
 	var sx := _sx()
-	var sy := _sy()
-	var w := (r.size.x - 50.0 * sx) * 0.5
-	return Rect2(r.position.x + 20.0 * sx, r.end.y - 64.0 * sy, w, 44.0 * sy)
-
+	return Rect2(r.position.x + 20.0 * sx, r.end.y - 64.0 * _sy(), (r.size.x - 50.0 * sx) * 0.5, 44.0 * _sy())
 
 func spring_hard_button_rect() -> Rect2:
 	var r := map_card_rect(1)
 	var sx := _sx()
-	var sy := _sy()
 	var w := (r.size.x - 50.0 * sx) * 0.5
-	return Rect2(r.position.x + 30.0 * sx + w, r.end.y - 64.0 * sy, w, 44.0 * sy)
+	return Rect2(r.position.x + 30.0 * sx + w, r.end.y - 64.0 * _sy(), w, 44.0 * _sy())
 
 
 # --- public state helpers ----------------------------------------------------
@@ -303,14 +271,16 @@ func _gui_input(event: InputEvent) -> void:
 			clampf((pos.y / maxf(1.0, size.y) - 0.5) * 2.0, -1.0, 1.0)
 		)
 		if map_selector_open:
+			var next_nav := "back" if close_selector_rect().has_point(pos) else ("home" if home_selector_rect().has_point(pos) else "")
 			var next_hover := -1
 			for i in range(MAP_ENTRIES.size()):
 				if map_card_rect(i).has_point(pos):
 					next_hover = i
 					selected_map_index = i
 					break
-			if next_hover != hovered_map_index:
+			if next_hover != hovered_map_index or next_nav != hovered_nav_btn:
 				hovered_map_index = next_hover
+				hovered_nav_btn = next_nav
 				queue_redraw()
 		else:
 			hover_expedition = expedition_button_rect().has_point(pos)
@@ -331,7 +301,7 @@ func _gui_input(event: InputEvent) -> void:
 
 func _handle_click(pos: Vector2) -> void:
 	if map_selector_open:
-		if close_selector_rect().has_point(pos) or not selector_panel_rect().has_point(pos):
+		if close_selector_rect().has_point(pos) or home_selector_rect().has_point(pos):
 			close_map_selector()
 			return
 		for i in range(MAP_ENTRIES.size()):
@@ -505,25 +475,62 @@ func _draw_expedition_button(font: Font, sx: float, sy: float) -> void:
 
 
 func _draw_map_selector(font: Font, sx: float, sy: float, alpha: float) -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.03, 0.05, 0.78 * alpha), true)
-	var panel := selector_panel_rect()
-	draw_rect(panel, Color(0.10, 0.11, 0.15, 0.96 * alpha), true)
-	draw_rect(panel, Color(0.86, 0.73, 0.48, 0.68 * alpha), false, 1.8)
+	# Full-screen chapter roadmap backdrop
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.05, 0.06, 0.09, 0.92 * alpha), true)
+	for gx in range(1, 10):
+		draw_line(Vector2(float(gx) * 128.0 * sx, 0.0), Vector2(float(gx) * 128.0 * sx, size.y), Color(0.75, 0.68, 0.52, 0.035 * alpha), 1.0)
+	draw_line(Vector2(0.0, 394.0 * sy), Vector2(size.x, 394.0 * sy), Color(0.84, 0.72, 0.48, 0.08 * alpha), 1.0)
 
-	draw_string(font, panel.position + Vector2(36.0 * sx, 44.0 * sy), "选择出征地图", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(24.0 * sy), Color(0.96, 0.91, 0.80, alpha))
-	draw_string(font, panel.position + Vector2(36.0 * sx, 68.0 * sy), "SELECT REGION  ·  点击卡片或按 Enter 出发，Esc 返回工坊", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.0 * sy), Color(0.66, 0.68, 0.73, alpha))
+	# Top-left paired navigation bar: [ ← | ⌂ ]
+	var back_r := close_selector_rect()
+	var home_r := home_selector_rect()
+	var nav_r := Rect2(back_r.position, Vector2(back_r.size.x + home_r.size.x, back_r.size.y))
+	draw_rect(nav_r, Color(0.11, 0.12, 0.16, 0.95 * alpha), true)
+	if hovered_nav_btn == "back":
+		draw_rect(back_r, Color(0.24, 0.22, 0.18, 0.90 * alpha), true)
+	elif hovered_nav_btn == "home":
+		draw_rect(home_r, Color(0.24, 0.22, 0.18, 0.90 * alpha), true)
+	draw_rect(nav_r, Color(0.86, 0.73, 0.48, 0.78 * alpha), false, 1.8)
+	draw_line(Vector2(home_r.position.x, nav_r.position.y + 6.0 * sy), Vector2(home_r.position.x, nav_r.end.y - 6.0 * sy), Color(0.86, 0.73, 0.48, 0.55 * alpha), 1.5)
+	var bc := Color(1.0, 0.94, 0.80, alpha) if hovered_nav_btn == "back" else Color(0.90, 0.86, 0.78, alpha)
+	var hc := Color(1.0, 0.94, 0.80, alpha) if hovered_nav_btn == "home" else Color(0.90, 0.86, 0.78, alpha)
+	var ba := back_r.get_center()
+	draw_line(ba + Vector2(14.0 * sx, 0.0), ba + Vector2(-14.0 * sx, 0.0), bc, 2.2, true)
+	draw_polyline(PackedVector2Array([ba + Vector2(-4.0 * sx, -9.0 * sy), ba + Vector2(-14.0 * sx, 0.0), ba + Vector2(-4.0 * sx, 9.0 * sy)]), bc, 2.2, true)
+	var hm := home_r.get_center()
+	draw_polyline(PackedVector2Array([hm + Vector2(-13.0 * sx, -1.0 * sy), hm + Vector2(0.0, -12.0 * sy), hm + Vector2(13.0 * sx, -1.0 * sy)]), hc, 2.2, true)
+	draw_rect(Rect2(hm + Vector2(-9.0 * sx, -1.0 * sy), Vector2(18.0 * sx, 13.0 * sy)), hc, false, 2.0)
+	draw_rect(Rect2(hm + Vector2(-3.0 * sx, 4.0 * sy), Vector2(6.0 * sx, 8.0 * sy)), hc, false, 1.6)
 
-	var close_r := close_selector_rect()
-	draw_rect(close_r, Color(0.18, 0.20, 0.25, 0.9 * alpha), true)
-	draw_rect(close_r, Color(0.55, 0.56, 0.60, 0.7 * alpha), false, 1.2)
-	draw_string(font, close_r.position + Vector2(11.0 * sx, 24.0 * sy), "×", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(20.0 * sy), Color(0.9, 0.88, 0.84, alpha))
+	draw_string(font, Vector2(nav_r.end.x + 28.0 * sx, 62.0 * sy), "章节选择", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(24.0 * sy), Color(0.97, 0.93, 0.84, alpha))
+	draw_string(font, Vector2(nav_r.end.x + 28.0 * sx, 83.0 * sy), "CHAPTER ROADMAP  ·  方向键或点击选择章节，Esc 返回大厅", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color(0.64, 0.66, 0.72, alpha))
+
+	# Horizontal connectors linking Chapter 1 -- Chapter 2 -- Chapter 3
+	for i in range(MAP_ENTRIES.size() - 1):
+		var left_c := map_card_rect(i)
+		var right_c := map_card_rect(i + 1)
+		var y_mid: float = left_c.get_center().y
+		var p0 := Vector2(left_c.end.x, y_mid)
+		var p1 := Vector2(right_c.position.x, y_mid)
+		var next_locked := bool(MAP_ENTRIES[i + 1].get("locked", false))
+		var line_col := Color(0.42, 0.45, 0.52, 0.55 * alpha) if next_locked else Color(0.88, 0.75, 0.48, 0.85 * alpha)
+		if next_locked:
+			draw_dashed_line(p0 + Vector2(8.0 * sx, 0.0), p1 - Vector2(8.0 * sx, 0.0), line_col, 2.2, 7.0 * sx)
+		else:
+			draw_line(p0, p1, Color(line_col.r, line_col.g, line_col.b, 0.25 * alpha), 6.0, true)
+			draw_line(p0, p1, line_col, 2.4, true)
+			var t := fposmod(elapsed * 0.45, 1.0)
+			draw_circle(p0.lerp(p1, t), 3.6 * sy, Color(1.0, 0.94, 0.76, 0.92 * alpha))
+		for pt in [p0, p1]:
+			var d := 5.0 * sy
+			draw_colored_polygon(PackedVector2Array([pt + Vector2(0.0, -d), pt + Vector2(d, 0.0), pt + Vector2(0.0, d), pt + Vector2(-d, 0.0)]), line_col)
 
 	for i in range(MAP_ENTRIES.size()):
 		_draw_map_card(font, i, sx, sy, alpha)
 
-	var footer_text := status_notice if not status_notice.is_empty() else "提示：教学关与「未尽之春」各自独立记录，可随时切换体验。"
+	var footer_text := status_notice if not status_notice.is_empty() else "提示：章节 1 为瑟弗林教学遗迹，章节 2 为樱「春之境」大地图探索，各自独立记录。"
 	var footer_col := Color("#e4b092") if not status_notice.is_empty() else Color("#9b9a94")
-	draw_string(font, Vector2(panel.position.x + 36.0 * sx, panel.end.y - 22.0 * sy), footer_text, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color(footer_col.r, footer_col.g, footer_col.b, alpha))
+	draw_string(font, Vector2(44.0 * sx, size.y - 32.0 * sy), footer_text, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color(footer_col.r, footer_col.g, footer_col.b, alpha))
 
 
 func _draw_map_card(font: Font, index: int, sx: float, sy: float, alpha: float) -> void:
@@ -532,34 +539,41 @@ func _draw_map_card(font: Font, index: int, sx: float, sy: float, alpha: float) 
 	var selected := (index == selected_map_index)
 	var locked := bool(entry.get("locked", false))
 	var accent: Color = entry.get("accent", Color("#d4b77b"))
-	var bg := Color(0.14, 0.16, 0.21, 0.95 * alpha) if (selected and not locked) else Color(0.11, 0.13, 0.17, 0.90 * alpha)
-	if locked:
-		bg = Color(0.09, 0.10, 0.13, 0.85 * alpha)
-
+	var bg := Color(0.09, 0.10, 0.13, 0.88 * alpha) if locked else (Color(0.14, 0.16, 0.21, 0.96 * alpha) if selected else Color(0.11, 0.12, 0.17, 0.92 * alpha))
+	var border_col := Color(accent.r, accent.g, accent.b, (0.98 if selected else 0.45) * alpha)
+	if selected and not locked:
+		draw_rect(r.grow(5.0 * sx), Color(accent.r, accent.g, accent.b, 0.12 * alpha), true)
 	draw_rect(r, bg, true)
-	draw_rect(Rect2(r.position, Vector2(r.size.x, 8.0 * sy)), Color(accent.r, accent.g, accent.b, (0.95 if selected else 0.55) * alpha), true)
-	var border_col := Color(accent.r, accent.g, accent.b, (0.98 if selected else 0.38) * alpha)
-	draw_rect(r, border_col, false, 2.2 if selected else 1.2)
+	draw_rect(Rect2(r.position, Vector2(r.size.x, 7.0 * sy)), Color(accent.r, accent.g, accent.b, (0.96 if selected else 0.58) * alpha), true)
+	draw_rect(r, border_col, false, 2.4 if selected else 1.4)
 
-	draw_string(font, r.position + Vector2(20.0 * sx, 38.0 * sy), str(entry["tag"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color(accent.r, accent.g, accent.b, alpha))
-	draw_string(font, r.position + Vector2(20.0 * sx, 74.0 * sy), str(entry["title"]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 36.0 * sx, roundi(22.0 * sy), Color(0.95, 0.92, 0.86, (0.55 if locked else 1.0) * alpha))
-	draw_string(font, r.position + Vector2(20.0 * sx, 102.0 * sy), str(entry["subtitle"]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 36.0 * sx, roundi(13.0 * sy), Color(0.74, 0.76, 0.80, (0.55 if locked else 0.95) * alpha))
-	draw_line(r.position + Vector2(20.0 * sx, 120.0 * sy), r.position + Vector2(r.size.x - 20.0 * sx, 120.0 * sy), Color(0.45, 0.47, 0.52, 0.35 * alpha), 1.0)
+	# Chapter number header + optional hero portrait badge on top-right
+	draw_string(font, r.position + Vector2(22.0 * sx, 34.0 * sy), str(entry["chapter"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.0 * sy), Color(accent.r, accent.g, accent.b, alpha))
+	draw_string(font, r.position + Vector2(22.0 * sx, 74.0 * sy), str(entry["chapter_zh"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(30.0 * sy), Color(0.98, 0.95, 0.88, (0.48 if locked else 1.0) * alpha))
+	draw_string(font, r.position + Vector2(22.0 * sx, 102.0 * sy), str(entry["title"]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 110.0 * sx, roundi(17.0 * sy), Color(0.88, 0.85, 0.78, (0.48 if locked else 0.96) * alpha))
+	var p_tex: Texture2D = chapter_portraits.get(str(entry["id"]), null)
+	if p_tex != null:
+		var pr := Rect2(r.end.x - 90.0 * sx, r.position.y + 22.0 * sy, 70.0 * sx, 70.0 * sy)
+		draw_rect(pr, Color(0.08, 0.09, 0.12, 0.95 * alpha), true)
+		draw_texture_rect(p_tex, pr, false, Color(1.0, 1.0, 1.0, alpha))
+		draw_rect(pr, border_col, false, 1.4)
 
+	draw_line(r.position + Vector2(22.0 * sx, 118.0 * sy), r.position + Vector2(r.size.x - 22.0 * sx, 118.0 * sy), Color(0.50, 0.52, 0.58, 0.35 * alpha), 1.0)
+	draw_string(font, r.position + Vector2(22.0 * sx, 142.0 * sy), "%s  ·  %s" % [str(entry["tag"]), str(entry["subtitle"])], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40.0 * sx, roundi(12.0 * sy), Color(accent.r, accent.g, accent.b, (0.55 if locked else 0.92) * alpha))
 	var lines: Array = entry.get("desc_lines", [])
 	for li in range(lines.size()):
-		draw_string(font, r.position + Vector2(20.0 * sx, (152.0 + float(li) * 28.0) * sy), str(lines[li]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 36.0 * sx, roundi(13.0 * sy), Color(0.80, 0.79, 0.76, (0.50 if locked else 0.92) * alpha))
+		draw_string(font, r.position + Vector2(22.0 * sx, (172.0 + float(li) * 26.0) * sy), str(lines[li]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40.0 * sx, roundi(13.0 * sy), Color(0.82, 0.80, 0.77, (0.48 if locked else 0.92) * alpha))
 
 	var is_spring := (str(entry["id"]) == "spring")
 	var is_spring_resume := (is_spring and bool(spring_resume_info.get("active", false)))
 	if is_spring_resume:
-		var tag_r := Rect2(r.position.x + 20.0 * sx, r.end.y - 108.0 * sy, r.size.x - 40.0 * sx, 28.0 * sy)
+		var tag_r := Rect2(r.position.x + 20.0 * sx, r.end.y - 106.0 * sy, r.size.x - 40.0 * sx, 28.0 * sy)
 		draw_rect(tag_r, Color(0.13, 0.25, 0.32, 0.9 * alpha), true)
 		draw_rect(tag_r, Color(0.56, 0.78, 0.86, 0.8 * alpha), false, 1.0)
 		var mode_tag := "困难定轨" if bool(spring_resume_info.get("hard_mode", false)) else "普通"
 		draw_string(font, tag_r.position + Vector2(12.0 * sx, 19.0 * sy), "进行中（%s）· 体力 %d/%d" % [mode_tag, int(spring_resume_info.get("stamina", 0)), int(spring_resume_info.get("stamina_max", 10))], HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color(0.88, 0.97, 1.0, alpha))
 	elif is_spring:
-		draw_string(font, Vector2(r.position.x + 20.0 * sx, r.end.y - 84.0 * sy), "困难定轨：长按一笔画路线必达首领", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 36.0 * sx, roundi(11.5 * sy), Color(0.95, 0.62, 0.56, alpha))
+		draw_string(font, Vector2(r.position.x + 22.0 * sx, r.end.y - 82.0 * sy), "困难定轨：长按一笔画路线必达首领", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40.0 * sx, roundi(11.5 * sy), Color(0.95, 0.62, 0.56, alpha))
 
 	if is_spring:
 		var left_r := spring_normal_button_rect()

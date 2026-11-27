@@ -210,19 +210,21 @@ static func ranged_reposition_path(
 					score += 800
 
 			if in_range:
-				score += 250
-			elif dist < min_range:
-				# Retreat away from melee dead-zone
-				score -= (min_range - dist) * 300
+				score += 320
+			elif dist < eff_min:
+				# Retreat urgently out of melee dead-zone
+				score -= (eff_min - dist) * 450
 			else:
 				# Close distance gently toward firing band
 				score -= (dist - max_range) * 80
 
 			score -= absi(dist - ideal_dist) * 15
-			# Slight preference for moving closer to an aligned row/column for marksmen
+			# Prefer stepping onto or closer to any 8-way firing line (orthogonal or 45° diagonal)
 			if require_line and not aligned:
-				var axis_gap: int = mini(absi(cand.x - target.cell.x), absi(cand.y - target.cell.y))
-				score -= axis_gap * 40
+				var adx: int = absi(cand.x - target.cell.x)
+				var ady: int = absi(cand.y - target.cell.y)
+				var line_gap: int = mini(mini(adx, ady), absi(adx - ady))
+				score -= line_gap * 55
 
 			if score > best_score:
 				best_score = score

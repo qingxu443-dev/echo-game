@@ -61,7 +61,7 @@ wc -l scripts/**/*.gd
 | `spring_shop_view.gd` | 220 | 商店浮层：买入 / 出售 / 服务三页、翻页与刷新 | 只报告点击，不扣钱；行矩形与命中判定共用同一函数 |
 | `spring_relic_catalog.gd` | 66 | 四件遗物（§5.5 来源，文档未点名具体遗物）与战斗属性加成 | 只做扁平属性加成：条件触发型需要尚不存在的 hook 系统，故不定义 |
 | `spring_collectible_catalog.gd` | 115 | 六件藏品与稀有度、可用池（普通 / 精英 / Boss） | 效果限于本局能兑现的资源与属性；精英池排除史诗（§14） |
-| `spring_battle_bridge.gd` | 284 | 地图 ↔ 战斗的场景间握手与战后结算（§11.2 / §11.3 / §14 / §15.4 / §16.1） | 静态字段跨场景传递；结算规则在此，不在界面层 |
+| `spring_battle_bridge.gd` | 287 | 地图 ↔ 战斗的场景间握手与战后结算（§11.2 / §11.3 / §14 / §15.4 / §16.1） | 静态字段跨场景传递；结算规则在此，不在界面层 |
 
 ### 战斗规则（`scripts/battle/`）
 
@@ -70,7 +70,7 @@ wc -l scripts/**/*.gd
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
 | `battle_controller.gd` | 628 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
-| `battle_flow.gd` | 464 | 回合边界、遭遇构建、终止判定 | — |
+| `battle_flow.gd` | 466 | 回合边界、遭遇构建、终止判定 | — |
 | `intent_planner.gd` | 453 | 敌方意图生成（通用招式 + 分派） | 专属技转到 `elite_skills.gd` |
 | `intent_resolver.gd` | 564 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
 | `skill_executor.gd` | 281 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
@@ -162,13 +162,13 @@ wc -l scripts/**/*.gd
 | `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
 | `main_menu.gd` | 188 | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；两个选项（进入大厅 / 退出） |
 | `lobby_view.gd` | 598 | 黄昏营地大厅：看板立绘互动、未尽之春断点状态展示，以及右下角「工坊整备」「选择地图」按钮与全屏连线章节选择 |
-| `atelier_prep_overlay.gd` | 139 | 黄昏工坊炼金战备台浮层：工坊残晶展示、3 格出征行囊装卸、6 种破局炼金配方解锁 |
+| `atelier_prep_overlay.gd` | 133 | 黄昏工坊炼金战备台浮层：工坊残晶展示、3 格出征行囊装卸、6 种破局炼金配方解锁 |
 
 ### 局外工坊（`scripts/meta/`）
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `atelier_stash.gd` | 168 | 局外工坊残晶、6 种炼金战术道具配方解锁与最多 3 格出征行囊持久存档（`user://atelier_stash.json`） | 出征时经 `SpringBattleBridge` 注入局内背包，与宝箱 13 件战利品池解耦 |
+| `atelier_stash.gd` | 173 | 局外工坊残晶、6 种炼金战术道具配方解锁与最多 3 格出征行囊持久存档（`user://atelier_stash.json`） | 出征时经 `SpringBattleBridge` 注入局内背包，与宝箱 13 件战利品池解耦 |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 

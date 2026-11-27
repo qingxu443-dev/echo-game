@@ -460,5 +460,7 @@ static func finish_battle(battle, result: String) -> void:
 	var removed_statuses: int = battle.statuses.clear_all()
 	if removed_statuses > 0:
 		battle._emit_event("statuses_cleared", "", "", "reason=battle_finished count=%d" % removed_statuses)
+	if battle.run_state != null and not SpringBattleBridge.has_pending():
+		preload("res://scripts/meta/atelier_stash.gd").award_shards(30 if result == "victory" else 15)
 	battle.battle_finished.emit(result)
 	battle._emit_event("battle_" + result, "", "", result)

@@ -231,12 +231,15 @@ static func settle(run) -> Dictionary:
 
 	var parts: Array[String] = []
 	parts.append("战斗胜利")
+	parts.append("+%d 工坊残晶" % win_shards)
 	if chests > 0:
 		parts.append("保住 %d 个宝箱 · +%d 花钿" % [chests, coins])
 	if not loot_names.is_empty():
 		parts.append("战利品：" + "、".join(loot_names))
 	if outcome["message"].is_empty():
 		outcome["message"] = "；".join(parts) + "。"
+	else:
+		outcome["message"] += "（+%d 工坊残晶）" % win_shards
 	return outcome
 
 

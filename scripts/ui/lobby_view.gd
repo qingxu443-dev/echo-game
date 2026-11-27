@@ -221,7 +221,7 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 			SpringBattleBridge.requested_mode = "normal"
 		else:
 			SpringBattleBridge.requested_mode = ""
-	SpringBattleBridge.stage_starting_loadout(AtelierStashScript.build_loadout_items())
+	SpringBattleBridge.stage_starting_loadout(AtelierStashScript.take_loadout_items())
 	var tree := get_tree()
 	if tree == null:
 		return true
@@ -453,7 +453,7 @@ func _draw_expedition_button(font: Font, sx: float, sy: float) -> void:
 	draw_rect(pr, pb, true); draw_rect(Rect2(pr.position, Vector2(5.0 * sx, pr.size.y)), pborder, true); draw_rect(pr, pborder, false, 1.6)
 	var packed_n: int = (atelier_state.get("loadout", []) as Array).size()
 	draw_string(font, pr.position + Vector2(18.0 * sx, 42.0 * sy), "工坊整备", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(21.0 * sy), Color("#ecfaf7"))
-	draw_string(font, pr.position + Vector2(18.0 * sx, 68.0 * sy), "行囊 %d / %d" % [packed_n, AtelierStashScript.MAX_LOADOUT], HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color("#9be3d5"))
+	draw_string(font, pr.position + Vector2(18.0 * sx, 68.0 * sy), "行囊 %d 件" % packed_n, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color("#9be3d5"))
 	draw_string(font, pr.position + Vector2(18.0 * sx, 88.0 * sy), "残晶 %d" % int(atelier_state.get("shards", 0)), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color("#e6d19a"))
 
 	var btn := expedition_button_rect()

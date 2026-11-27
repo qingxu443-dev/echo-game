@@ -18,6 +18,7 @@ const PlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
+const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 
 ## The fourteen archetypes the spring templates can field (§13-§15).
 const SPRING_ARCHETYPES := [
@@ -50,6 +51,9 @@ func _run() -> void:
 	_test_ward_stance_shield_scales_with_nodes()
 	_test_ward_stance_shield_expires()
 	_test_planning_is_idempotent()
+	_test_single_target_attacks_choose_players_not_chests()
+	_test_real_boss_area_skill_can_damage_a_chest()
+	_test_boss_encounters_scale_all_four_core_stats()
 	_test_move_steps_must_be_positive()
 
 
@@ -493,6 +497,106 @@ func _test_ward_stance_shield_expires() -> void:
 		battle.end_player_turn()
 	_check(boss.shield == 0, "the shield lapses on the third player turn", "shield=%d" % boss.shield)
 	battle.queue_free()
+
+
+
+## A single-target shot must lock a living player, even when a chest is nearer.
+## The archer's charged area shot is disabled so this exercises its true single
+## tile attack rather than an area footprint that may legitimately splash a chest.
+func _test_single_target_attacks_choose_players_not_chests() -> void:
+	var battle = _spawn("petal_archer", Vector2i(2, 3), Vector2i(7, 3))
+	var hero = battle.get_defender()
+	var archer = battle.get_actor("petal_archer_00")
+	var chest_cell := Vector2i(5, 3)
+	battle.beacons[chest_cell] = {
+		"id": "single_target_probe", "cell": chest_cell,
+		"health": 2, "max_health": 2, "opened": false, "loot": {},
+	}
+	archer.skill_charge = 0
+	battle.intents = PlannerScript.plan(battle)
+	var shot = null
+	for intent in battle.intents:
+		if intent.source_actor_id == archer.actor_id and intent.action_id == "light_shot":
+			shot = intent
+			break
+	_check(shot != null, "the archer plans a legal single-target light shot")
+	if shot != null:
+		_check(shot.target_cell == hero.cell, "the single-target intent locks the player tile")
+	var hero_health_before: int = hero.health
+	battle.end_player_turn()
+	_check(int(battle.beacons[chest_cell]["health"]) == 2, "the single-target shot does not damage the nearer chest")
+	_check(hero.health < hero_health_before, "the single-target shot damages the player")
+	battle.queue_free()
+
+
+## This drives a real boss skill from the planner through enemy-phase resolution.
+## The chest is placed on a cell telegraphed by 春痕绽放 after planning, and the
+## area resolver must damage it just as it damages other destructible objects.
+func _test_real_boss_area_skill_can_damage_a_chest() -> void:
+	var battle = _spawn("boss_spring_echo", Vector2i(2, 3), Vector2i(7, 3))
+	battle.turn_number = 2
+	battle.intents = PlannerScript.plan(battle)
+	var bloom = null
+	for intent in battle.intents:
+		if intent.source_actor_id == "boss_spring_echo_00" and intent.action_id == "spring_bloom":
+			bloom = intent
+			break
+	_check(bloom != null, "the boss planner creates its real 春痕绽放 intent")
+	if bloom == null:
+		battle.queue_free()
+		return
+	var chest_cell := Vector2i(-1, -1)
+	for cell in bloom.affected_cells:
+		if cell != battle.get_defender().cell and cell != battle.get_actor("boss_spring_echo_00").cell and not battle.get_occupied_cells().has(cell):
+			chest_cell = cell
+			break
+	_check(chest_cell != Vector2i(-1, -1), "the telegraphed boss area has a free cell for the chest probe")
+	if chest_cell == Vector2i(-1, -1):
+		battle.queue_free()
+		return
+	battle.beacons[chest_cell] = {
+		"id": "area_skill_probe", "cell": chest_cell,
+		"health": 2, "max_health": 2, "opened": false, "loot": {},
+	}
+	battle.end_player_turn()
+	_check(int(battle.beacons[chest_cell]["health"]) < 2, "the real area skill damages a chest inside its telegraphed footprint")
+	battle.queue_free()
+
+
+## Verify runtime scaling, not just the encounter data. 千枝神将's node defense
+## is additive after the boss's base defense has received the 20 percent increase.
+func _test_boss_encounters_scale_all_four_core_stats() -> void:
+	for boss_id in ["boss_petalfall", "boss_thousand_boughs", "boss_spring_echo"]:
+		var definition = SpringEncounterCatalogScript.build(StringName(boss_id), ["sevrin"])
+		var battle = ControllerScript.new()
+		root.add_child(battle)
+		var started: bool = battle.start_encounter(
+			definition.player_cell, definition.enemy_cells, definition.obstacles,
+			definition.enemy_archetypes, definition.character_ids, definition.ally_cells,
+			definition.chest_items, definition.ward_nodes, definition.deploy_cells,
+			false, definition.enemy_stat_multiplier
+		)
+		_check(started, "%s starts with its approved roster and multiplier" % boss_id)
+		if not started:
+			battle.queue_free()
+			continue
+		for index in range(definition.enemy_archetypes.size()):
+			var archetype: String = definition.enemy_archetypes[index]
+			var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
+			var enemy = battle.get_actor("%s_%02d" % [archetype, index])
+			_check(enemy != null, "%s spawns %s" % [boss_id, archetype])
+			if enemy == null or profile == null:
+				continue
+			_check(enemy.max_health == roundi(float(profile.health) * 1.2), "%s scales %s max HP" % [boss_id, archetype])
+			_check(enemy.health == enemy.max_health, "%s starts at scaled full HP" % archetype)
+			_check(enemy.attack == roundi(float(profile.attack) * 1.2), "%s scales %s attack" % [boss_id, archetype])
+			var expected_defense: int = roundi(float(profile.defense) * 1.2)
+			if boss_id == "boss_thousand_boughs" and archetype == boss_id:
+				expected_defense += 160
+			_check(enemy.defense == expected_defense, "%s scales %s defense and preserves node bonuses" % [boss_id, archetype])
+			_check(enemy.magic_resistance == roundi(float(profile.magic_resistance) * 1.2), "%s scales %s magic resistance" % [boss_id, archetype])
+			_check(enemy.skill_damage == profile.skill_damage, "%s preserves %s signature skill damage" % [boss_id, archetype])
+		battle.queue_free()
 
 
 func _test_move_steps_must_be_positive() -> void:

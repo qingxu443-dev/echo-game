@@ -154,43 +154,14 @@ static func actions_for(enemy) -> Array[StringName]:
 	return actions
 
 
-## First legal action wins; otherwise the enemy waits. This is the whole of the
-## per-archetype behaviour, expressed once instead of three times.
-## Picks either the hero or a stationary Relic Beacon so multiple enemies split
-## pressure (attacking beacons the player cannot simply walk away from) instead
-## of all stacking onto the player's single tile.
-static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary, formation: Dictionary = {}):
+## Enemies choose a living player character as the target for every planned
+## action. Chests and ward nodes remain in the battle geometry: area attacks can
+## still damage them when their affected cells overlap, but they are never
+## selected as a single-target objective.
+static func _pick_target_for_enemy(battle, _enemy, _claimed_cells: Dictionary, _formation: Dictionary = {}):
 	var hero = battle.get_defender()
 	if hero == null or not hero.is_alive():
 		return null
-	var beacons: Array[Dictionary] = battle.alive_beacons()
-	if beacons.is_empty():
-		return hero
-
-	var hero_claimed: bool = claimed_cells.has(hero.cell)
-	var best_beacon: Dictionary = {}
-	var best_b_dist: int = 999
-	for b in beacons:
-		# A boss's own 结界 nodes are scenery it protects, not something it
-		# attacks. Everything else (the relic chests) stays a valid objective.
-		if not bool(b.get("enemy_objective", true)):
-			continue
-		var bc: Vector2i = b["cell"]
-		var d: int = GridRulesScript.manhattan_distance(enemy.cell, bc)
-		# Prefer unclaimed beacons first, then nearest beacon
-		var penalty: int = 4 if claimed_cells.has(bc) else 0
-		if d + penalty < best_b_dist:
-			best_b_dist = d + penalty
-			best_beacon = b
-
-	var hero_dist: int = GridRulesScript.manhattan_distance(enemy.cell, hero.cell)
-	# Hero is always primary aggro. When an enemy formation is active, enemies
-	# hold formation on the hero and only clear an adjacent chest if the hero is
-	# still far away (>= 5 tiles); lone stragglers may peel within 2 tiles.
-	if not best_beacon.is_empty() and not claimed_cells.has(best_beacon["cell"]):
-		var in_formation: bool = not formation.is_empty()
-		if (best_b_dist == 1 and hero_dist >= 5) or (not in_formation and hero_claimed and best_b_dist <= 2):
-			return {"cell": best_beacon["cell"], "actor_id": str(best_beacon["id"]), "is_beacon": true}
 	return hero
 
 

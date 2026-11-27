@@ -10,13 +10,13 @@ ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗
 | 场景与内容 | `.tscn` 场景、`.tres` 自定义 Resource、显式内容目录、随资源提交的 `.uid` 和导入元数据；无需 .NET 或运行时插件 |
 | 本地数据 | `user://spring_run.json` 记录春之境进度，`user://atelier_stash.json` 记录局外残晶和打包栏。教学关的局内背包在 `RunState` 内存中 |
 | 自动化 | Godot 无头 GDScript 套件；PowerShell、Bash 与 Windows 批处理入口；GitHub Actions 在 Ubuntu 和 Windows 采用同版引擎 |
-| 发行与资产 | Windows Desktop x86_64 导出预设，内嵌 PCK；`tools/process_sprites.py` 是可选资产工具，依赖 Python、OpenCV、NumPy 与 Pillow；该工具的依赖版本尚未锁定 |
+| 发行与资产 | Windows Desktop x86_64 预设内嵌 PCK，`tools/build_windows.ps1` 执行回归、导出、包体和启动检查；可选素材工具使用 `tools/requirements.txt` 锁定的 Python 依赖，真实素材双次输出已验证 |
 
 1. 用 Godot 4.7.2 Standard 导入根目录中的 `project.godot`，按 **F5** 启动。
 2. 进入大厅，点击「选择地图」。教学遗迹依序推进三关。春之境普通模式选格并确认移动，困难模式先绘制以首领格为终点的路线。
 3. 战斗中左键移动或选目标，`1–4` 选技能，`Q/E` 转镜头，`B` 打开背包，Enter/Space 结束回合。
 4. 自动化先执行 `godot --headless --path . --import`，再从根目录执行 `GODOT=/path/to/godot bash tests/run_all.sh`。Windows 也可执行 `./tests/run_all.ps1 -Godot <Godot-console.exe>`，该入口包含导入。
-5. 导出时安装匹配的 Windows 模板，创建 `build/`，运行 `godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_x64.exe`。人工验收见 [Windows 验证说明](TESTER_WINDOWS_0.1.md)。
+5. Windows 构建执行 `python tools/fetch_windows_template.py` 和 `./tools/build_windows.ps1 -Godot <Godot-console.exe>`，工具核对匹配模板后生成带校验值和日志的 ZIP。复现与待人工验收见 [Windows 交接](WINDOWS_DELIVERY.md)。
 
 ## 场景、状态与核心循环
 

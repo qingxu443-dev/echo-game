@@ -4,9 +4,11 @@
 
 ## 交付包内容
 
-项目所有者应从 ECHO 私有仓库的 `main` 分支下载 ZIP，并将解压后的项目文件夹重新压缩或直接交付。项目根目录必须能看到 `project.godot`。
+优先使用开发者通过构建工具生成的 `ECHO_Windows_x64.zip`：解压后直接运行 exe，无需安装 Godot。包内 README、manifest、资源清单和日志分别提供操作、源码提交/校验值与工程验证证据；`source_dirty` 应为 false。请按 [Windows 交接与验收表](WINDOWS_DELIVERY.md) 记录真人操作结果。
 
-另行准备 Godot 4.7.2 Standard（标准版）Windows x86_64 发行包。不要使用 .NET 版；本次只做桌面运行，不需要 Android 导出模板。
+若拿到的是源码 ZIP，则按下文导入流程操作。项目根目录必须能看到 `project.godot`。
+
+源码运行需另行准备 Godot 4.7.2 Standard（标准版）Windows x86_64 发行包。不要使用 .NET 版；本次只做桌面运行，Android 按用户指令暂缓。
 
 ## 运行前
 

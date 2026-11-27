@@ -27,7 +27,8 @@ static func start_encounter(
 	enemy_archetypes: Array[String] = [],
 	character_ids: Array[String] = [],
 	ally_cells: Array[Vector2i] = [],
-	chest_items: Array[StringName] = []
+	chest_items: Array[StringName] = [],
+	ward_nodes: int = 0
 ) -> bool:
 	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
 		return false
@@ -138,6 +139,10 @@ static func start_encounter(
 
 	# Spawn 2 Relic Beacons as stationary defense objectives (Into-the-Breach style)
 	_spawn_default_beacons(battle, spawn_cells, enemy_cells, candidate_blockers, chest_items)
+	# After the chests, so a node never lands on one and the fight still has the
+	# loot the player expects.
+	if ward_nodes > 0:
+		battle.spawn_ward_nodes(ward_nodes)
 
 	battle.phase = battle.BattlePhase.PLAYER
 	begin_player_turn(battle)

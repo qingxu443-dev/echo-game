@@ -101,6 +101,10 @@ static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
 	var best_beacon: Dictionary = {}
 	var best_b_dist: int = 999
 	for b in beacons:
+		# A boss's own 结界 nodes are scenery it protects, not something it
+		# attacks. Everything else (the relic chests) stays a valid objective.
+		if not bool(b.get("enemy_objective", true)):
+			continue
 		var bc: Vector2i = b["cell"]
 		var d: int = GridRulesScript.manhattan_distance(enemy.cell, bc)
 		# Prefer unclaimed beacons first, then nearest beacon

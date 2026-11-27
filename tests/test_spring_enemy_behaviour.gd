@@ -17,6 +17,7 @@ const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const PlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
+const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 
 ## The fourteen archetypes the spring templates can field (§13-§15).
 const SPRING_ARCHETYPES := [
@@ -41,6 +42,9 @@ func _run() -> void:
 	_test_bulwark_range_is_two_cells()
 	_test_bulwark_ward_waits_for_its_cooldown()
 	_test_signature_damage_is_independent_of_attack()
+	_test_thousand_boughs_spawns_two_ward_nodes()
+	_test_ward_nodes_are_not_boss_objectives()
+	_test_breaking_ward_nodes_costs_defense()
 	_test_move_steps_must_be_positive()
 
 
@@ -277,6 +281,86 @@ func _test_signature_damage_is_independent_of_attack() -> void:
 	_check(vanguard_intent.action_id == "charged_strike", "the vanguard still uses its cleave")
 	_check(vanguard_intent.damage == 2100, "an unpinned skill derives 1400 x 1.5")
 	plain.queue_free()
+
+
+## §15.2 春之结界: two 700-HP nodes beside 千枝神将, each lending it 80 defense.
+func _begin_boss_fight(encounter_id: StringName):
+	var definition: EncounterDefinition = SpringEncounterCatalogScript.build(encounter_id, [])
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	battle.start_encounter(
+		definition.player_cell, definition.enemy_cells, definition.obstacles,
+		definition.enemy_archetypes, definition.character_ids,
+		definition.ally_cells, definition.chest_items, definition.ward_nodes
+	)
+	return battle
+
+
+func _ward_node_list(battle) -> Array[Dictionary]:
+	var nodes: Array[Dictionary] = []
+	for cell in battle.beacons:
+		var node: Dictionary = battle.beacons[cell]
+		if str(node.get("kind", "")) == "ward_node":
+			nodes.append(node)
+	return nodes
+
+
+func _test_thousand_boughs_spawns_two_ward_nodes() -> void:
+	var definition: EncounterDefinition = SpringEncounterCatalogScript.build(&"boss_thousand_boughs", [])
+	_check(definition.ward_nodes == 2, "the 千枝神将 encounter asks for two nodes")
+	var battle = _begin_boss_fight(&"boss_thousand_boughs")
+	var nodes: Array[Dictionary] = _ward_node_list(battle)
+	_check(nodes.size() == 2, "two nodes are on the board", "count=%d" % nodes.size())
+	for node in nodes:
+		_check(int(node["max_health"]) == 700, "each node has 700 health (§15.2)")
+	var boss = battle.get_actor("boss_thousand_boughs_00")
+	_check(boss.defense == 385 + 160, "two standing nodes lend the boss 160 defense", "defense=%d" % boss.defense)
+	battle.queue_free()
+
+
+## The boss must not walk over and hit its own nodes: they are scenery it guards,
+## while the relic chests remain attackable objectives for every enemy.
+func _test_ward_nodes_are_not_boss_objectives() -> void:
+	var battle = _begin_boss_fight(&"boss_thousand_boughs")
+	var nodes: Array[Dictionary] = _ward_node_list(battle)
+	var node_cells: Array[Vector2i] = []
+	for node in nodes:
+		node_cells.append(node["cell"])
+	# Clear the chests first: one of them sits adjacent to the boss and would be
+	# picked ahead of a node either way, which would let this assertion stay green
+	# even with the filter removed.
+	var chest_cells: Array[Vector2i] = []
+	for cell in battle.beacons:
+		if str(battle.beacons[cell].get("kind", "")) != "ward_node":
+			chest_cells.append(cell)
+	for cell in chest_cells:
+		battle.beacons.erase(cell)
+	battle.intents = PlannerScript.plan(battle)
+	var targeted_node := false
+	for intent in battle.intents:
+		if node_cells.has(intent.target_cell):
+			targeted_node = true
+	_check(not targeted_node, "no enemy intent is aimed at a ward node")
+	_check(battle.intents.size() == 1, "the boss still produces an intent without the chests")
+	battle.queue_free()
+
+
+## Breaking a node permanently removes its 80 defense, and the second node's
+## bonus is independent - no double subtraction, no shared counter.
+func _test_breaking_ward_nodes_costs_defense() -> void:
+	var battle = _begin_boss_fight(&"boss_thousand_boughs")
+	var boss = battle.get_actor("boss_thousand_boughs_00")
+	var nodes: Array[Dictionary] = _ward_node_list(battle)
+	var first: Vector2i = nodes[0]["cell"]
+	var second: Vector2i = nodes[1]["cell"]
+	battle.damage_beacon_at(first, 700, "sevrin", "probe")
+	_check(boss.defense == 385 + 80, "one node destroyed leaves 80 defense", "defense=%d" % boss.defense)
+	_check(not battle.get_occupied_cells().has(first), "a destroyed node no longer holds its cell")
+	battle.damage_beacon_at(second, 700, "sevrin", "probe")
+	_check(boss.defense == 385, "both nodes gone returns the sheet's defense", "defense=%d" % boss.defense)
+	battle.damage_beacon_at(second, 700, "sevrin", "probe")
+	_check(boss.defense == 385, "hitting an already-broken node cannot subtract twice", "defense=%d" % boss.defense)
+	battle.queue_free()
 
 
 func _test_move_steps_must_be_positive() -> void:

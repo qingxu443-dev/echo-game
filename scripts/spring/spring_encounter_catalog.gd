@@ -57,7 +57,7 @@ const ELITES := {
 ## §15 boss table. One boss, no escort.
 const BOSSES := {
 	"boss_petalfall": {"title": "凋樱剑主", "roster": ["boss_petalfall"], "hint": "高机动近战：相邻即斩，别让它贴上来。"},
-	"boss_thousand_boughs": {"title": "千枝神将", "roster": ["boss_thousand_boughs"], "hint": "高防御守阵：每一次交换都在考验你能不能磨穿它。"},
+	"boss_thousand_boughs": {"title": "千枝神将", "roster": ["boss_thousand_boughs"], "hint": "高防御守阵：两个结界节点各加 80 防御，先拆还是硬打？", "ward_nodes": 2},
 	"boss_spring_echo": {"title": "春痕回响", "roster": ["boss_spring_echo"], "hint": "远程法术：直线与视线之外才是安全区。"},
 }
 
@@ -172,6 +172,8 @@ static func build(encounter_id: StringName, character_ids: Array[String] = []) -
 	# chest's presence probabilistic and leaves the probability open, so nothing
 	# here pins a chest count.
 	definition.chest_items = []
+	# §15.2: only 千枝神将 brings the 春之结界 nodes with it.
+	definition.ward_nodes = int(entry.get("ward_nodes", 0))
 	return definition
 
 

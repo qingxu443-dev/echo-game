@@ -70,7 +70,10 @@ static func draw_depth_sorted_objects(canvas: CanvasItem, controller, fx_state: 
 		if item["kind"] == "obstacle":
 			_draw_obstacle_pillar(canvas, item["cell"])
 		elif item["kind"] == "beacon":
-			_draw_relic_beacon(canvas, controller, item["cell"], item["beacon"], fx_state)
+			if str(item["beacon"].get("kind", "")) == "ward_node":
+				_draw_ward_node(canvas, controller, item["cell"], item["beacon"], fx_state)
+			else:
+				_draw_relic_beacon(canvas, controller, item["cell"], item["beacon"], fx_state)
 		else:
 			_draw_single_actor(canvas, controller, item["actor_id"], item["actor"], item["pos"], fx_state)
 
@@ -173,6 +176,45 @@ static func _draw_relic_beacon(canvas: CanvasItem, controller, cell: Vector2i, b
 	var ratio: float = clampf(float(beacon["health"]) / float(maxi(1, int(beacon["max_health"]))), 0.0, 1.0)
 	if ratio > 0.0:
 		canvas.draw_rect(Rect2(rect.position, Vector2(bar_w * ratio, bar_h)), P.GOLD_LIGHT, true)
+
+
+## 春之结界 node (§15.2). Deliberately not a chest: the player has to read
+## "this is the thing feeding the boss defense" at a glance, and a wooden crate
+## would promise loot that breaks the wrong way.
+static func _draw_ward_node(canvas: CanvasItem, controller, cell: Vector2i, node: Dictionary, fx_state: Dictionary) -> void:
+	var t: float = float(fx_state.get("time", 0.0))
+	var in_danger: bool = BoardThreatViewScript.is_cell_in_danger(controller, cell)
+	var plate := P.cell_diamond(cell, 10.0)
+	var center := P.cell_center(cell)
+	var pulse: float = 0.5 + 0.5 * sin(t * 2.6)
+	var glow := P.TELEGRAPH_CHARGE_LINE if in_danger else Color("#5fd8b0")
+
+	# Root plate: a dark socket in the floor, so the crystal reads as anchored.
+	canvas.draw_colored_polygon(plate, Color("#1d3a31"))
+	P.draw_polyline_closed(canvas, plate, Color("#2f6b58"), 1.2)
+
+	# Breathing halo, then the crystal itself (two halves for a faceted look).
+	var halo_center := center + Vector2(0.0, -22.0)
+	canvas.draw_circle(halo_center, 14.0 + pulse * 2.5, Color(glow.r, glow.g, glow.b, 0.14))
+	canvas.draw_circle(halo_center, 8.5, Color(glow.r, glow.g, glow.b, 0.30))
+	var top := center + Vector2(0.0, -42.0)
+	var waist := center + Vector2(0.0, -22.0)
+	var bottom := center + Vector2(0.0, -12.0)
+	var left := center + Vector2(-8.0, -31.0)
+	var right := center + Vector2(8.0, -31.0)
+	canvas.draw_colored_polygon(PackedVector2Array([top, right, waist, left]), Color("#8ef0cf"))
+	canvas.draw_colored_polygon(PackedVector2Array([left, waist, right, bottom]), Color("#3f9c86"))
+	P.draw_polyline_closed(canvas, PackedVector2Array([top, right, bottom, left]), Color("#d8fff2"), 1.3)
+
+	# Durability, same bar geometry as the chest so the two read as one family.
+	var pos := P.cell_center(cell) + Vector2(0.0, 13.0)
+	var bar_w: float = 42.0
+	var bar_h: float = 5.0
+	var rect := Rect2(pos.x - bar_w * 0.5, pos.y, bar_w, bar_h)
+	canvas.draw_rect(rect.grow(1.0), P.HP_BG, true)
+	var ratio: float = clampf(float(node["health"]) / float(maxi(1, int(node["max_health"]))), 0.0, 1.0)
+	if ratio > 0.0:
+		canvas.draw_rect(Rect2(rect.position, Vector2(bar_w * ratio, bar_h)), Color("#5fd8b0"), true)
 
 
 # --- standee actors ----------------------------------------------------------------

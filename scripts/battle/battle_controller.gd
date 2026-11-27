@@ -115,9 +115,10 @@ func start_encounter(
 	enemy_archetypes: Array[String] = [],
 	character_ids: Array[String] = [],
 	ally_cells: Array[Vector2i] = [],
-	chest_items: Array[StringName] = []
+	chest_items: Array[StringName] = [],
+	ward_nodes: int = 0
 ) -> bool:
-	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items)
+	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes)
 
 
 func end_player_turn() -> bool:
@@ -161,6 +162,16 @@ func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, acti
 	_emit_event("beacon_damaged", source_actor_id, str(b["id"]), "action=%s cell=%s applied=%d health=%d" % [action_id, str(cell), dmg, int(b["health"])])
 	if int(b["health"]) <= 0:
 		_emit_event("beacon_destroyed", source_actor_id, str(b["id"]), "cell=%s" % str(cell))
+		# 春之结界 (§15.2): breaking a node permanently cancels the defense it
+		# lent its boss. The bonus is tracked on the node, not recomputed from a
+		# node count, so two destroyed nodes cannot subtract three times.
+		var ward_defense: int = int(b.get("ward_defense", 0))
+		if ward_defense > 0:
+			var owner_id := str(b.get("owner_id", ""))
+			var owner = get_actor(owner_id)
+			if owner != null:
+				owner.defense = maxi(0, owner.defense - ward_defense)
+				_emit_event("ward_defense_lost", owner_id, str(b["id"]), "defense=%d" % owner.defense)
 		var breaker = get_actor(source_actor_id)
 		if breaker != null and breaker.team == "player":
 			# Player slammed an enemy into the chest and cracked it open -> drop loot on the tile!
@@ -173,6 +184,56 @@ func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, acti
 		else:
 			_grant_chest_buff_to_enemy(source_actor_id, b)
 	return true
+
+
+## §15.2 春之结界: two destructible nodes beside the boss. Each one holds a cell
+## (so it blocks movement - the beacon table is the only cell-holding object the
+## battle layer has) and lends its boss `WARD_NODE_DEFENSE` while it stands.
+## Nodes never act, never drop loot, and are not re-spawned after destruction.
+const WARD_NODE_HEALTH: int = 700
+const WARD_NODE_DEFENSE: int = 80
+
+func spawn_ward_nodes(count: int = 2, health: int = WARD_NODE_HEALTH, defense_bonus: int = WARD_NODE_DEFENSE) -> int:
+	var boss = null
+	for actor_id in actors:
+		var candidate = actors[actor_id]
+		if candidate.team == "enemy" and candidate.is_alive() and int(candidate.tier) == 2:
+			boss = candidate
+			break
+	if boss == null:
+		return 0
+	var occupied: Dictionary = get_occupied_cells()
+	var candidates: Array[Vector2i] = [
+		boss.cell + Vector2i.UP, boss.cell + Vector2i.RIGHT,
+		boss.cell + Vector2i.DOWN, boss.cell + Vector2i.LEFT,
+		boss.cell + Vector2i(1, 1), boss.cell + Vector2i(1, -1),
+		boss.cell + Vector2i(-1, 1), boss.cell + Vector2i(-1, -1),
+	]
+	var placed: int = 0
+	for cell in candidates:
+		if placed >= count:
+			break
+		if not GridRulesScript.is_inside_bounds(cell, grid_size):
+			continue
+		if blocked_cells.has(cell) or occupied.has(cell) or beacons.has(cell):
+			continue
+		beacons[cell] = {
+			"id": "ward_node_%02d" % placed,
+			"cell": cell,
+			"health": health,
+			"max_health": health,
+			"opened": false,
+			"loot": {},
+			"kind": "ward_node",
+			# The boss must not treat its own nodes as objectives.
+			"enemy_objective": false,
+			"ward_defense": defense_bonus,
+			"owner_id": boss.actor_id,
+		}
+		boss.defense += defense_bonus
+		placed += 1
+		_emit_event("ward_node_spawned", boss.actor_id, "ward_node_%02d" % (placed - 1), "cell=%s defense=%d" % [str(cell), boss.defense])
+	return placed
 
 
 func _grant_chest_buff_to_enemy(source_actor_id: String, chest: Dictionary) -> void:

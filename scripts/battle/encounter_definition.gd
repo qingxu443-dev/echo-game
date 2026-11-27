@@ -24,6 +24,9 @@ extends Resource
 ## (the pre-2.5D behaviour). Teaching levels pin their rewards here so the
 ## lesson they promise is the lesson the player actually gets.
 @export var chest_items: Array[StringName] = []
+## 春之结界 (§15.2): destructible nodes spawned around the boss. 0 for every
+## fight that is not 千枝神将's.
+@export var ward_nodes: int = 0
 
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 
@@ -45,6 +48,8 @@ func is_valid() -> bool:
 	for archetype in enemy_archetypes:
 		if not EnemyCatalogScript.has_definition(archetype):
 			return false
+	if ward_nodes < 0 or ward_nodes > 4:
+		return false
 	return true
 
 

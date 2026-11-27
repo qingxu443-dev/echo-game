@@ -9,11 +9,11 @@
 | 项目 | 值 |
 |---|---|
 | 分支 | `main` |
-| 提交 | `feat/spring-map-exploration` + 春之境内容层 + 敌人行为层 + 精英专属技 + 预告同源/技能数据化（本机实测复核 2347/0） |
+| 提交 | `feat/spring-map-exploration` + 春之境内容层 + 敌人行为层 + 精英专属技 + 预告同源/技能数据化（本机实测复核 2352/0） |
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 33 |
-| 断言总数 | **2347** |
+| 断言总数 | **2352** |
 | 失败数 | 0 |
 | 导入错误 | 0 |
 
@@ -24,7 +24,7 @@
 | `test_battle_controller.gd` | 144 | 控制器场景（含 AP 充能驱动、区域锁定闪避、遗物宝箱偷取与装备掉落） |
 | `test_shared_ap.gd` | 19 | 队伍共享 AP 池（单人重构 3 AP） |
 | `test_downed_and_revive.gd` | 44 | 倒地、复活与指令交接（§12） |
-| `test_damage_types.gd` | 24 | 伤害类型白名单、真实伤害语义、暴击钩子、抗性换算（§10.2 / §10.6 / §47） |
+| `test_damage_types.gd` | 29 | 伤害类型白名单、真实伤害语义、暴击钩子、抗性换算（§10.2 / §10.6 / §47）、法则三 K 常量化与可覆写（D-01） |
 | `test_character_framework.gd` | 183 | 角色框架、誓刃（含击退）、樱与行动归属（§15 / §19-24），含回锋击杀的剑意对照 |
 | `test_oathkeeper_v2_controller.gd` | 110 | 瑟弗林重做技能控制器（誓约、易伤印记、650 基础护盾、4 能量绝对裁决 AoE 击退） |
 | `test_turn_bookkeeping.gd` | 44 | 回合账本（含遗物宝箱占格） |
@@ -54,7 +54,7 @@
 | `test_enemy_skill_catalog.gd` | 41 | 敌人技能数据表自检：每份档案的 action 都已注册、16 条 spec 合法、倍率与射程与重构前常量逐项相等、地格参数、专属技执行表与数据表对齐 |
 | `test_spring_run_loop.gd` | 33 | 整局冒烟：开局 → 逐处战斗结算 → 击败首领关闭区域，中途存读档后继续，资源不越界 |
 | `test_deployment.gd` | 45 | §11.1 部署阶段：不计回合不耗 AP 不触发敌人、只能落部署区、障碍与敌方格拒绝、确认前可调整、未部署不能开战、确认后才开第一回合、自定义部署区覆盖默认 |
-| **合计** | **2347** | |
+| **合计** | **2352** | |
 
 ## 持续集成
 
@@ -93,6 +93,7 @@
 | 2026-11-27 | 春之境战斗切到樱：`HERO_CHARACTER_ID = sakura`，基线 1800/520/180/111 与其档案对齐并加断言防漂移；存档 v3 丢弃瑟弗林时代的 3600 上限；补樱四技能的悬停文案 | 2168 → 2179（+11） |
 | 2026-11-27 | §15.2 视线拆分：`get_sight_blockers` 与 `get_occupied_cells` 分开，结界节点只挡移动不挡视线，圣物宝箱两者都挡；七处视线调用改看新表 | 2179 → 2187（+8） |
 | 2026-11-27 | §14 四名精英专属技落地：樱华蓄斩的意图可打断（`interruptible` 标记 + 流风/击退触发，打断清空充能）、百花锁命两段结算（`lock_on` → `locked_shot`，脱 6 格或断视线破锁）、逐影突袭带路径预告（≤3 格后贴身斩击 1260）、腐樱诅咒降防 100 进入 `DamageTypes` 且不叠加、下一敌方阶段结束恢复；新增 `test_spring_elite_skills` | 2187 → 2238（+51） |
+| 2026-11-27 | 技术债 D-01（法则三 K 参数化）：`combat_math.gd` 抽 `ATTENUATION_K` 常量并给 `calculate_damage`/`resistance_percent` 加可选 K 参数，默认 1000 保持既有数值逐点不变；新增 5 条断言验证默认值一致、覆写后减伤与百分比按新公式走、非法 K 收敛 | 2347 → 2352（+5） |
 | 2026-11-27 | 预告可信度 + 敌人技能数据化：`BattleActor.mitigated_damage` 成为唯一减伤表达式，`preview_damage` 与结算共用它，棋盘标签/行动顺序/预告卡改为显示「实际掉血」而非原始伤害；删掉从未被调用、且与 `actor.defense_penalty` 重复扣减的 `resistance_penalty` 参数；24 个技能常量搬进 `EnemySkillCatalog`（数据对象 + 16 条 spec），九条专属技拆到 `EliteSkills`（`executors()` 表分派），共用几何下沉 `IntentSupport`，`intent_planner.gd` 834 → 333 行；文档守卫新增真实行数上限（600 行，存量三文件登记只许减）；存档升级抽成迁移表并拒绝未来版本；新增 `test_intent_preview`、`test_enemy_skill_catalog`、`test_spring_run_loop` | 2238 → 2347（+109） |
 | 2026-11-25 | M4：`docs/` 分 design / engineering / archive 三层，21 篇文档全部就位，0 断链 | 483 → 483（不变） |
 | 2026-11-25 | 0.3 落地①：全队共享 5 AP，新增 `test_shared_ap` | 483 → 502（+19） |

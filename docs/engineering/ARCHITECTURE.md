@@ -160,7 +160,7 @@ wc -l scripts/**/*.gd
 | `settlement_view.gd` | 169 | 结算面板、完好遗迹宝箱开箱战利品展示、三选一肉鸽强化与其点击区；`spring=true` 时只留「返回春之境」一个出口 |
 | `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
 | `main_menu.gd` | 188 | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；两个选项（进入大厅 / 退出） |
-| `lobby_view.gd` | 547 | 黄昏营地大厅：看板立绘互动、未尽之春断点状态展示，以及右下角「选择地图」按钮与区域选择浮层（教学遗迹 / 未尽之春 / 筹备中） |
+| `lobby_view.gd` | 579 | 黄昏营地大厅：看板立绘互动、未尽之春断点状态展示，以及右下角「选择地图」按钮与区域选择浮层（教学遗迹 / 未尽之春 / 筹备中） |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 

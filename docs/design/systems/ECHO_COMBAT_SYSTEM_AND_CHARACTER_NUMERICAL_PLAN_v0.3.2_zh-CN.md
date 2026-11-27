@@ -182,7 +182,7 @@ ECHO采用网格战棋式回合制战斗。战斗强调：
 
 ### 10.3.1 实施注记：三个钩子没有调用方，真伤走得更短
 
-> 核对日期 2026-11-26，`main` @ `27f9e46`，18 套件 824 断言（历史快照；当前基线为 19 套件 863 断言，见 `docs/engineering/BASELINE.md`）。
+> 核对日期 2026-11-26，`main` @ `27f9e46`，18 套件 824 断言（历史快照；当前基线为 19 套件 863 断言，见 `docs/engineering/quality/BASELINE.md`）。
 
 10.3 列的八个环节在 `BattleActor.apply_damage_with_result` 中**代码仍在**，但其中三个环节的输入参数**当前恒为空值**——它们各自唯一的传入来源随 v1 技能组在 PR #22 中一并移除：
 
@@ -766,9 +766,9 @@ R = 1000 × 0.10 ÷ (1 - 0.10)
 | scripts/battle/damage_pipeline.gd | 8a7d159dbe00a4d425d167631ade6d03e5acc3a7 | 受击后果、统计与击败处理 |
 | scripts/battle/battle_flow.gd | abac0eea55d3225534bce5e7a53961f1a9bb82bf | 回合边界与战斗结束 |
 | scripts/battle/skill_executor.gd | b9ce2400610cd255b3ef5aae804e54400c7686a9 | 技能校验、AP与终极能量 |
-| docs/design/combat_stats_zh-CN.md | 5024e6a46259232bc30544d759eb2e091693c18f | 当前数值与伤害公式文档 |
-| docs/design/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md | d4aef8bc69911c4903822ca3cc448b1b51eac3ab | 事件时序规范 |
-| docs/design/battle_status_system_zh-CN.md | a3748f5976fca88ac277602743c5c9e82acf6fe5 | 状态数据、叠加与生命周期 |
+| docs/design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md | 5024e6a46259232bc30544d759eb2e091693c18f | 当前数值与伤害公式文档 |
+| docs/design/systems/BATTLE_EVENT_TIMELINE_v0.1_zh-CN.md | d4aef8bc69911c4903822ca3cc448b1b51eac3ab | 事件时序规范 |
+| docs/design/systems/battle_status_system_zh-CN.md | a3748f5976fca88ac277602743c5c9e82acf6fe5 | 状态数据、叠加与生命周期 |
 
 ## 44. 当前实现已确认的事实
 

@@ -18,8 +18,8 @@ extends RefCounted
 ##     had already drifted when the title menu merged, while that file's own
 ##     opening line claims it describes what currently exists.
 
-const BASELINE_PATH := "docs/engineering/BASELINE.md"
-const ARCHITECTURE_PATH := "docs/engineering/ARCHITECTURE.md"
+const BASELINE_PATH := "docs/engineering/quality/BASELINE.md"
+const ARCHITECTURE_PATH := "docs/engineering/architecture/ARCHITECTURE.md"
 ## 唯一保存可变基线的机器文件。文档一律不写套件数/断言数，避免每个 PR
 ## 都改同一批行、互相冲突。这里记录的是下限：实际值只许高于它。
 const BASELINE_JSON_PATH := "tests/framework/baseline.json"
@@ -38,10 +38,10 @@ const MODULE_LINE_DEBT := {
 
 const TOTAL_SCAN_FILES := [
 	"README.md",
-	"docs/engineering/ARCHITECTURE.md",
-	"docs/engineering/PROJECT_STATUS.md",
-	"docs/engineering/TESTER_WINDOWS_0.1.md",
-	"docs/engineering/IMPLEMENTATION_DEBT_v1.0_zh-CN.md",
+	"docs/engineering/architecture/ARCHITECTURE.md",
+	"docs/planning/PROJECT_STATUS.md",
+	"docs/delivery/TESTER_WINDOWS_0.1.md",
+	"docs/engineering/quality/IMPLEMENTATION_DEBT_v1.0_zh-CN.md",
 ]
 
 ## Lines that talk about something other than the current total: earlier runs,

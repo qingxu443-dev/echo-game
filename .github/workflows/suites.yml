@@ -2,7 +2,7 @@ name: suites
 
 # Every push to main and every pull request runs the same headless suite the
 # project already relies on, on both platforms it ships to. The declared
-# assertion count is read from docs/engineering/BASELINE.md rather than repeated
+# assertion floor is read from tests/framework/baseline.json rather than repeated
 # here, so the baseline has one maintenance point.
 #
 # The Windows job exists because Windows is the platform the project is actually

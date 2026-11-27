@@ -10,7 +10,7 @@
 
 ## 一、当前阶段
 
-**当前可玩范围包括瑟弗林的三关战斗教学、樱的春之境普通和困难探索、黄昏补给商行。** 模块关系见 [当前架构](ARCHITECTURE.md)，自动化验证见本文验证记录与 [工程基线](BASELINE.md)。
+**当前可玩范围包括瑟弗林的三关战斗教学、樱的春之境普通和困难探索、黄昏补给商行。** 模块关系见 [当前架构](../engineering/architecture/ARCHITECTURE.md)，自动化验证见本文验证记录与 [工程基线](../engineering/quality/BASELINE.md)。
 
 本次重构核心落地内容：
 - **2.5D 表现与界面**：8×8 等距斜视角石板棋盘 + `Q/E` 四对角 90° 旋转视角、主角机能二次元少女「瑟弗林」4 向动态朝向立绘与大头头像、遗迹构造体三职业立绘、新主菜单与清爽战斗 HUD（左下头像血条、底部 4 技能条悬停说明、右上敌方行动与充能情报卡、危险格红晕压迫滤镜）。
@@ -195,14 +195,14 @@ Prototype 0.1 的目标内容：
 
 - 环境：Godot 4.7.2 Standard，Windows 10/11 x86_64。
 - 项目导入：通过，零解析错误。
-- 测试套件：全套通过，0 失败（运行时 PASS 口径；当前计数以运行输出为准，逐套件分表见 `docs/engineering/BASELINE.md`）。
+- 测试套件：全套通过，0 失败（运行时 PASS 口径；当前计数以运行输出为准，逐套件分表见 `docs/engineering/quality/BASELINE.md`）。
 - 主场景：可启动并正常渲染，截图见仓库外的验证记录。
 - 关卡：三关 `.tres` 配置通过数据校验，每关首回合的预告类型与教学设计一致。
 - **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
-测试套件清单（逐套件维护以 `docs/engineering/BASELINE.md` 为准）：
+测试套件清单（逐套件维护以 `docs/engineering/quality/BASELINE.md` 为准）：
 
-当前计数以运行输出为准，0 失败。覆盖下限只在 `tests/framework/baseline.json` 维护，逐套件明细只在 `docs/engineering/BASELINE.md` 维护，正文不再复制这两个数字，避免每次 PR 都改同一批行。
+当前计数以运行输出为准，0 失败。覆盖下限只在 `tests/framework/baseline.json` 维护，逐套件明细只在 `docs/engineering/quality/BASELINE.md` 维护，正文不再复制这两个数字，避免每次 PR 都改同一批行。
 
 **重要限制：**
 - 无头测试与脚本化点击不验证实际窗口绘制、鼠标键盘焦点、画面观感或 Android 触控。

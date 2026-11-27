@@ -1,5 +1,7 @@
 # ECHO Godot 4.7.2 开发验证清单
 
+> **历史提示**（2026-11-28 归档）：其中的单套件测试命令与 v1 技能检查已被 `tests/run_all.*`、`docs/delivery/TESTER_WINDOWS_0.1.md` 与 `docs/engineering/quality/BASELINE.md` 取代；「已发生问题与预防」一节仍有参考价值。
+
 本清单吸收首次 Windows Godot 导入反馈。每次修改 GDScript、场景或资源引用后，都应执行对应检查；不能等到一批功能完成后才集中排错。
 
 

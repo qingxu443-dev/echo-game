@@ -5,10 +5,10 @@
 > 本文档收口实现 P0 所需的首轮规则。标注为调参基线的数值必须在实机测试中验证。
 
 > **现状核对（2026-11-25，`main` @ `aa569bd`）**：本文档为 v0.1 规范的忠实翻译。以下条目已随原型演进，现行口径以标注为准：
-> - 「无护甲减伤」与「首个切片使用每动作显式伤害值」已被**递减收益伤害公式**取代：`最终伤害 = ⌊原始伤害 × 1000 ÷ (1000 + 对应抗性)⌋`，物理走防御、法术走法抗，最终伤害至少为 1（见 `docs/design/combat_stats_zh-CN.md`、`scripts/battle/combat_math.gd`）。
+> - 「无护甲减伤」与「首个切片使用每动作显式伤害值」已被**递减收益伤害公式**取代：`最终伤害 = ⌊原始伤害 × 1000 ÷ (1000 + 对应抗性)⌋`，物理走防御、法术走法抗，最终伤害至少为 1（见 `docs/design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md`、`scripts/battle/combat_math.gd`）。
 > - 「原型基础攻击 1 AP」已被移除：瑟弗林的普通攻击已从玩家操作界面删除，输出完全依赖技能与被动（敌方普通攻击机制不受影响）。
 > - 「伙伴」已实现为**猎人通灵**：不占 AP 的单次支援打击，两回合冷却，不生成战场单位。
-> - 生命值已采用千分制属性体系（见 `docs/design/combat_stats_zh-CN.md` 与 `data/enemies/*.tres`），不再是本文所述的小额整数。
+> - 生命值已采用千分制属性体系（见 `docs/design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md` 与 `data/enemies/*.tres`），不再是本文所述的小额整数。
 
 ## 1. 范围
 
@@ -139,4 +139,4 @@
 - [x] 胜负一次性提交并阻止后续输入。
 - [x] 不创建战斗状态存档或检查点。
 
-*（现状注：以上清单已由 `tests/` 下现行套件覆盖，套件数与断言总数以 `docs/engineering/BASELINE.md` 为准（CI 亦从该文件读取基线）。）*
+*（现状注：以上清单已由 `tests/` 下现行套件覆盖，套件数与断言总数以 `docs/engineering/quality/BASELINE.md` 为准（CI 亦从该文件读取基线）。）*

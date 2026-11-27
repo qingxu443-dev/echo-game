@@ -23,7 +23,7 @@ extends Resource
 ## Known ids: charged_strike, basic_melee, pursuit, aimed_shot, ground_pulse.
 @export var actions: Array[StringName] = []
 ## Orthogonal cells this archetype may cover in one reposition. The prototype
-## baseline is two (docs/design/ENEMY_AI_AND_TELEGRAPH §"移动 最多 2 个正交格"),
+## baseline is two (docs/design/systems/ENEMY_AI_AND_TELEGRAPH §"移动 最多 2 个正交格"),
 ## so two is the default and a profile only overrides it to express weight:
 ## a heavy guard plods (1) while a wind runner skirmishes (3).
 @export var move_steps: int = 2

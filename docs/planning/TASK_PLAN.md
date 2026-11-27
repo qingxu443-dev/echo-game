@@ -15,7 +15,7 @@
 
 ## 已有基础
 
-教学三关、樱与瑟弗林技能、春之境三模板及两种探索模式、事件行商、工坊补给、单局恢复、棋盘四机位和 Windows 导出已有实现。既有测试与 CI 结果见 [BASELINE](BASELINE.md)。M0–M2 早期重构、表现层拆分、CI 和 D-01 参数化已有实现，更新旧文档时标记其实际完成范围。
+教学三关、樱与瑟弗林技能、春之境三模板及两种探索模式、事件行商、工坊补给、单局恢复、棋盘四机位和 Windows 导出已有实现。既有测试与 CI 结果见 [BASELINE](../engineering/quality/BASELINE.md)。M0–M2 早期重构、表现层拆分、CI 和 D-01 参数化已有实现，更新旧文档时标记其实际完成范围。
 
 ## 近期阶段与里程碑
 
@@ -103,11 +103,11 @@
 
 ## 来源与维护
 
-- [现行架构与审计](ARCHITECTURE.md)
+- [现行架构与审计](../engineering/architecture/ARCHITECTURE.md)
 - [项目状态](PROJECT_STATUS.md)
-- [实现欠账 D-01 至 D-04](IMPLEMENTATION_DEBT_v1.0_zh-CN.md)
-- [春之境设计与未决事项](../design/ECHO_SPRING_THAT_NEVER_FINISHED_DESIGN_SUMMARY_2026-11-26.md)
-- [既有框架方案](FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)
-- [战斗待决事项裁决记录](../design/ECHO_COMBAT_PENDING_DECISIONS_v0.3.2_zh-CN.md)
+- [实现欠账 D-01 至 D-04](../engineering/quality/IMPLEMENTATION_DEBT_v1.0_zh-CN.md)
+- [春之境设计与未决事项](../design/content/ECHO_SPRING_THAT_NEVER_FINISHED_DESIGN_SUMMARY_2026-11-26.md)
+- [既有框架方案](../archive/FRAMEWORK_PROPOSAL_v1.0_zh-CN.md)
+- [战斗待决事项裁决记录](../engineering/decisions/ECHO_COMBAT_PENDING_DECISIONS_v0.3.2_zh-CN.md)
 
 既有规格中已经完成或被后续决定替代的条目，通过 001 对账，当前清单按最新明确决定维护。任务是否完成以合入 main 的提交和对应验证记录为准。

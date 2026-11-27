@@ -65,6 +65,6 @@
 
 ## 测试状态说明
 
-Godot 4.7.2 的 Windows 与 Ubuntu 自动化验证入口见 [工程基线](BASELINE.md)。Windows 人工验收须单独记录。
+Godot 4.7.2 的 Windows 与 Ubuntu 自动化验证入口见 [工程基线](../engineering/quality/BASELINE.md)。Windows 人工验收须单独记录。
 
 本文档面向 **Windows 桌面端人工确认**——headless 无法覆盖交互手感、画面观感与设备表现。因此仍不得将“成功导入”当作人工验收完成；需要逐一记录实际操作中的观察结果。

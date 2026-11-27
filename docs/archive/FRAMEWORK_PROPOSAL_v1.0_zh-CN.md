@@ -1,16 +1,18 @@
 # ECHO 项目框架与技术栈方案 v1.0
 
+> **历史提示**（2026-11-28 归档）：本提案的目标结构已由 `docs/engineering/architecture/ARCHITECTURE.md` 取代，正文仅保留为重构决策快照，不再作为实施依据。
+
 - 文档状态：提案（已部分实施——见下方「实施进度」），正文保留为评审快照
 - 适用范围：ECHO Prototype 0.1 → 0.2 的重构基线
 - 编写依据：`main` @ `75d1871` 的实际代码，非规划稿
-- 相关文档：`docs/engineering/ARCHITECTURE.md`（现状）、`docs/engineering/PROJECT_STATUS.md`（进度）、`docs/design/skill_design_principles_zh-CN.md`（设计原则）
+- 相关文档：`docs/engineering/architecture/ARCHITECTURE.md`（现状）、`docs/planning/PROJECT_STATUS.md`（进度）、`docs/design/systems/skill_design_principles_zh-CN.md`（设计原则）
 
 > **实施进度（2026-11-25，`main` @ `aa569bd`）**：
 > - **M0 已完成**——测试套件迁入公共基类 `tests/framework/test_case.gd`，新增一键回归 `tests/run_all.*`。
 > - **M1 已完成**——敌人属性外置为 `data/enemies/*.tres`（新增 `test_enemy_catalog`，断言 582 → 623）；三关外置为 `data/levels/*.tres`，`level_catalog.gd` 69 → 29 行。
 > - **M2 已完成**——936 行控制器拆为门面（230 行）+ 六个协作模块，测试文件零改动，断言数不变。
 > - M3（表现层拆分）与 M4（CI）尚未实施。
-> 逐项断言对照见 `docs/engineering/BASELINE.md` 的变更记录；拆分后的现行架构见 `docs/engineering/ARCHITECTURE.md`。下文「现状盘点」中的行数与断言数为提案编写时（`75d1871`）的快照，保留作为决策依据，请勿当作当前数值。
+> 逐项断言对照见 `docs/engineering/quality/BASELINE.md` 的变更记录；拆分后的现行架构见 `docs/engineering/architecture/ARCHITECTURE.md`。下文「现状盘点」中的行数与断言数为提案编写时（`75d1871`）的快照，保留作为决策依据，请勿当作当前数值。
 
 ---
 
@@ -63,7 +65,7 @@ main.tscn (Node2D)
 
 这些是现有代码里做对了的部分，重构时应作为约束而非负担：
 
-1. **权威边界清晰**：UI 不计算任何结果，全部经 `request_*` 回到控制器。`docs/engineering/ARCHITECTURE.md` 已明文规定，且代码基本遵守。
+1. **权威边界清晰**：UI 不计算任何结果，全部经 `request_*` 回到控制器。`docs/engineering/architecture/ARCHITECTURE.md` 已明文规定，且代码基本遵守。
 2. **意图快照复用**：`battle_intent.gd` 让"预告展示"和"敌方执行"读同一份数据，从机制上排除了预告与结算不一致——这是本项目最核心的可读性保证。
 3. **状态与区域分离**：状态挂在单位上，区域效果挂在格子上，两者生命周期不同却共用到期边界机制，模型干净。
 4. **数据先于执行**：`skill_definition.gd` 是纯数据 Resource，不含执行逻辑；执行集中在控制器。
@@ -106,7 +108,7 @@ main.tscn (Node2D)
 
 **本次纳入**：代码分层、数据外置、UI 拆分、测试框架化、文档治理。
 
-**明确不纳入**（依据 `docs/engineering/PROJECT_STATUS.md` 第五节）：
+**明确不纳入**（依据 `docs/planning/PROJECT_STATUS.md` 第五节）：
 
 - 战斗内存档、检查点、恢复
 - 章节推进、关卡解锁、局外成长、经济系统
@@ -358,7 +360,7 @@ main.tscn (Node2D)
 |---|---|---|
 | M0-1 | 抽 `tests/framework/test_case.gd`，15 个套件改为继承 | 断言总数仍为 582，0 失败 |
 | M0-2 | 加 `tests/run_all.bat`，一次跑全部并汇总 | 一条命令输出"15 套件 / 582 断言 / 0 失败" |
-| M0-3 | 记录基线：当前 SHA + 断言数写入 `docs/engineering/BASELINE.md` | 后续每步都对比此基线 |
+| M0-3 | 记录基线：当前 SHA + 断言数写入 `docs/engineering/quality/BASELINE.md` | 后续每步都对比此基线 |
 
 **为什么先做这个**：后面每一步重构都要靠它判断"有没有改坏"。没有一键回归，重构就是盲改。
 

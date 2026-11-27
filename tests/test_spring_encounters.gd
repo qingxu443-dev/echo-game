@@ -19,7 +19,7 @@ func _run() -> void:
 	_test_rosters_match_the_document()
 	_test_every_archetype_resolves()
 	_test_elites_carry_an_elite()
-	_test_bosses_are_alone()
+	_test_bosses_use_approved_mixed_rosters_and_scaling()
 	_test_built_boards_are_legal()
 	_test_build_is_deterministic()
 	_test_ranged_stand_behind_melee()
@@ -98,13 +98,38 @@ func _test_elites_carry_an_elite() -> void:
 		_check(elites >= 1 and elites <= 2, "%s carries 1-2 elites (§14)" % encounter_id)
 
 
-func _test_bosses_are_alone() -> void:
+func _test_bosses_use_approved_mixed_rosters_and_scaling() -> void:
+	var expected := {
+		"boss_petalfall": ["boss_petalfall", "crimson_sword_guard", "petal_warrior", "petal_archer", "wind_ranger"],
+		"boss_thousand_boughs": ["boss_thousand_boughs", "ancient_bulwark", "rotten_blossom_witch", "withered_guard", "spring_blight"],
+		"boss_spring_echo": ["boss_spring_echo", "hundred_bloom_sniper", "sakura_beast", "petal_archer", "wind_ranger", "spring_blight"],
+	}
+	var elite_ids := ["crimson_sword_guard", "hundred_bloom_sniper", "ancient_bulwark", "gale_blade", "rotten_blossom_witch", "sakura_beast"]
 	for encounter_id in CatalogScript.BOSSES:
 		var key := StringName(encounter_id)
 		var roster: Array[String] = CatalogScript.roster_of(key)
-		_check(roster.size() == 1, "%s has no escort (§15)" % encounter_id)
-		_check(roster[0] == String(encounter_id), "%s fields itself" % encounter_id)
+		_check(roster == expected[str(encounter_id)], "%s uses the author-approved fixed roster" % encounter_id)
+		var bosses := 0
+		var elites := 0
+		var ordinary := 0
+		for archetype in roster:
+			if archetype == str(encounter_id):
+				bosses += 1
+			elif elite_ids.has(archetype):
+				elites += 1
+			else:
+				ordinary += 1
+		_check(bosses == 1, "%s contains exactly one boss" % encounter_id)
+		_check(elites == (1 if encounter_id == "boss_petalfall" else 2), "%s has the approved elite count" % encounter_id)
+		_check(ordinary == (3 if encounter_id != "boss_thousand_boughs" else 2), "%s has the approved ordinary count" % encounter_id)
+		var definition: EncounterDefinition = CatalogScript.build(key, ["sevrin"])
+		_check(is_equal_approx(definition.enemy_stat_multiplier, 1.2), "%s applies the 20 percent core-stat increase" % encounter_id)
 		_check(CatalogScript.is_elite_or_boss(key), "%s counts as a boss fight" % encounter_id)
+
+	var ordinary_definition: EncounterDefinition = CatalogScript.build(&"B001", ["sevrin"])
+	_check(is_equal_approx(ordinary_definition.enemy_stat_multiplier, 1.0), "ordinary encounters keep neutral enemy stats")
+	var elite_definition: EncounterDefinition = CatalogScript.build(&"E-B001", ["sevrin"])
+	_check(is_equal_approx(elite_definition.enemy_stat_multiplier, 1.0), "elite encounters keep neutral enemy stats")
 
 
 func _test_built_boards_are_legal() -> void:

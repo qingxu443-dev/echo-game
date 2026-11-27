@@ -22,14 +22,13 @@ const BASELINE_PATH := "docs/engineering/BASELINE.md"
 const ARCHITECTURE_PATH := "docs/engineering/ARCHITECTURE.md"
 
 ## 单个脚本的行数上限。ARCHITECTURE 的行数表只保证「文档没撒谎」——它会把
-## 846 行如实记成 846，然后放行。battle_view.gd 就是这样长到 846 行的。
+## 846 行如实记成 846，然后放行。battle_view.gd 曾长到 846 行，现已拆到 596 行并移出存量豁免。
 const MAX_MODULE_LINES := 600
 
 ## 已经超标的存量文件：值 = 当前行数，只许减不许增。
 ## 加代码让它变红；拆到 600 行以内后请把条目删掉——留着会变成永久豁免，
 ## 而永久豁免和没有守卫是一回事。
 const MODULE_LINE_DEBT := {
-	"battle_view.gd": 846,
 	"spring_map_view.gd": 755,
 	"battle_controller.gd": 628,
 }

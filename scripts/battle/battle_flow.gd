@@ -89,26 +89,17 @@ static func start_encounter(
 	battle.beacons.clear()
 	battle.dropped_loot.clear()
 	battle.statuses.clear_all()
-	battle.oath_shield_expiry_turn.clear()
-	battle.oath_shield_revived.clear()
-	battle.resource_gain_turn.clear()
-	battle.resource_gain_count.clear()
-	battle.echo_return_gain_turn.clear()
-	battle.oath_vow_triggered_intents.clear()
-	battle.absolute_guard_hit_intents.clear()
-	battle.absolute_guard_countered_enemies.clear()
+	battle.ledger.reset_for_encounter()
 	TacticalPressureScript.reset_turn_tolerance(battle)
 	battle.blocked_cells = candidate_blockers
 	battle.intents.clear()
 	battle.event_sequence = 0
 	battle.turn_number = 0
 	battle.battle_result = ""
-	battle.summon_last_used_turn.clear()
 	battle.damage_dealt = 0
 	battle.damage_taken = 0
 	battle.enemies_defeated = 0
 	battle.hazards.clear()
-	battle.hazard_trigger_turn.clear()
 	battle.deploy_zone = deploy_zone_cells.duplicate() if not deploy_zone_cells.is_empty() else default_deploy_zone(battle)
 	battle.deploy_order.clear()
 	battle.deploy_index = 0
@@ -131,7 +122,6 @@ static func start_encounter(
 		battle.actors[character_id] = unit
 		if index == 0:
 			battle.active_character_id = roster[0]
-			battle.free_move_used_turn = -1
 		# §11.1 deploys the roster in order, one cell each.
 		battle.deploy_order.append(character_id)
 	for index in range(enemy_cells.size()):
@@ -348,8 +338,8 @@ static func end_player_turn(battle) -> bool:
 
 static func expire_oath_shields_for_current_turn(battle) -> void:
 	var expired_ids: Array[String] = []
-	for actor_id in battle.oath_shield_expiry_turn.keys():
-		if int(battle.oath_shield_expiry_turn[actor_id]) <= battle.turn_number:
+	for actor_id in battle.ledger.oath_shield_expiry_turn.keys():
+		if int(battle.ledger.oath_shield_expiry_turn[actor_id]) <= battle.turn_number:
 			expired_ids.append(String(actor_id))
 	for actor_id in expired_ids:
 		if battle.actors.has(actor_id):
@@ -357,7 +347,7 @@ static func expire_oath_shields_for_current_turn(battle) -> void:
 			var removed: int = actor.shield
 			actor.shield = 0
 			battle._emit_event("oath_shield_expired", actor_id, actor_id, "removed=%d turn=%d" % [removed, battle.turn_number])
-		battle.oath_shield_expiry_turn.erase(actor_id)
+		battle.ledger.oath_shield_expiry_turn.erase(actor_id)
 
 
 ## Temp shields from 结界守护 (§15.2) live on the actor. Swept at the start of a
@@ -391,7 +381,7 @@ static func begin_player_turn(battle) -> void:
 		battle._check_battle_end()
 		if battle.phase == battle.BattlePhase.FINISHED:
 			return
-	battle.absolute_guard_countered_enemies.clear()
+	battle.ledger.reset_for_player_turn()
 	TacticalPressureScript.reset_turn_tolerance(battle)
 	for actor_id in battle.actors.keys():
 		var player_actor = battle.actors[actor_id]

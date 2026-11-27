@@ -99,12 +99,12 @@ static func trigger_for(battle, actor) -> int:
 	var hazard: Dictionary = battle.hazards.get(actor.cell, {})
 	if hazard.is_empty():
 		return 0
-	if int(battle.hazard_trigger_turn.get(actor.actor_id, -1)) == battle.turn_number:
+	if int(battle.ledger.hazard_trigger_turn.get(actor.actor_id, -1)) == battle.turn_number:
 		return 0
 	var damage: int = int(hazard.get("damage", 0))
 	if damage <= 0:
 		return 0
-	battle.hazard_trigger_turn[actor.actor_id] = battle.turn_number
+	battle.ledger.hazard_trigger_turn[actor.actor_id] = battle.turn_number
 	var kind: String = str(hazard.get("kind", ""))
 	var damage_type: String = str(hazard.get("damage_type", "physical"))
 	# Not a public intent: the telegraph already resolved as its own hit, and the

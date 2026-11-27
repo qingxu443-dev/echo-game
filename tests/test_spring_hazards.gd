@@ -96,7 +96,7 @@ func _test_blight_field_lands_tiles_and_hurts_the_stander() -> void:
 	hero.cell = tiles[0]
 	var before: int = hero.health
 	var expected: int = CombatMathScript.calculate_damage(263, hero.defense)
-	battle.hazard_trigger_turn.clear()
+	battle.ledger.hazard_trigger_turn.clear()
 	var taken: int = HazardFieldScript.trigger_for(battle, hero)
 	_check(taken == 263, "entering a 凋零 tile asks for 263 raw", "raw=%d" % taken)
 	_check(before - hero.health == expected, "the hero pays the mitigated amount", "lost=%d expected=%d" % [before - hero.health, expected])

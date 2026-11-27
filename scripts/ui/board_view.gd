@@ -112,7 +112,7 @@ static func _draw_deploy_zone(canvas: CanvasItem, controller) -> void:
 static func _draw_move_hints(canvas: CanvasItem, controller, selected_skill: int, fx_state: Dictionary) -> void:
 	if controller.phase != controller.BattlePhase.PLAYER or selected_skill >= 0:
 		return
-	var free_stride: bool = controller.run_state != null and controller.run_state.has_mod(&"echo_stride") and controller.free_move_used_turn != controller.turn_number
+	var free_stride: bool = controller.run_state != null and controller.run_state.has_mod(&"echo_stride") and controller.ledger.free_move_used_turn != controller.turn_number
 	if not free_stride and not controller.ap.can_spend(1):
 		return
 	var mover = controller.get_active_character()
@@ -222,7 +222,7 @@ static func can_target_ally(controller, skill_bar: Array, skill_id: String, acto
 	var actor = controller.get_actor(actor_id)
 	if actor == null or actor.team != "player":
 		return false
-	var revivable: bool = actor.is_downed() and not controller.oath_shield_revived.has(actor_id)
+	var revivable: bool = actor.is_downed() and not controller.ledger.oath_shield_revived.has(actor_id)
 	if not (actor.is_alive() or revivable):
 		return false
 	var entry: Dictionary = _entry_for(skill_bar, skill_id)

@@ -81,9 +81,9 @@ static func resolve_one_active(battle) -> bool:
 				battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", "wait")
 			_:
 				intent.cancel("unknown_action")
-		if battle.absolute_guard_hit_intents.has(intent.intent_id):
+		if battle.ledger.absolute_guard_hit_intents.has(intent.intent_id):
 			absolute_guard_counter(battle, intent)
-			battle.absolute_guard_hit_intents.erase(intent.intent_id)
+			battle.ledger.absolute_guard_hit_intents.erase(intent.intent_id)
 		battle._check_battle_end()
 		return true
 	return false
@@ -187,9 +187,9 @@ static func absolute_guard_counter(battle, intent) -> void:
 		return
 	if not actors.has(intent.source_actor_id) or not actors[intent.source_actor_id].is_alive():
 		return
-	if battle.absolute_guard_countered_enemies.has(intent.source_actor_id):
+	if battle.ledger.absolute_guard_countered_enemies.has(intent.source_actor_id):
 		return
-	battle.absolute_guard_countered_enemies[intent.source_actor_id] = true
+	battle.ledger.absolute_guard_countered_enemies[intent.source_actor_id] = true
 	var marked: bool = statuses.has_status(intent.source_actor_id, &"oathkeeper_mark")
 	var multiplier: float = ABSOLUTE_GUARD_MARKED_MULTIPLIER if marked else ABSOLUTE_GUARD_PLAIN_MULTIPLIER
 	var raw_damage: int = CombatMathScript.calculate_raw_damage(actors[guardian_id].defense, multiplier)

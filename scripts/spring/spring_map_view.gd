@@ -10,6 +10,7 @@ const EncounterCatalogScript = preload("res://scripts/spring/spring_encounter_ca
 const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
 const EndingScript = preload("res://scripts/spring/spring_ending.gd")
+const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
 const RouteOverlayScript = preload("res://scripts/spring/spring_route_overlay.gd")
 
 const MENU_SCENE_PATH := "res://scenes/lobby/lobby.tscn"
@@ -49,6 +50,8 @@ var shop_sell_page: int = 0
 var shop_message: String = ""
 var reward_choices: Array[StringName] = []
 var revive_prompt: bool = false
+var ending_detail: String = ""
+var ending_footer_override: String = ""
 
 
 func _ready() -> void:
@@ -299,7 +302,8 @@ func _draw_finished() -> void:
 	# 收束文字，其余结束较短；面板按行数伸缩，按钮用常量定位、始终贴在面板下方。
 	var ending: Dictionary = EndingScript.ending_for(run.exploration.finish_reason, run.event_log)
 	var lines: Array = ending.get("lines", [])
-	var panel_h: float = 148.0 + 24.0 * float(lines.size())
+	var has_detail: bool = not ending_detail.is_empty()
+	var panel_h: float = 148.0 + 24.0 * float(lines.size()) + (44.0 if has_detail else 0.0)
 	var panel := Rect2(390.0, 250.0, 500.0, panel_h)
 	draw_rect(panel, P.OVERLAY_BG, true)
 	draw_rect(panel, P.GOLD, false, 2.0)
@@ -308,7 +312,10 @@ func _draw_finished() -> void:
 	draw_string(font, panel.position + Vector2(28.0, 40.0), str(ending.get("title", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, color)
 	for index in range(lines.size()):
 		draw_string(font, panel.position + Vector2(28.0, 76.0 + 24.0 * float(index)), str(lines[index]), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
-	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), str(ending.get("footer", "")), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
+	if has_detail:
+		draw_multiline_string(font, panel.position + Vector2(28.0, 76.0 + 24.0 * float(lines.size())), ending_detail, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, 2, P.TEXT_BODY)
+	var footer: String = ending_footer_override if not ending_footer_override.is_empty() else str(ending.get("footer", ""))
+	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), footer, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
 	_draw_button(RETURN_BTN, "返回大厅", true)
 
 
@@ -542,7 +549,10 @@ func _open_shop() -> void:
 func _apply_returned_battle() -> void:
 	if run == null or not BridgeScript.has_result():
 		return
-	var outcome: Dictionary = BridgeScript.settle(run)
+	var unlocked_ids: Array[StringName] = RegionProgressionScript.get_unlocked_region_ids()
+	var next_scene_path: String = RegionProgressionScript.scene_path_for(RegionProgressionScript.REGION_SUMMER)
+	var next_scene_available: bool = not next_scene_path.is_empty() and ResourceLoader.exists(next_scene_path)
+	var outcome: Dictionary = BridgeScript.settle(run, unlocked_ids, next_scene_available)
 	status_message = str(outcome.get("message", status_message))
 	var choices: Array = outcome.get("reward_choices", [])
 	reward_choices = []
@@ -552,6 +562,25 @@ func _apply_returned_battle() -> void:
 	if run.pending_hidden_reveal:
 		run.pending_hidden_reveal = false
 		_reveal_hidden_place()
+
+	var transition: Dictionary = outcome.get("region_transition", {})
+	if bool(transition.get("can_enter", false)):
+		RegionProgressionScript.set_pending_transition(run, transition)
+		_clear_save()
+		var error := get_tree().change_scene_to_file(next_scene_path)
+		if error == OK:
+			return
+		RegionProgressionScript.clear_pending_transition()
+		status_message = "夏之境已解锁，但无法载入区域场景；本次探索已结束。"
+		ending_detail = status_message
+		ending_footer_override = "区域载入失败 · 当前探索已结束"
+	elif bool(outcome.get("finished_run", false)):
+		ending_detail = status_message
+		match str(transition.get("status", "")):
+			"locked":
+				ending_footer_override = "春之境到此为止 · 夏之境及其后尚未解锁"
+			"content_unavailable":
+				ending_footer_override = "夏之境已解锁 · 区域内容尚未开放"
 	_save()
 
 

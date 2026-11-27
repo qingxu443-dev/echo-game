@@ -8,6 +8,7 @@ const ShopViewScript = preload("res://scripts/spring/spring_shop_view.gd")
 const EventCatalogScript = preload("res://scripts/spring/spring_event_catalog.gd")
 const EncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
+const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
 const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
 const EndingScript = preload("res://scripts/spring/spring_ending.gd")
 const RouteOverlayScript = preload("res://scripts/spring/spring_route_overlay.gd")
@@ -83,7 +84,7 @@ func _ready() -> void:
 func start_new_run(seed_value: int, hard_mode: bool = false) -> void:
 	run = SpringRunStorage.start(seed_value, hard_mode, save_path, atelier_save_path)
 	if run == null:
-		status_message = "出征存档未完成，请返回大厅后重试。"
+		status_message = "无法读取或写入出征存档，原存档已保留。"
 		return
 	selected_cell = Vector2i(-1, -1)
 	if hard_mode:
@@ -310,7 +311,8 @@ func _draw_finished() -> void:
 	draw_string(font, panel.position + Vector2(28.0, 40.0), str(ending.get("title", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, color)
 	for index in range(lines.size()):
 		draw_string(font, panel.position + Vector2(28.0, 76.0 + 24.0 * float(index)), str(lines[index]), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
-	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), str(ending.get("footer", "")), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
+	var footer: String = BridgeScript.last_transition_message if not BridgeScript.last_transition_message.is_empty() else str(ending.get("footer", ""))
+	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), footer, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
 	_draw_button(RETURN_BTN, "返回大厅", true)
 
 
@@ -546,20 +548,39 @@ func _apply_returned_battle() -> void:
 	if run.exploration.completed.has(StringName(result.get("place", ""))):
 		BridgeScript.consume_result()
 		return
-	var outcome: Dictionary = BridgeScript.settle_result(run, result)
+	var next_scene_path := RegionProgressionScript.scene_path_for(RegionProgressionScript.REGION_SUMMER)
+	var scene_available: bool = not next_scene_path.is_empty() and ResourceLoader.exists(next_scene_path)
+	var outcome: Dictionary = BridgeScript.settle_result(
+		run, result, RegionProgressionScript.get_unlocked_region_ids(), scene_available
+	)
 	status_message = str(outcome.get("message", status_message))
 	if not run.pending_event.is_empty() and run.exploration.completed.has(StringName(run.pending_event["place"])):
 		run.pending_event.clear()
+	var transition: Dictionary = outcome.get("region_transition", {})
 	if run.pending_hidden_reveal:
 		run.pending_hidden_reveal = false
-		_reveal_hidden_place()
-	var saved := SpringRunStorage.settle(run, save_path, atelier_save_path, int(outcome["atelier_shards"]))
+		if not bool(transition.get("can_enter", false)):
+			_reveal_hidden_place()
+	var saved := SpringRunStorage.settle(run, save_path, atelier_save_path, int(outcome.get("atelier_shards", 0)))
 	if saved or SpringSaveTransaction.is_pending(atelier_save_path):
 		BridgeScript.consume_result()
 	if not saved:
 		status_message = "战后结算存档未完成，请返回大厅后重试。"
 		run = null
-
+		return
+	if bool(transition.get("can_enter", false)):
+		RegionProgressionScript.set_pending_transition(run, transition)
+		var error := get_tree().change_scene_to_file(next_scene_path)
+		if error == OK:
+			return
+		RegionProgressionScript.clear_pending_transition()
+		transition["status"] = "load_failed"
+		transition["can_enter"] = false
+		outcome["region_transition"] = transition
+		outcome["finished_run"] = true
+		outcome["message"] = "下一层已解锁，但区域场景载入失败；本次探索已结束。"
+		BridgeScript.last_transition_message = str(outcome["message"])
+		status_message = str(outcome["message"])
 
 func _reveal_hidden_place() -> void:
 	for cell in FactoryScript.LAYOUT_ORDER:

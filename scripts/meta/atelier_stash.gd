@@ -102,7 +102,7 @@ static func read_state(path: String) -> Dictionary:
 static func save_state(state: Dictionary, path: String = SAVE_PATH) -> bool:
 	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
 		return true
-	if SpringSaveTransaction.is_pending(path):
+	if SpringSaveTransaction.is_pending(path) or read_state(path).is_empty():
 		return false
 	return SaveFile.write_json(path, state)
 

@@ -284,9 +284,6 @@ static func request_deploy(battle, cell: Vector2i) -> bool:
 	if battle.blocked_cells.has(cell):
 		battle._emit_event("action_rejected", "", "", "deploy_on_obstacle cell=%s" % str(cell))
 		return false
-	if battle.beacons.has(cell) and int(battle.beacons[cell].get("health", 0)) > 0:
-		battle._emit_event("action_rejected", "", "", "deploy_on_beacon cell=%s" % str(cell))
-		return false
 	var pending: bool = battle.deploy_index < battle.deploy_order.size()
 	var actor_id: String = battle.deploy_order[battle.deploy_index] if pending else battle.deploy_order[battle.deploy_order.size() - 1]
 	var occupant: String = _actor_at(battle, cell)

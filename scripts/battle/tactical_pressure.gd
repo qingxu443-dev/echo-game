@@ -42,7 +42,9 @@ static func begin_player_action(battle) -> void:
 
 static func init_enemy_pressure(enemy) -> void:
 	enemy.melee_tolerance = 0
-	enemy.melee_tolerance_max = 2
+	# Melee tolerance counter applies to Elites & Bosses (tier >= 1) so clearing
+	# ordinary adds stays crisp while tough foes demand deliberate counterplay.
+	enemy.melee_tolerance_max = 2 if int(enemy.tier) >= 1 else 0
 	enemy.last_melee_hit_seq = -1
 	enemy.boss_phase = 1
 	enemy.armor_chip_hits = 0

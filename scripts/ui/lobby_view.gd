@@ -12,6 +12,8 @@ const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
 const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
 const SPRING_SAVE_PATH := "user://spring_run.json"
 const BACKGROUND_PATH := "res://assets/ui/lobby_atelier_bg.png"
+const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
+const AtelierPrepOverlayScript = preload("res://scripts/ui/atelier_prep_overlay.gd")
 
 const MAP_ENTRIES: Array[Dictionary] = [
 	{
@@ -51,10 +53,15 @@ var mouse_norm: Vector2 = Vector2.ZERO
 var parallax_smooth: Vector2 = Vector2.ZERO
 
 var map_selector_open: bool = false
+var prep_open: bool = false
+var atelier_state: Dictionary = {}
+var prep_notice: String = ""
+var mouse_pos: Vector2 = Vector2.ZERO
 var selected_map_index: int = 0
 var hovered_map_index: int = -1
 var hovered_nav_btn: String = ""
 var hover_expedition: bool = false
+var hover_prep: bool = false
 var hover_back: bool = false
 var hovered_hotspot: String = ""
 var expedition_glow: float = 0.0
@@ -76,6 +83,7 @@ func _ready() -> void:
 	chapter_portraits["tutorial"] = _load_texture("res://assets/actors/portraits/sevrin.png")
 	chapter_portraits["spring"] = _load_texture("res://assets/actors/portraits/sakura.png")
 	_init_motes()
+	atelier_state = AtelierStashScript.load_state()
 	refresh_save_summary()
 	_show_dialogue("瑟弗林", SEVRIN_LINES[0], 6.0)
 	queue_redraw()
@@ -143,6 +151,7 @@ func _process(delta: float) -> void:
 func _sx() -> float: return maxf(1.0, size.x) / 1280.0
 func _sy() -> float: return maxf(1.0, size.y) / 720.0
 func back_button_rect() -> Rect2: return Rect2(26.0 * _sx(), 22.0 * _sy(), 108.0 * _sx(), 34.0 * _sy())
+func prep_button_rect() -> Rect2: return Rect2(744.0 * _sx(), 580.0 * _sy(), 168.0 * _sx(), 102.0 * _sy())
 func expedition_button_rect() -> Rect2: return Rect2(928.0 * _sx(), 580.0 * _sy(), 316.0 * _sx(), 102.0 * _sy())
 func sevrin_hotspot_rect() -> Rect2: return Rect2(490.0 * _sx(), 230.0 * _sy(), 240.0 * _sx(), 440.0 * _sy())
 func table_map_hotspot_rect() -> Rect2: return Rect2(240.0 * _sx(), 450.0 * _sy(), 260.0 * _sx(), 165.0 * _sy())
@@ -212,6 +221,7 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 			SpringBattleBridge.requested_mode = "normal"
 		else:
 			SpringBattleBridge.requested_mode = ""
+	SpringBattleBridge.stage_starting_loadout(AtelierStashScript.build_loadout_items())
 	var tree := get_tree()
 	if tree == null:
 		return true
@@ -237,6 +247,10 @@ func return_to_title() -> bool:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+	if prep_open:
+		if event.keycode == KEY_ESCAPE:
+			prep_open = false; queue_redraw(); get_viewport().set_input_as_handled()
 		return
 	if map_selector_open:
 		match event.keycode:
@@ -266,75 +280,54 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var pos: Vector2 = event.position
-		mouse_norm = Vector2(
-			clampf((pos.x / maxf(1.0, size.x) - 0.5) * 2.0, -1.0, 1.0),
-			clampf((pos.y / maxf(1.0, size.y) - 0.5) * 2.0, -1.0, 1.0)
-		)
-		if map_selector_open:
+		mouse_pos = pos
+		mouse_norm = Vector2(clampf((pos.x / maxf(1.0, size.x) - 0.5) * 2.0, -1.0, 1.0), clampf((pos.y / maxf(1.0, size.y) - 0.5) * 2.0, -1.0, 1.0))
+		if prep_open:
+			queue_redraw()
+		elif map_selector_open:
 			var next_nav := "back" if close_selector_rect().has_point(pos) else ("home" if home_selector_rect().has_point(pos) else "")
 			var next_hover := -1
 			for i in range(MAP_ENTRIES.size()):
 				if map_card_rect(i).has_point(pos):
-					next_hover = i
-					selected_map_index = i
-					break
+					next_hover = i; selected_map_index = i; break
 			if next_hover != hovered_map_index or next_nav != hovered_nav_btn:
-				hovered_map_index = next_hover
-				hovered_nav_btn = next_nav
-				queue_redraw()
+				hovered_map_index = next_hover; hovered_nav_btn = next_nav; queue_redraw()
 		else:
 			hover_expedition = expedition_button_rect().has_point(pos)
+			hover_prep = prep_button_rect().has_point(pos)
 			hover_back = back_button_rect().has_point(pos)
 			hovered_hotspot = ""
-			if not hover_expedition and not hover_back:
-				if table_map_hotspot_rect().has_point(pos):
-					hovered_hotspot = "map"
-				elif sevrin_hotspot_rect().has_point(pos):
-					hovered_hotspot = "sevrin"
-				elif gear_hotspot_rect().has_point(pos):
-					hovered_hotspot = "gear"
+			if not hover_expedition and not hover_prep and not hover_back:
+				hovered_hotspot = "map" if table_map_hotspot_rect().has_point(pos) else ("sevrin" if sevrin_hotspot_rect().has_point(pos) else ("gear" if gear_hotspot_rect().has_point(pos) else ""))
 			queue_redraw()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_handle_click(event.position)
 		accept_event()
 
-
 func _handle_click(pos: Vector2) -> void:
+	if prep_open:
+		var res := AtelierPrepOverlayScript.handle_click(size, pos, atelier_state)
+		if bool(res.get("close", false)): prep_open = false
+		else: prep_notice = str(res.get("message", ""))
+		queue_redraw(); return
 	if map_selector_open:
 		if close_selector_rect().has_point(pos) or home_selector_rect().has_point(pos):
-			close_map_selector()
-			return
+			close_map_selector(); return
 		for i in range(MAP_ENTRIES.size()):
 			if map_card_rect(i).has_point(pos):
-				if i == 1 and spring_hard_button_rect().has_point(pos):
-					activate_map(1, true)
-				else:
-					activate_map(i, false)
-				return
+				activate_map(i, i == 1 and spring_hard_button_rect().has_point(pos)); return
 		return
-
-	if expedition_button_rect().has_point(pos):
-		open_map_selector()
-		return
+	if expedition_button_rect().has_point(pos) or table_map_hotspot_rect().has_point(pos):
+		open_map_selector(); return
+	if prep_button_rect().has_point(pos) or gear_hotspot_rect().has_point(pos):
+		atelier_state = AtelierStashScript.load_state(); prep_notice = ""; prep_open = true; queue_redraw(); return
 	if back_button_rect().has_point(pos):
-		return_to_title()
-		return
-	if table_map_hotspot_rect().has_point(pos):
-		open_map_selector()
-		return
+		return_to_title(); return
 	if sevrin_hotspot_rect().has_point(pos):
 		camp_line_index = (camp_line_index + 1) % SEVRIN_LINES.size()
-		_show_dialogue("瑟弗林", SEVRIN_LINES[camp_line_index], 6.0)
-		queue_redraw()
-		return
-	if gear_hotspot_rect().has_point(pos):
-		gear_line_index = (gear_line_index + 1) % GEAR_LINES.size()
-		_show_dialogue("工坊见闻", GEAR_LINES[gear_line_index], 5.0)
-		queue_redraw()
-		return
+		_show_dialogue("瑟弗林", SEVRIN_LINES[camp_line_index], 6.0); queue_redraw(); return
 	if dialogue_timer > 0.0:
-		dialogue_timer = 0.0
-		queue_redraw()
+		dialogue_timer = 0.0; queue_redraw()
 
 
 # --- rendering ---------------------------------------------------------------
@@ -349,7 +342,9 @@ func _draw() -> void:
 	_draw_minimal_hud(font, sx, sy)
 	_draw_dialogue_ribbon(font, sx, sy)
 	_draw_expedition_button(font, sx, sy)
-	if map_selector_open or selector_fade > 0.02:
+	if prep_open:
+		AtelierPrepOverlayScript.draw(self, font, size, atelier_state, prep_notice, mouse_pos)
+	elif map_selector_open or selector_fade > 0.02:
 		_draw_map_selector(font, sx, sy, maxf(selector_fade, 1.0 if map_selector_open else 0.0))
 
 
@@ -451,6 +446,16 @@ func _draw_dialogue_ribbon(font: Font, sx: float, sy: float) -> void:
 
 
 func _draw_expedition_button(font: Font, sx: float, sy: float) -> void:
+	# Atelier Prep button sitting cleanly to the left of Select Map
+	var pr := prep_button_rect()
+	var pb := Color(0.14, 0.17, 0.22, 0.94) if hover_prep else Color(0.10, 0.11, 0.15, 0.86)
+	var pborder := Color("#74ebd5") if hover_prep else Color(0.56, 0.78, 0.86, 0.65)
+	draw_rect(pr, pb, true); draw_rect(Rect2(pr.position, Vector2(5.0 * sx, pr.size.y)), pborder, true); draw_rect(pr, pborder, false, 1.6)
+	var packed_n: int = (atelier_state.get("loadout", []) as Array).size()
+	draw_string(font, pr.position + Vector2(18.0 * sx, 42.0 * sy), "工坊整备", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(21.0 * sy), Color("#ecfaf7"))
+	draw_string(font, pr.position + Vector2(18.0 * sx, 68.0 * sy), "行囊 %d / %d" % [packed_n, AtelierStashScript.MAX_LOADOUT], HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color("#9be3d5"))
+	draw_string(font, pr.position + Vector2(18.0 * sx, 88.0 * sy), "残晶 %d" % int(atelier_state.get("shards", 0)), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color("#e6d19a"))
+
 	var btn := expedition_button_rect()
 	var pulse: float = 0.5 + 0.5 * sin(elapsed * 2.6)
 	var bg := Color(0.18, 0.14, 0.11, 0.88).lerp(Color(0.30, 0.23, 0.15, 0.96), expedition_glow)

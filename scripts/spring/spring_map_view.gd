@@ -73,13 +73,13 @@ func _ready() -> void:
 
 func start_new_run(seed_value: int, hard_mode: bool = false) -> void:
 	run = SpringRun.begin(seed_value, hard_mode)
+	SpringBattleBridge.apply_starting_loadout_to_run(run)
 	selected_cell = Vector2i(-1, -1)
 	if hard_mode:
 		status_message = "【困难·一笔画】长按棋盘拖动连接任意数量节点，结尾必须落于「王」！"
 	else:
 		status_message = "抵达 %s。点击地点查看路程与体力消耗。" % _place_label(run.template.start_cell)
 	confirm_end = false
-
 
 func _init_petals() -> void:
 	petals.clear()

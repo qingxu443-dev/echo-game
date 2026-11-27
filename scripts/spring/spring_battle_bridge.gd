@@ -18,6 +18,7 @@ extends RefCounted
 
 const BATTLE_SCENE_PATH: String = "res://scenes/main/main.tscn"
 const MAP_SCENE_PATH: String = "res://scenes/spring/spring_map.tscn"
+const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
 
 ## §16.1: a chest that survives the fight pays 10 花钿.
 const CHEST_COINS: int = 10
@@ -35,6 +36,36 @@ static var pending: Dictionary = {}
 static var last_result: Dictionary = {}
 ## Optional mode handoff from the Lobby ("normal" / "hard" / "" for resume).
 static var requested_mode: String = ""
+## Starting consumables packed at the Atelier hub for the upcoming expedition.
+static var starting_loadout: Array[Dictionary] = []
+
+
+static func stage_starting_loadout(items: Array[Dictionary]) -> void:
+	starting_loadout.clear()
+	for item in items:
+		starting_loadout.append(item.duplicate(true))
+
+
+static func apply_starting_loadout_to_run(run) -> int:
+	if run == null or starting_loadout.is_empty():
+		return 0
+	var count := 0
+	for item in starting_loadout:
+		run.add_battle_item(item)
+		count += 1
+	starting_loadout.clear()
+	return count
+
+
+static func apply_starting_loadout_to_run_state(run_state) -> int:
+	if run_state == null or starting_loadout.is_empty():
+		return 0
+	var count := 0
+	for item in starting_loadout:
+		run_state.add_to_backpack(item)
+		count += 1
+	starting_loadout.clear()
+	return count
 
 
 static func consume_requested_mode() -> String:
@@ -140,7 +171,10 @@ static func settle(run) -> Dictionary:
 		run.exploration.mark_completed(place_id)
 
 	if not won:
-		outcome["message"] = "这一处失守了。"
+		var pity_shards: int = 20
+		AtelierStashScript.award_shards(pity_shards)
+		outcome["atelier_shards"] = pity_shards
+		outcome["message"] = "这一处失守了（带回 %d 工坊残晶）。" % pity_shards
 		if run.revive_used:
 			outcome["message"] += "本区域的续行已经用过，冒险到此为止。"
 			run.exploration.finish("defeat")
@@ -150,6 +184,9 @@ static func settle(run) -> Dictionary:
 			outcome["message"] += "可以用 %d 份补给续行一次。" % CONTINUE_SUPPLY_COST
 		return outcome
 
+	var win_shards: int = 80 if kind == KIND_BOSS else (55 if kind == KIND_ELITE else 35)
+	AtelierStashScript.award_shards(win_shards)
+	outcome["atelier_shards"] = win_shards
 	run.battles_won += 1
 	var chests: int = int(result.get("chests_saved", 0))
 	var coins: int = chests * CHEST_COINS

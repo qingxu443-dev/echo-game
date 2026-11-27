@@ -7,6 +7,7 @@ extends RefCounted
 ## - reset() wipes everything cleanly at the end of a run.
 
 const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
+const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
 
 var base_max_health: int = 3600
 var base_attack: int = 1150
@@ -236,6 +237,36 @@ func use_backpack_item(index: int, battle, actor) -> String:
 		var en_gain: int = int(item.get("energy_gain", 0))
 		if en_gain > 0:
 			actor.gain_ultimate_energy(en_gain)
+		var res_gain: int = int(item.get("resource_gain", 0))
+		if res_gain > 0:
+			if actor.has_resource():
+				actor.gain_resource(res_gain)
+			else:
+				actor.gain_ultimate_energy(res_gain)
+		var armor_brk: int = int(item.get("armor_break", 0))
+		var aoe_true: int = int(item.get("aoe_true_damage", 0))
+		if (armor_brk > 0 or aoe_true > 0) and battle != null:
+			for aid in battle.actors.keys():
+				var e = battle.actors[aid]
+				if e == null or e.team != "enemy" or not e.is_alive():
+					continue
+				if armor_brk > 0:
+					TacticalPressureScript.shatter_armor(battle, e, armor_brk, "armor_bomb")
+				if aoe_true > 0:
+					battle._apply_damage(String(aid), aoe_true, actor.actor_id, "atelier_armor_bomb", "true")
+			battle._check_battle_end()
+		var clr_tol: bool = bool(item.get("clear_tolerance", false))
+		var drain_c: int = int(item.get("drain_charge", 0))
+		if (clr_tol or drain_c > 0) and battle != null:
+			for aid in battle.actors:
+				var e = battle.actors[aid]
+				if e == null or e.team != "enemy" or not e.is_alive():
+					continue
+				if clr_tol:
+					e.melee_tolerance = 0
+					e.last_melee_hit_seq = -1
+				if drain_c > 0 and e.skill_charge > 0:
+					e.skill_charge = maxi(0, e.skill_charge - drain_c)
 		return "已使用「%s」！" % str(item.get("name", ""))
 
 	return ""

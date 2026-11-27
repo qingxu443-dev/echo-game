@@ -323,11 +323,24 @@ static func _actor_at(battle, cell: Vector2i) -> String:
 	# ward nodes all reserve their cells. Undeployed party members are removed
 	# from the temporary view because their initial cells are not placements.
 	var occupied: Dictionary = battle.get_occupied_cells()
+	var pending_ids: Dictionary = {}
 	for pending_index in range(battle.deploy_index, battle.deploy_order.size()):
 		var pending_id: String = battle.deploy_order[pending_index]
+		pending_ids[pending_id] = true
 		var pending_actor = battle.actors.get(pending_id)
 		if pending_actor != null and str(occupied.get(pending_actor.cell, "")) == pending_id:
 			occupied.erase(pending_actor.cell)
+
+	# Multiple party members may share placeholder coordinates before they are
+	# deployed. Removing a pending placeholder must never erase a placed actor
+	# that now occupies that same cell.
+	for actor_id in battle.actors:
+		var placed_id := String(actor_id)
+		if pending_ids.has(placed_id):
+			continue
+		var placed_actor = battle.actors[actor_id]
+		if placed_actor.blocks_cell():
+			occupied[placed_actor.cell] = placed_id
 	return str(occupied.get(cell, ""))
 
 

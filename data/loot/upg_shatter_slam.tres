@@ -10,5 +10,6 @@ kind_zh = "技能升级"
 name = "铭文·碎石震荡"
 desc = "使用：撞墙 / 撞怪真实伤害翻倍（450 → 900）。"
 mod_id = &"shatter_slam"
+character_id = &"sevrin"
 enemy_buff_zh = "吸收铭文 · 攻+260"
 enemy_attack = 260

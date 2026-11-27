@@ -297,9 +297,10 @@ static func _draw_single_actor(canvas: CanvasItem, controller, actor_id: String,
 	else:
 		_draw_fallback_token(canvas, actor, foot_pos + Vector2(0.0, -24.0), flash)
 
-	# Compact HP + shield bar under feet & overhead mark badges
+	# Compact HP + shield bar under feet & overhead mark badges (aligned to token vs standee height)
 	_draw_compact_hp_bar(canvas, actor, base_pos + Vector2(0.0, 13.0))
-	_draw_overhead_badges(canvas, controller, actor_id, foot_pos + Vector2(0.0, -P.STANDEE_HEIGHT + 2.0), t)
+	var badge_y: float = (-P.STANDEE_HEIGHT + 2.0) if tex != null else -48.0
+	_draw_overhead_badges(canvas, controller, actor_id, foot_pos + Vector2(0.0, badge_y), t)
 
 
 static func _draw_fallback_token(canvas: CanvasItem, actor, center: Vector2, flash: float) -> void:

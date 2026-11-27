@@ -10,5 +10,6 @@ kind_zh = "技能升级"
 name = "铭文·震荡誓盾"
 desc = "使用：「誓盾庇护」+350 护盾，且开盾震退周围敌人。"
 mod_id = &"shock_shield"
+character_id = &"sevrin"
 enemy_buff_zh = "吸收铭文 · 护盾+700"
 enemy_shield = 700

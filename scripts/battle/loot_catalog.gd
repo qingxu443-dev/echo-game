@@ -67,6 +67,30 @@ static func roll_random_item() -> Dictionary:
 	return _definitions[index].to_dict()
 
 
+## True when an item belongs to no specific character or matches the active roster.
+static func is_item_usable_by_roster(item: Dictionary, roster: Array[String]) -> bool:
+	var req := String(item.get("character_id", &""))
+	return req.is_empty() or roster.is_empty() or roster.has(req)
+
+
+## Rolls a loot item valid for the current party roster, filtering out other
+## characters' exclusive skill upgrades and already-owned / duplicate upgrades.
+static func roll_item_for_roster(roster: Array[String], owned_mods: Array[StringName] = [], exclude_ids: Array[StringName] = []) -> Dictionary:
+	var pool: Array[LootItemDefinition] = []
+	for def in _definitions:
+		var req := String(def.character_id)
+		if not req.is_empty() and not roster.is_empty() and not roster.has(req):
+			continue
+		if def.kind == KIND_SKILL_UPGRADE:
+			if owned_mods.has(def.mod_id) or exclude_ids.has(def.id):
+				continue
+		pool.append(def)
+	if pool.is_empty():
+		return roll_random_item()
+	var index: int = _rng.randi_range(0, pool.size() - 1)
+	return pool[index].to_dict()
+
+
 static func get_item(item_id: StringName) -> Dictionary:
 	for definition in _definitions:
 		if definition.id == item_id:

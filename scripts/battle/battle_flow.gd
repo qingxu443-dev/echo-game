@@ -203,6 +203,14 @@ static func _spawn_default_beacons(
 		used[c] = true
 	for c in blockers:
 		used[c] = true
+	var owned_mods: Array[StringName] = []
+	var excluded_upgrades: Array[StringName] = []
+	if battle.run_state != null:
+		owned_mods = battle.run_state.mods.duplicate()
+		for bag_item in battle.run_state.backpack:
+			if str(bag_item.get("kind", "")) == LootCatalogScript.KIND_SKILL_UPGRADE:
+				excluded_upgrades.append(StringName(str(bag_item.get("id", ""))))
+	var roster: Array[String] = battle.deploy_order.duplicate()
 	var placed: int = 0
 	for c in preferred:
 		if placed >= 2:
@@ -217,9 +225,12 @@ static func _spawn_default_beacons(
 			loot = LootCatalogScript.get_item(fixed_id)
 			if loot.is_empty():
 				push_error("LevelCatalog: unknown chest item id '%s', falling back to a random roll" % str(fixed_id))
-				loot = LootCatalogScript.roll_random_item()
-		else:
-			loot = LootCatalogScript.roll_random_item()
+			elif not LootCatalogScript.is_item_usable_by_roster(loot, roster):
+				loot = {}
+		if loot.is_empty():
+			loot = LootCatalogScript.roll_item_for_roster(roster, owned_mods, excluded_upgrades)
+		if str(loot.get("kind", "")) == LootCatalogScript.KIND_SKILL_UPGRADE:
+			excluded_upgrades.append(StringName(str(loot.get("id", ""))))
 		battle.beacons[c] = {
 			"id": "beacon_%02d" % placed,
 			"cell": c,

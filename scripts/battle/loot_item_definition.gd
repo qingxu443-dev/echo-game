@@ -29,8 +29,10 @@ extends Resource
 @export var shield_gain: int = 0
 @export var energy_gain: int = 0
 
-## Skill upgrade only: which run mod activating this item grants.
+## Skill upgrade only: which run mod activating this item grants, and which
+## character owns that skill (empty = universal item for every character).
 @export var mod_id: StringName = &""
+@export var character_id: StringName = &""
 
 ## What an enemy gains when it cracks this chest open. Every item defines all
 ## four fields so the steal path never has to special-case a kind.
@@ -71,6 +73,7 @@ func to_dict() -> Dictionary:
 		"shield_gain": shield_gain,
 		"energy_gain": energy_gain,
 		"mod_id": mod_id,
+		"character_id": character_id,
 		"enemy_buff_zh": enemy_buff_zh,
 		"enemy_attack": enemy_attack,
 		"enemy_shield": enemy_shield,

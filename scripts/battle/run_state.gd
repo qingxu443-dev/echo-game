@@ -214,6 +214,9 @@ func use_backpack_item(index: int, battle, actor) -> String:
 		return equip_from_backpack(index, actor)
 
 	if kind == LootCatalogScript.KIND_SKILL_UPGRADE:
+		var req_char := String(item.get("character_id", &""))
+		if not req_char.is_empty() and actor != null and String(actor.character_id) != req_char:
+			return "「%s」为其他角色专属技能铭文，当前角色无法激活。" % str(item.get("name", ""))
 		var mid: StringName = item.get("mod_id", &"")
 		backpack.remove_at(index)
 		if mid != &"" and not mods.has(mid):

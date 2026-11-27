@@ -203,14 +203,14 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 			_draw_move_arrow_chain(canvas, source.cell, path_cells, dim, is_focus and has_focus)
 		var origin_cell: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else (source.cell if source != null else Vector2i.ZERO)
 
-		# Draw subtle amber caution rings on reactive melee pivot/chase tiles so the
-		# player never gets surprised by an unadvertised sidestep strike.
+		# Show amber reactive-melee caution rings when hovering this enemy or when
+		# the hero is standing inside a reactive tile (keeps default board crisp).
 		if intent.action_id == "basic_melee" and intent.target_actor_id.is_empty():
 			var hero = controller.get_active_character()
 			for rc in _reactive_cells_for_intent(controller, intent):
 				var hero_on_rc: bool = hero != null and hero.is_alive() and hero.cell == rc
-				if (is_focus and has_focus) or hero_on_rc or (source != null and GridRulesScript.manhattan_distance(origin_cell, rc) == 1):
-					_draw_caution_tile(canvas, rc, Color(0.98, 0.68, 0.22), (0.85 if hero_on_rc else 0.48) * dim)
+				if (is_focus and has_focus) or hero_on_rc:
+					_draw_caution_tile(canvas, rc, Color(1.0, 0.62, 0.16), (0.90 if hero_on_rc else 0.62) * dim)
 
 		match intent.action_id:
 			"ground_pulse", "echo_bolt":
@@ -262,26 +262,24 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 
 static func _draw_move_arrow_chain(canvas: CanvasItem, start_cell: Vector2i, path_cells: Array, dim: float, emphasize: bool) -> void:
 	var fill := Color(P.TELEGRAPH_PURSUIT_FILL.r, P.TELEGRAPH_PURSUIT_FILL.g, P.TELEGRAPH_PURSUIT_FILL.b, P.TELEGRAPH_PURSUIT_FILL.a * dim)
-	var line := Color(P.TELEGRAPH_PURSUIT_LINE.r, P.TELEGRAPH_PURSUIT_LINE.g, P.TELEGRAPH_PURSUIT_LINE.b, (0.95 if emphasize else 0.72) * dim)
-	var warn := Color(0.98, 0.70, 0.28, 0.42 * dim)
+	var line := Color(P.TELEGRAPH_PURSUIT_LINE.r, P.TELEGRAPH_PURSUIT_LINE.g, P.TELEGRAPH_PURSUIT_LINE.b, (0.96 if emphasize else 0.72) * dim)
 	var prev := P.cell_center(start_cell)
 	for path_cell in path_cells:
-		var pts := P.cell_diamond(path_cell, 6.0)
+		var pts := P.cell_diamond(path_cell, 7.0)
 		canvas.draw_colored_polygon(pts, fill)
-		P.draw_polyline_closed(canvas, pts, line, 2.0 if emphasize else 1.5)
-		P.draw_polyline_closed(canvas, P.cell_diamond(path_cell, 11.5), warn, 1.1)
+		P.draw_polyline_closed(canvas, pts, line, 1.8 if emphasize else 1.2)
 		var nxt := P.cell_center(path_cell)
-		canvas.draw_line(prev, nxt, line, 3.0 if emphasize else 2.2, true)
+		canvas.draw_dashed_line(prev, nxt, line, 2.6 if emphasize else 1.8, 6.0)
 		prev = nxt
-	# Clear arrowhead at the landing cell
+	# Crisp silver-white directional arrowhead at the landing cell
 	var prev_cell: Vector2i = start_cell if path_cells.size() < 2 else path_cells[path_cells.size() - 2]
 	var end_pos := P.cell_center(path_cells[path_cells.size() - 1])
 	var dir := (end_pos - P.cell_center(prev_cell)).normalized()
 	if dir.length_squared() > 0.01:
 		var perp := Vector2(-dir.y, dir.x)
 		var tip := end_pos + dir * 4.0
-		var tri := PackedVector2Array([tip, tip - dir * 12.0 + perp * 6.5, tip - dir * 12.0 - perp * 6.5])
-		canvas.draw_colored_polygon(tri, Color(0.98, 0.88, 0.54, 0.95 * dim))
+		var tri := PackedVector2Array([tip, tip - dir * 11.0 + perp * 5.5, tip - dir * 11.0 - perp * 5.5])
+		canvas.draw_colored_polygon(tri, Color(0.92, 0.96, 1.0, 0.94 * dim))
 
 
 static func _draw_caution_tile(canvas: CanvasItem, cell: Vector2i, color: Color, alpha: float) -> void:

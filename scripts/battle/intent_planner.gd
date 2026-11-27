@@ -173,11 +173,23 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 
 
 static func _compute_move_path(battle, enemy, target) -> Array[Vector2i]:
+	var steps: int = _move_steps_of(enemy)
 	if enemy.archetype == "marksman":
-		return _ranged_reposition_path(battle, enemy, target, AIMED_SHOT_MIN_RANGE, AIMED_SHOT_MAX_RANGE, true, 2)
+		return _ranged_reposition_path(battle, enemy, target, AIMED_SHOT_MIN_RANGE, AIMED_SHOT_MAX_RANGE, true, steps)
 	if enemy.archetype == "area_controller":
-		return _ranged_reposition_path(battle, enemy, target, GROUND_PULSE_MIN_RANGE, GROUND_PULSE_MAX_RANGE, false, 2)
-	return _pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, 2)
+		return _ranged_reposition_path(battle, enemy, target, GROUND_PULSE_MIN_RANGE, GROUND_PULSE_MAX_RANGE, false, steps)
+	return _pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, steps)
+
+
+## Reposition budget for this actor. Two is the prototype baseline; a profile
+## overrides it to express weight (heavy guard 1, wind runner 3). Read through a
+## guard because the planner is also driven by test doubles that only model the
+## handful of fields a scenario needs.
+static func _move_steps_of(enemy) -> int:
+	var steps: int = 2
+	if enemy != null and "move_steps" in enemy:
+		steps = int(enemy.move_steps)
+	return clampi(steps, 1, 4)
 
 
 ## Returns null when the action is not legal on this board. Each branch checks

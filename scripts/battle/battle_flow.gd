@@ -128,6 +128,7 @@ static func start_encounter(
 		var enemy_unit = BattleActorScript.new(enemy_id, "enemy", cell, profile.health, archetype, profile.attack, profile.defense, profile.magic_resistance)
 		enemy_unit.glyph = profile.glyph
 		enemy_unit.skill_charge_max = 3
+		enemy_unit.move_steps = profile.move_steps
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		battle.actors[enemy_id] = enemy_unit

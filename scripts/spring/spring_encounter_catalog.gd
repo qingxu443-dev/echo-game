@@ -13,11 +13,15 @@ extends RefCounted
 ## deterministic per encounter id: the same fight always looks the same, which is
 ## what lets a save resume mid-run without re-rolling anything.
 ##
-## Deliberately NOT here: the elites' signature skills (§14) and the bosses'
-## (§15). Those need battlefield zones, area telegraphs and destructible nodes -
-## none of which the battle layer has - so each elite and boss currently fights
-## with its normal attack. Recorded as debt in PROJECT_STATUS.md rather than
-## faked with numbers that do nothing.
+## Deliberately NOT here: the battlefield *shapes* of the elites' signature
+## skills (§14) and the bosses' (§15) - area sweeps, destructible 结界 nodes,
+## lingering ground damage. Those need battle-layer mechanics the controller does
+## not have yet. What the sheets CAN express today is already wired: every elite
+## and boss carries `pursuit` (without it the planner never repositions, and the
+## whole fight stands still) and borrows the closest existing action -
+## charged_strike for the melee ones, aimed_shot/echo_bolt for the casters. The
+## rest is recorded as debt in PROJECT_STATUS.md rather than faked with numbers
+## that do nothing.
 
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 

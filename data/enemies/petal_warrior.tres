@@ -11,4 +11,4 @@ health = 2000
 attack = 900
 defense = 300
 magic_resistance = 150
-actions = Array[StringName]([&"basic_melee"])
+actions = Array[StringName]([&"basic_melee", &"pursuit"])

@@ -11,4 +11,5 @@ health = 2870
 attack = 770
 defense = 210
 magic_resistance = 385
-actions = Array[StringName]([&"echo_bolt"])
+actions = Array[StringName]([&"echo_bolt", &"ground_pulse", &"pursuit"])
+move_steps = 1

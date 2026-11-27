@@ -48,6 +48,10 @@ var resource_current: int = 0
 ## Enemy signature-skill charge bar: fills whenever the player spends AP.
 var skill_charge: int = 0
 var skill_charge_max: int = 3
+## Orthogonal cells this unit may cover in one reposition, copied from its
+## EnemyDefinition. Kept on the actor because the planner and the resolver read
+## it while the board is live, and neither of them holds the data profile.
+var move_steps: int = 2
 ## Weapons/armors stolen from destroyed Relic Chests; dropped onto the ground on death.
 var stolen_equipment: Array[Dictionary] = []
 

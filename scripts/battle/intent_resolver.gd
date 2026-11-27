@@ -215,7 +215,10 @@ static func _pursuit(battle, intent) -> void:
 	var actors = battle.actors
 	var source = actors[intent.source_actor_id]
 	var path: Array = intent.affected_cells
-	if path.is_empty() or path.size() > 2:
+	var budget: int = 2
+	if "move_steps" in source:
+		budget = clampi(int(source.move_steps), 1, 4)
+	if path.is_empty() or path.size() > budget:
 		intent.cancel("invalid_pursuit_path")
 		return
 	var cursor: Vector2i = source.cell

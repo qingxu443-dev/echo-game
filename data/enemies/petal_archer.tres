@@ -11,4 +11,4 @@ health = 1600
 attack = 950
 defense = 200
 magic_resistance = 200
-actions = Array[StringName]([&"light_shot"])
+actions = Array[StringName]([&"light_shot", &"pursuit"])

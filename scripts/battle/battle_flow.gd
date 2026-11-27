@@ -13,6 +13,7 @@ const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
+const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 
@@ -135,6 +136,7 @@ static func start_encounter(
 		enemy_unit.skill_damage = profile.skill_damage
 		enemy_unit.ward_stance_percent = profile.ward_stance_percent
 		enemy_unit.ward_stance_node_bonus = profile.ward_stance_node_bonus
+		enemy_unit.basic_attack_multiplier = profile.basic_attack_multiplier
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		battle.actors[enemy_id] = enemy_unit
@@ -272,6 +274,14 @@ static func begin_player_turn(battle) -> void:
 		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_start count=%d" % expired_statuses)
 	battle.turn_number += 1
 	_expire_enemy_stance_shields(battle)
+	# Ground hazards run on the same player-turn clock: sweep the lapsed ones
+	# first, then bill whoever is still standing on a live tile. Doing it in the
+	# other order would charge for a tile that expires this very turn.
+	HazardFieldScript.expire(battle)
+	if HazardFieldScript.tick_player_turn_start(battle) > 0:
+		battle._check_battle_end()
+		if battle.phase == battle.BattlePhase.FINISHED:
+			return
 	battle.absolute_guard_countered_enemies.clear()
 	for actor_id in battle.actors.keys():
 		var player_actor = battle.actors[actor_id]

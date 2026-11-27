@@ -12,15 +12,57 @@ extends RefCounted
 
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
+const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 
 
 ## The whole threat layer, in composition order.
 static func draw(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	draw_hazard_tiles(canvas, controller, fx_state)
 	draw_telegraphs(canvas, controller, fx_state)
 	draw_impact_flashes(canvas, fx_state)
 	draw_telegraph_labels(canvas, controller, fx_state)
 	draw_popups(canvas, fx_state)
 	draw_danger_vignette(canvas, controller, fx_state)
+
+
+# --- ground hazards (凋零 / 残春) ---------------------------------------------
+
+## Painted under every telegraph and every standee: terrain, not an incoming hit.
+## The two kinds differ in hue and in mark (cracks vs petals) so a player can tell
+## 凋零 from 残春 without reading a label.
+static func draw_hazard_tiles(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	if controller.hazards.is_empty():
+		return
+	var t: float = float(fx_state.get("time", 0.0))
+	var pulse: float = 0.72 + 0.28 * sin(t * 2.0)
+	for cell in controller.hazards:
+		var hazard: Dictionary = controller.hazards[cell]
+		match str(hazard.get("kind", "")):
+			HazardFieldScript.KIND_BLIGHT:
+				_draw_blight_tile(canvas, cell, pulse)
+			HazardFieldScript.KIND_LINGERING_SPRING:
+				_draw_lingering_tile(canvas, cell, pulse)
+
+
+static func _draw_blight_tile(canvas: CanvasItem, cell: Vector2i, pulse: float) -> void:
+	var diamond := P.cell_diamond(cell, 5.0)
+	canvas.draw_colored_polygon(diamond, Color(P.HAZARD_BLIGHT_FILL.r, P.HAZARD_BLIGHT_FILL.g, P.HAZARD_BLIGHT_FILL.b, P.HAZARD_BLIGHT_FILL.a * pulse))
+	P.draw_polyline_closed(canvas, diamond, Color(P.HAZARD_BLIGHT_LINE.r, P.HAZARD_BLIGHT_LINE.g, P.HAZARD_BLIGHT_LINE.b, 0.55 + 0.25 * pulse), 1.6)
+	# Three short cracks: dead ground, not a rune circle.
+	var center := P.cell_center(cell)
+	for angle in [-0.9, 0.2, 1.5]:
+		var dir := Vector2(cos(angle), sin(angle))
+		canvas.draw_line(center - dir * 12.0, center + dir * 17.0, Color(P.HAZARD_BLIGHT_LINE.r, P.HAZARD_BLIGHT_LINE.g, P.HAZARD_BLIGHT_LINE.b, 0.85), 2.0, true)
+
+
+static func _draw_lingering_tile(canvas: CanvasItem, cell: Vector2i, pulse: float) -> void:
+	var diamond := P.cell_diamond(cell, 7.0)
+	canvas.draw_colored_polygon(diamond, Color(P.HAZARD_SPRING_FILL.r, P.HAZARD_SPRING_FILL.g, P.HAZARD_SPRING_FILL.b, P.HAZARD_SPRING_FILL.a * pulse))
+	P.draw_polyline_closed(canvas, diamond, Color(P.HAZARD_SPRING_LINE.r, P.HAZARD_SPRING_LINE.g, P.HAZARD_SPRING_LINE.b, 0.50 + 0.25 * pulse), 1.4)
+	# Petals: pink dots that read as fallen blossom rather than hazard paint.
+	var center := P.cell_center(cell)
+	for offset in [Vector2(-13, -3), Vector2(7, 8), Vector2(15, -8), Vector2(-4, 10)]:
+		canvas.draw_circle(center + offset, 3.6, Color(P.HAZARD_SPRING_LINE.r, P.HAZARD_SPRING_LINE.g, P.HAZARD_SPRING_LINE.b, 0.92))
 
 
 # --- telegraphs ---------------------------------------------------------------
@@ -49,6 +91,21 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_CHARGE_FILL, P.TELEGRAPH_CHARGE_LINE, pulse)
 				if source != null and source.is_alive():
 					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -32.0), P.cell_center(intent.target_cell), P.TELEGRAPH_CHARGE_LINE, 12.0)
+			"blight_field":
+				for area_cell in intent.affected_cells:
+					_draw_hazard_tile(canvas, area_cell, P.HAZARD_BLIGHT_FILL, P.HAZARD_BLIGHT_LINE, pulse)
+				if source != null and source.is_alive():
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -32.0), P.cell_center(intent.target_cell), P.HAZARD_BLIGHT_LINE, 12.0)
+			"spring_bloom":
+				for area_cell in intent.affected_cells:
+					_draw_hazard_tile(canvas, area_cell, P.HAZARD_SPRING_FILL, P.HAZARD_SPRING_LINE, pulse)
+				if source != null and source.is_alive():
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(intent.target_cell), P.HAZARD_SPRING_LINE, 10.0)
+			"sakura_shock":
+				for area_cell in intent.affected_cells:
+					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_CHARGE_FILL, P.TELEGRAPH_CHARGE_LINE, pulse)
+				if source != null and source.is_alive():
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -30.0), P.cell_center(intent.target_cell), P.TELEGRAPH_CHARGE_LINE, 10.0)
 			"basic_melee":
 				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_CHARGE_FILL, P.RING_MELEE, pulse)
 				if source != null and source.is_alive():
@@ -110,6 +167,15 @@ static func draw_telegraph_labels(canvas: CanvasItem, controller, _fx_state: Dic
 				anchor_cell = intent.target_cell
 				label = "斩击 %d" % intent.damage
 				color = P.TELEGRAPH_CHARGE_MARK
+			"blight_field":
+				label = "樱落 %d" % intent.damage
+				color = P.HAZARD_BLIGHT_LINE
+			"spring_bloom":
+				label = "春痕 %d" % intent.damage
+				color = P.HAZARD_SPRING_LINE
+			"sakura_shock":
+				label = "震荡 %d" % intent.damage
+				color = P.TELEGRAPH_CHARGE_MARK
 			_:
 				continue
 
@@ -132,6 +198,8 @@ static func has_living_actor_at(controller, cell: Vector2i) -> bool:
 
 
 static func is_cell_in_danger(controller, cell: Vector2i) -> bool:
+	if controller.hazards.has(cell):
+		return true
 	for intent in controller.intents:
 		if intent.state != IntentScript.IntentState.ACTIVE:
 			continue

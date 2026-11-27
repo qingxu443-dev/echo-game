@@ -23,6 +23,14 @@ var cancel_reason: String = ""
 ## planning stays free of side effects; IntentResolver walks it during the enemy
 ## phase. Empty for intents that act from where the enemy already stands.
 var move_path: Array[Vector2i] = []
+## Ground hazard this action leaves behind (凋零 / 残春). Empty `hazard_cells`
+## means the action leaves no ground effect, which is every action but the three
+## signature ones. The planner pins the damage here so the telegraph can promise
+## the same number the resolver applies.
+var hazard_cells: Array[Vector2i] = []
+var hazard_kind: String = ""
+var hazard_damage: int = 0
+var hazard_duration_turns: int = 0
 
 
 func _init(
@@ -35,7 +43,11 @@ func _init(
 	p_affected_cells: Array[Vector2i] = [],
 	p_damage: int = 0,
 	p_execution_priority: int = 0,
-	p_damage_type: String = "physical"
+	p_damage_type: String = "physical",
+	p_hazard_cells: Array[Vector2i] = [],
+	p_hazard_kind: String = "",
+	p_hazard_damage: int = 0,
+	p_hazard_duration_turns: int = 0
 ) -> void:
 	intent_id = p_intent_id
 	source_actor_id = p_source_actor_id
@@ -47,6 +59,10 @@ func _init(
 	damage = maxi(0, p_damage)
 	execution_priority = p_execution_priority
 	damage_type = p_damage_type
+	hazard_cells = p_hazard_cells.duplicate()
+	hazard_kind = p_hazard_kind
+	hazard_damage = maxi(0, p_hazard_damage)
+	hazard_duration_turns = maxi(0, p_hazard_duration_turns)
 
 
 func cancel(reason: String) -> bool:

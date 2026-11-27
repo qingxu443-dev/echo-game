@@ -45,6 +45,12 @@ extends Resource
 ## Zero on every sheet that has no such stance.
 @export var ward_stance_percent: float = 0.0
 @export var ward_stance_node_bonus: float = 0.0
+## Multiplier for this archetype's plain attack, overriding the action default
+## (basic_melee 0.80 / light_shot 0.75 / echo_bolt 0.70). Zero keeps the default.
+## §15 gives each boss its own attendance number - 樱刃 0.80, 重盾击 0.70,
+## 花影弹 0.65 - and they are not interchangeable: a boss whose sheet says 0.65
+## should not be swinging the generic 0.80.
+@export var basic_attack_multiplier: float = 0.0
 
 
 func is_valid() -> bool:
@@ -65,5 +71,7 @@ func is_valid() -> bool:
 	if skill_damage < 0:
 		return false
 	if ward_stance_percent < 0.0 or ward_stance_node_bonus < 0.0:
+		return false
+	if basic_attack_multiplier < 0.0:
 		return false
 	return true

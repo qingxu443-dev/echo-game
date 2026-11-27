@@ -14,14 +14,14 @@ extends RefCounted
 ## what lets a save resume mid-run without re-rolling anything.
 ##
 ## Deliberately NOT here: the battlefield *shapes* of the elites' signature
-## skills (§14) and the bosses' (§15) - area sweeps, destructible 结界 nodes,
-## lingering ground damage. Those need battle-layer mechanics the controller does
-## not have yet. What the sheets CAN express today is already wired: every elite
-## and boss carries `pursuit` (without it the planner never repositions, and the
-## whole fight stands still) and borrows the closest existing action -
-## charged_strike for the melee ones, aimed_shot/echo_bolt for the casters. The
-## rest is recorded as debt in PROJECT_STATUS.md rather than faked with numbers
-## that do nothing.
+## skills (§14) - the interruptible wind-up, the delayed mark, the 3-step dash,
+## the defense debuff. Those are four mechanics the battle layer still lacks, so
+## those four sheets borrow charged_strike or a straight shot and their numbers
+## are pinned in `skill_damage`. Everything the battle layer CAN express is
+## wired: every elite and boss carries `pursuit`, 古木壁垒 wards, 樱庭震荡 is the
+## document's three tiles, and all three bosses carry their own signature
+## (樱落领域 + 凋零, 春之结界 + 结界守护, 春痕绽放 + 残春). The rest is recorded as
+## debt in PROJECT_STATUS.md rather than faked with numbers that do nothing.
 
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 

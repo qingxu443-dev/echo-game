@@ -351,6 +351,12 @@ static func action_name(action_id: String) -> String:
 			return "古木壁垒"
 		"ward_stance":
 			return "结界守护"
+		"blight_field":
+			return "樱落领域"
+		"spring_bloom":
+			return "春痕绽放"
+		"sakura_shock":
+			return "樱庭震荡"
 		"wait":
 			return "待机观察"
 		_:
@@ -377,6 +383,12 @@ static func action_description(action_id: String) -> String:
 			return "为 2 格内一名普通同伴套上 500 护盾。先拆掉被保护的对象，或让它与守卫拉开距离。"
 		"ward_stance":
 			return "【满充能技】为自己升起护盾，每个存活结界节点都会让它更厚。先拆节点，再决战。"
+		"blight_field":
+			return "【满充能技】三格樱落斩；被斩过的地格化为凋零，站上去或走进去都会持续受伤两回合。"
+		"spring_bloom":
+			return "【满充能技】三格春痕爆发，并在原地留下残春；残春不挡路，但每一回合都会咬人。"
+		"sakura_shock":
+			return "【满充能技】预告相邻三格震荡；离开这三格就不会被震到。"
 		"wait":
 			return "当前无合法目标，原地待机。"
 		_:

@@ -25,6 +25,7 @@ const BattleFlowScript = preload("res://scripts/battle/battle_flow.gd")
 const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 const DamagePipelineScript = preload("res://scripts/battle/damage_pipeline.gd")
+const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
 const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
@@ -52,6 +53,13 @@ var blocked_cells: Dictionary = {}
 var beacons: Dictionary = {}
 ## Equipment dropped onto tiles when an enemy carrying stolen gear dies: cell -> Array[Dictionary]
 var dropped_loot: Dictionary = {}
+## Ground hazards (凋零 / 残春): cell -> {"kind", "cell", "damage", "damage_type",
+## "owner_id", "expires_turn"}. They never hold a cell - movement and line of
+## sight read `blocked_cells`, not this table - so a hazard can only ever hurt.
+var hazards: Dictionary = {}
+## Per-character ledger for "at most one hazard trigger per player turn":
+## actor_id -> turn_number of the last trigger.
+var hazard_trigger_turn: Dictionary = {}
 var intents: Array = []
 var event_sequence: int = 0
 var turn_number: int = 0
@@ -452,6 +460,10 @@ func request_player_move(path: Array[Vector2i]) -> bool:
 		free_move_used_turn = turn_number
 	mover.cell = path[path.size() - 1]
 	pickup_dropped_loot_at(mover.cell)
+	# 凋零 / 残春 punish walking onto a tile, on top of whatever the player spent
+	# to get here. `trigger_for` owns the once-per-turn rule, so a two-step move
+	# across two hazard tiles still hurts exactly once.
+	HazardFieldScript.trigger_for(self, mover)
 	SkillExecutorScript.gain_active_energy(self, mover.actor_id)
 	CharacterSkillRuntimeScript.gain_intent_from_action(self, mover)
 	_emit_event("actor_moved", mover.actor_id, "", str(mover.cell))

@@ -12,6 +12,7 @@ extends RefCounted
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
+const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 
 const ABSOLUTE_GUARD_MARKED_MULTIPLIER: float = 0.7
 const ABSOLUTE_GUARD_PLAIN_MULTIPLIER: float = 0.5
@@ -49,7 +50,7 @@ static func resolve_one_active(battle) -> bool:
 		match intent.action_id:
 			"basic_melee", "light_shot", "echo_bolt":
 				_tile_locked_attack(battle, intent)
-			"ground_pulse", "charged_strike", "aimed_shot":
+			"ground_pulse", "charged_strike", "aimed_shot", "blight_field", "spring_bloom", "sakura_shock":
 				_area_attack(battle, intent)
 			"pursuit":
 				_pursuit(battle, intent)
@@ -195,7 +196,7 @@ static func _tile_locked_attack(battle, intent) -> void:
 static func _area_attack(battle, intent) -> void:
 	var actors = battle.actors
 	var source = actors.get(intent.source_actor_id)
-	if intent.action_id in ["charged_strike", "aimed_shot", "ground_pulse"] and source != null:
+	if intent.action_id in ["charged_strike", "aimed_shot", "ground_pulse", "blight_field", "spring_bloom", "sakura_shock"] and source != null:
 		source.skill_charge = 0
 	var hit_any := false
 	for actor_id in actors:
@@ -207,6 +208,16 @@ static func _area_attack(battle, intent) -> void:
 	for area_cell in intent.affected_cells:
 		if battle.damage_beacon_at(area_cell, intent.damage, intent.source_actor_id, intent.action_id):
 			hit_any = true
+	# The ground effect lands whether or not anyone was standing in the blast:
+	# 樱落领域 cuts the floor, it does not cut a person in particular. Doing this
+	# before the empty-area cancel below is deliberate - a swing that missed must
+	# not leave the battlefield exactly as it was.
+	if not intent.hazard_cells.is_empty() and not intent.hazard_kind.is_empty():
+		HazardFieldScript.spawn(
+			battle, intent.hazard_cells, intent.hazard_kind,
+			intent.hazard_damage, intent.source_actor_id,
+			intent.hazard_duration_turns, intent.damage_type
+		)
 	if not hit_any:
 		intent.cancel("marked_area_empty")
 		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])

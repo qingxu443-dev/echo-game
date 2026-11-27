@@ -62,6 +62,8 @@ var skill_damage: int = 0
 ## 结界守护 coefficients (§15.2). Both zero except 千枝神将.
 var ward_stance_percent: float = 0.0
 var ward_stance_node_bonus: float = 0.0
+## Overrides the action's default multiplier for this unit's plain attack.
+var basic_attack_multiplier: float = 0.0
 ## Turn on which a temporary shield lapses; -1 means "no expiry". The player's
 ## oath shield uses a table on the battle; an enemy stance is one actor's own
 ## state, so it rides on the actor.

@@ -17,6 +17,7 @@ const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
+const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 
 ## Damage multipliers per action, kept next to the decision that uses them. These
 ## describe the action rather than the archetype, so they are not in the .tres.
@@ -35,6 +36,25 @@ const AIMED_SHOT_MIN_RANGE: int = 3
 const AIMED_SHOT_MAX_RANGE: int = 6
 const GROUND_PULSE_MIN_RANGE: int = 2
 const GROUND_PULSE_MAX_RANGE: int = 4
+
+## Ground-effect signature skills (§15). All three hit "范围 3 个相邻地格"; the
+## constants differ only in the reach the boss may stand at, which follows how
+## each one fights: 凋樱剑主 closes in, 春痕回响 keeps its distance, 樱庭镇守兽
+## guards the door.
+const BLIGHT_FIELD_MULTIPLIER: float = 1.0
+const BLIGHT_FIELD_RANGE: int = 2
+const SPRING_BLOOM_MULTIPLIER: float = 0.75
+const SPRING_BLOOM_MIN_RANGE: int = 2
+const SPRING_BLOOM_MAX_RANGE: int = 5
+const SAKURA_SHOCK_MULTIPLIER: float = 0.75
+const SAKURA_SHOCK_RANGE: int = 2
+## "持续 2 个完整回合" (§15.1 / §15.3).
+const HAZARD_DURATION_TURNS: int = 2
+## 凋零 is pinned by the document (0.25 of the skill's damage). 残春 is described
+## only as "少量伤害", so this draft lives here and nowhere else - see
+## PROJECT_STATUS 的未决清单.
+const BLIGHT_HAZARD_MULTIPLIER: float = 0.25
+const LINGERING_SPRING_MULTIPLIER: float = 0.2
 
 
 static func plan(battle) -> Array:
@@ -218,6 +238,12 @@ static func _build_intent(battle, enemy, target, occupied: Dictionary, action_id
 			return _ward_ally(battle, enemy, target)
 		&"ward_stance":
 			return _ward_stance(battle, enemy)
+		&"blight_field":
+			return _blight_field(battle, enemy, target)
+		&"spring_bloom":
+			return _spring_bloom(battle, enemy, target)
+		&"sakura_shock":
+			return _sakura_shock(battle, enemy, target)
 	push_error("IntentPlanner: unknown action '%s' for archetype '%s'" % [action_id, enemy.archetype])
 	return null
 
@@ -244,11 +270,21 @@ static func _charged_strike(battle, enemy, target, occupied: Dictionary):
 	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "charged_strike", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, _signature_damage(enemy, CHARGED_STRIKE_MULTIPLIER), 0)
 
 
+## Plain-attack damage. §15 gives each boss its own attendance multiplier -
+## 樱刃 0.80 / 重盾击 0.70 / 花影弹 0.65 - so a profile may override the action
+## default. Everything without the field keeps the generic number.
+static func _plain_attack_damage(enemy, default_multiplier: float) -> int:
+	var multiplier: float = default_multiplier
+	if "basic_attack_multiplier" in enemy and float(enemy.basic_attack_multiplier) > 0.0:
+		multiplier = float(enemy.basic_attack_multiplier)
+	return CombatMathScript.calculate_raw_damage(enemy.attack, multiplier)
+
+
 static func _basic_melee(battle, enemy, target):
 	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
 	if distance != BASIC_MELEE_RANGE:
 		return null
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], CombatMathScript.calculate_raw_damage(enemy.attack, BASIC_MELEE_MULTIPLIER), 1)
+	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], _plain_attack_damage(enemy, BASIC_MELEE_MULTIPLIER), 1)
 
 
 ## 古木壁垒 (§14): shield one *ordinary* ally within two cells. Carried on the
@@ -387,7 +423,7 @@ static func _light_shot(battle, enemy, target, occupied: Dictionary):
 		return null
 	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, occupied):
 		return null
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "light_shot", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], CombatMathScript.calculate_raw_damage(enemy.attack, LIGHT_SHOT_MULTIPLIER), 2)
+	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "light_shot", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], _plain_attack_damage(enemy, LIGHT_SHOT_MULTIPLIER), 2)
 
 
 static func _ground_pulse(battle, enemy, target, claimed_cells: Dictionary = {}):
@@ -410,7 +446,7 @@ static func _echo_bolt(battle, enemy, target, claimed_cells: Dictionary = {}):
 	var aim_cell: Vector2i = _pick_uncrowded_aim(battle, enemy.cell, target.cell, GROUND_PULSE_MIN_RANGE, GROUND_PULSE_MAX_RANGE, claimed_cells)
 	if aim_cell == Vector2i(-1, -1):
 		return null
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "echo_bolt", BattleIntentScript.TargetMode.TILE_LOCKED, "", aim_cell, [aim_cell], CombatMathScript.calculate_raw_damage(enemy.attack, ECHO_BOLT_MULTIPLIER), 1, "magical")
+	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "echo_bolt", BattleIntentScript.TargetMode.TILE_LOCKED, "", aim_cell, [aim_cell], _plain_attack_damage(enemy, ECHO_BOLT_MULTIPLIER), 1, "magical")
 
 
 ## If target_cell is already locked by another enemy, try locking an adjacent
@@ -431,6 +467,118 @@ static func _pick_uncrowded_aim(battle, source_cell: Vector2i, target_cell: Vect
 	if base_dist >= min_r and base_dist <= max_r:
 		return target_cell
 	return Vector2i(-1, -1)
+
+
+## §15.1 樱落领域: a three-tile sweep that leaves 凋零 on every cell it cuts.
+## Reach is two cells - 凋樱剑主 is the mobile melee boss, so the field is what it
+## does while closing, and the plain 樱刃 is what it does once adjacent.
+static func _blight_field(battle, enemy, target):
+	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+		return null
+	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
+	if distance < 1 or distance > BLIGHT_FIELD_RANGE:
+		return null
+	if not GridRulesScript.has_clear_orthogonal_line(enemy.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(enemy.actor_id)):
+		return null
+	var affected: Array[Vector2i] = _three_cell_band(battle, enemy.cell, target.cell, enemy.cell)
+	if affected.is_empty():
+		return null
+	var damage: int = _signature_damage(enemy, BLIGHT_FIELD_MULTIPLIER)
+	var blight: int = _hazard_damage_of(enemy, damage, BLIGHT_HAZARD_MULTIPLIER)
+	return BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "blight_field",
+		BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, damage, 0, "physical",
+		affected, HazardFieldScript.KIND_BLIGHT, blight, HAZARD_DURATION_TURNS
+	)
+
+
+## §15.3 春痕绽放: arcane burst that also seeds 残春 on the tiles it covers. The
+## document says the field is "2～3 个相邻格" while the blast is three, so reusing
+## the blast's cells lands inside that range and keeps the telegraph honest: the
+## tiles that hurt are exactly the tiles that will keep hurting.
+static func _spring_bloom(battle, enemy, target):
+	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+		return null
+	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
+	if distance < SPRING_BLOOM_MIN_RANGE or distance > SPRING_BLOOM_MAX_RANGE:
+		return null
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(enemy.actor_id)):
+		return null
+	var affected: Array[Vector2i] = _three_cell_band(battle, enemy.cell, target.cell, enemy.cell)
+	if affected.is_empty():
+		return null
+	var damage: int = _signature_damage(enemy, SPRING_BLOOM_MULTIPLIER)
+	var lingering: int = _hazard_damage_of(enemy, damage, LINGERING_SPRING_MULTIPLIER)
+	return BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "spring_bloom",
+		BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, damage, 1, "magical",
+		affected, HazardFieldScript.KIND_LINGERING_SPRING, lingering, HAZARD_DURATION_TURNS
+	)
+
+
+## §14 樱庭震荡: three orthogonal tiles, nothing else. It was borrowing the
+## six-tile cleave, which made an area the document pins at three silently larger
+## and let the beast hit tiles the telegraph never promised.
+static func _sakura_shock(battle, enemy, target):
+	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+		return null
+	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
+	if distance < 1 or distance > SAKURA_SHOCK_RANGE:
+		return null
+	if not GridRulesScript.has_clear_orthogonal_line(enemy.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(enemy.actor_id)):
+		return null
+	var affected: Array[Vector2i] = _three_cell_band(battle, enemy.cell, target.cell, enemy.cell)
+	if affected.is_empty():
+		return null
+	return BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "sakura_shock",
+		BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, _signature_damage(enemy, SAKURA_SHOCK_MULTIPLIER), 0
+	)
+
+
+## "范围 3 个相邻地格" (§14/§15.1/§15.3). The band crosses the line of approach
+## so the aim cell's occupant can still step out of it, and near an edge it
+## slides inward instead of clipping to two tiles - the document's number is
+## three, so returning two would quietly shrink the skill.
+static func _three_cell_band(battle, origin: Vector2i, aim: Vector2i, avoid_cell: Vector2i = Vector2i(-999, -999)) -> Array[Vector2i]:
+	var forward := Vector2i(signi(aim.x - origin.x), signi(aim.y - origin.y))
+	if forward == Vector2i.ZERO:
+		forward = Vector2i.RIGHT
+	var axes: Array[Vector2i] = [Vector2i(-forward.y, forward.x), forward]
+	# Bands that do not cover the caster come first: the boss is immune to its own
+	# ground, so a sweep that only ever lands under its own feet would look like a
+	# bug even when it is harmless.
+	var bands: Array = []
+	for axis in axes:
+		bands.append([aim - axis, aim, aim + axis])
+		bands.append([aim, aim - axis, aim - axis * 2])
+		bands.append([aim, aim + axis, aim + axis * 2])
+	var clean: Array = []
+	var dirty: Array = []
+	for band in bands:
+		if band.has(avoid_cell):
+			dirty.append(band)
+		else:
+			clean.append(band)
+	for candidate in clean + dirty:
+		var cells: Array[Vector2i] = []
+		var legal := true
+		for raw_cell in candidate:
+			var cell: Vector2i = raw_cell
+			if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
+				legal = false
+				break
+			cells.append(cell)
+		if legal:
+			return cells
+	var fallback: Array[Vector2i] = [aim]
+	return fallback
+
+
+## Per-trigger hazard damage. §15.1 pins 凋零 at 0.25 of the skill's damage;
+## 残春 only says "少量", so its multiplier is the single draft constant above.
+static func _hazard_damage_of(_enemy, skill_damage: int, multiplier: float) -> int:
+	return maxi(1, roundi(float(skill_damage) * multiplier))
 
 
 static func _wait_intent(battle, enemy):

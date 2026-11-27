@@ -16,3 +16,4 @@ move_steps = 1
 tier = 2
 ward_stance_percent = 0.06
 ward_stance_node_bonus = 0.02
+basic_attack_multiplier = 0.7

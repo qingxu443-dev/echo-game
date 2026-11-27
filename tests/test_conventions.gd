@@ -11,6 +11,7 @@ const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skil
 const EnemySkillCatalogScript = preload("res://scripts/battle/enemy_skill_catalog.gd")
 const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 const SpringShopScript = preload("res://scripts/spring/spring_shop.gd")
+const DocChecks = preload("res://tests/framework/doc_checks.gd")
 
 
 func _run() -> void:
@@ -18,6 +19,7 @@ func _run() -> void:
 	_test_every_enemy_action_is_in_the_catalogue()
 	_test_every_loot_kind_is_known()
 	_test_every_shop_id_resolves()
+	_test_count_copies_converge()
 	_report()
 
 
@@ -68,3 +70,31 @@ func _test_every_loot_kind_is_known() -> void:
 func _test_every_shop_id_resolves() -> void:
 	for item_id in SpringShopScript._catalog_ids():
 		_check(not LootCatalogScript.get_item(item_id).is_empty(), "the shop's '%s' resolves in the catalogue" % String(item_id))
+
+
+## 文档计数的收敛性。PR #74 的七处冲突不是合并技术问题：守卫当年逼每个分支
+## 把同一行改成"自己那个数"，两个分支改同一行必冲突。现在 --fix 把任何写法
+## 归一成同一组占位符——只要归一化是纯函数且幂等，任何分支跑完都得到同一串字，
+## git 自动合并。这条测试就是那个前提的证据。
+func _test_count_copies_converge() -> void:
+	var cases := [
+		["共 2471 条断言", "共 <实际断言数> 条断言"],
+		["33 个测试套件全部通过", "<实际套件数> 个测试套件全部通过"],
+		["suites=42 assertions=2981 failures=0", "suites=<实际套件数> assertions=<实际断言数> failures=0"],
+		["doc-numbers: ok (floor 2981)", "doc-numbers: ok (floor <下限>)"],
+		["三十五个套件", "<实际套件数>个套件"],
+	]
+	for pair in cases:
+		var source: String = pair[0]
+		_check(DocChecks.converge_line(source) == String(pair[1]),
+			"'%s' converges to the canonical pointer" % source)
+		# 幂等：第二次归一化必须不再改动。否则 --fix 每跑一次都会产生新文本，
+		# 分支之间就永远收敛不到同一串字。
+		var once := DocChecks.converge_line(source)
+		_check(DocChecks.converge_line(once) == once, "'%s' is a fixed point" % source)
+	# 历史行与逐套件明细不是"当前计数副本"，必须原样保留，否则历史记录被改写。
+	var historical := "历史记录：300 条断言 0 失败"
+	_check(DocChecks.converge_line(historical) == historical, "historical lines keep their numbers")
+	var per_suite := "`tests/test_hunter_summon.gd`，39 条断言"
+	_check(DocChecks.converge_line(per_suite) == per_suite, "per-suite details keep their numbers")
+

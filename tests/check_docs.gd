@@ -23,4 +23,5 @@ func _check() -> void:
 			quit(1)
 			return
 		print("module-sizes: rewrote %d row(s) to match the files" % changed)
+		print("count-copies: rewrote %d line(s) to pointers" % DocChecks.fix_count_copies())
 	quit(0 if DocChecks.report() else 1)

@@ -114,6 +114,8 @@ func _fix_and_exit() -> void:
 		quit(1)
 		return
 	print("module-sizes: rewrote %d row(s) to match the files" % changed)
+	var copies := DocChecks.fix_count_copies()
+	print("count-copies: rewrote %d line(s) to pointers" % copies)
 	quit(0)
 
 

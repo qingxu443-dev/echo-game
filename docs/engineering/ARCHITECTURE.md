@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**十九个测试套件 887 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**二十二个测试套件 1130 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -37,6 +37,19 @@
 ```bash
 wc -l scripts/**/*.gd
 ```
+
+### 春之境（`scripts/spring/`）
+
+赛季地图与探索层。与 `scripts/battle/` 互不依赖：地图不认识战斗，战斗不认识地图，两者只通过「地点」这一层薄接口相连。
+
+| 模块 | 行数 | 职责 | 关键约束 |
+|---|---|---|---|
+| `spring_place.gd` | 74 | 地图上的一个地点：坐标、类型、显示名、载荷 id | 不含内容逻辑；同一模板每次产出的坐标必须相同 |
+| `spring_map_template.gd` | 81 | 5×5 模板容器：按格 / 按 id 查地点、空格枚举 | 生成后不再修改；随机事件的**身份**不在模板里，模板只占格位 |
+| `spring_map_factory.gd` | 203 | 三套模板的文档数据（Boss 坐标、战斗 id、固定事件）与确定性布局 | 文档未给逐格坐标的部分由 `LAYOUT_ORDER` 推出，属**草案**；作者给出正式布局后替换此表即可 |
+| `exploration_state.gd` | 165 | 探索体力与移动：曼哈顿成本、原子移动、恰好耗尽保留交互窗口、主动结束作废余量 | 不碰战斗 AP；不认地点内容 |
+| `spring_run.gd` | 234 | 本局：模板 + 探索 + 资源（花钿 / 补给 / 四时花露 / 残页 / 遗物）+ 存档序列化 | 与 `run_state.gd` 隔离（§4 禁止两模式共用局内资源）；文档未定的数值不预设 |
+| `spring_map_view.gd` | 434 | 5×5 地图界面、资源栏、路径预览、结束探索确认 | 全部自绘；点击只预览，确认后才移动 |
 
 ### 战斗规则（`scripts/battle/`）
 
@@ -130,7 +143,7 @@ wc -l scripts/**/*.gd
 | `inventory_view.gd` | 163 | `[B]` 键开关的装备与背包弹窗：展示武器槽、护甲槽、背包物品与点击穿戴/卸下/使用交互 |
 | `settlement_view.gd` | 155 | 结算面板、完好遗迹宝箱开箱战利品展示、三选一肉鸽强化与其点击区 |
 | `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
-| `main_menu.gd` | 184 | 启动菜单：新黄昏背景图与飘浮光尘、极简悬停横条动画、键盘与点击选中；继续/设置仅为占位 |
+| `main_menu.gd` | 194 | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；三个选项（教程 / 未尽之春 / 退出） |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 

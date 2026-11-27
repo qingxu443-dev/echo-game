@@ -145,6 +145,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 |---|---|
 | `battle_fx_state.gd` | 瞬态 FX 状态：角色视觉位置/跳跃插值/受击闪烁/突进、飘字与冲击环老化、敌方分步演出计时；`snapshot()` 生成下游 board/hud 视图只读消费的字典 |
 | `battle_banner_text.gd` | 状态栏文案单一来源：部署提示、教学关分步引导与回落逻辑；只读不改状态 |
+| `battle_skill_input.gd` | 技能选择/确认与费用反馈；支持地格目标，拒绝非法空地操作，成功后清理选中状态 |
+| `board_threat_tiles.gd` | 意图到地格的统一投影与高亮合成；单主填色、固定优先级和多攻击类型边线，供危险查询共用 |
 | `battle_view.gd` | 编排：关卡流程、点击分发、`Q/E` 旋转视角与 `B` 键背包切换、FX/文案组件委托；另有春之境单场模式，由 `spring_battle_bridge` 注入一场遭遇，结账后回地图 |
 | `board_view.gd` | 编排层：等距石板棋盘与侧棱、移动/悬停/目标提示、目标谓词 `can_target()` / `can_target_ally()`；其余绘制转发给威胁层与实体层 |
 | `board_threat_view.gd` | 威胁层：敌方攻击预告（警戒斜条纹）、落点伤害标签、打击闪爆、飘字、受威压呼吸红晕，以及全家族共用的 `is_cell_in_danger()` 查询 |

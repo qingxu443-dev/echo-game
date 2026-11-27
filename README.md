@@ -130,6 +130,8 @@ contracts: ok
 
 ## 文档导航
 
+实机缺陷定位与回归结果见 [实机修复记录](docs/engineering/PLAYTEST_FIXES_2026-11-27.md)。
+
 `docs/` 分为 `design/`（设计规范）、`engineering/`（工程基准）与 `archive/`（只读历史）三层，阅读顺序见 [`docs/README.md`](docs/README.md)：
 
 | 分组 | 文档 |

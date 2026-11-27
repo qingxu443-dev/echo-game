@@ -325,6 +325,8 @@ static func request_begin_battle(battle) -> bool:
 static func _actor_at(battle, cell: Vector2i) -> String:
 	for actor_id in battle.actors:
 		var actor = battle.actors[actor_id]
+		if actor.team == "player" and battle.deploy_order.find(String(actor_id)) >= battle.deploy_index:
+			continue
 		if actor.blocks_cell() and actor.cell == cell:
 			return String(actor_id)
 	return ""

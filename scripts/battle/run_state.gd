@@ -281,19 +281,15 @@ func _recompute_stats(actor, old_max: int) -> void:
 	hero_max_health = new_max
 	if actor != null:
 		actor.max_health = new_max
-		if delta_hp > 0:
-			actor.health = mini(new_max, actor.health + delta_hp)
-		else:
-			actor.health = clampi(actor.health, 1, new_max)
+		if actor.health > 0:
+			actor.health = clampi(actor.health + delta_hp, 1, new_max)
 		actor.attack = effective_attack()
 		actor.defense = effective_defense()
 		actor.magic_resistance = effective_magic_resistance()
 		hero_health = actor.health
 	else:
-		if delta_hp > 0:
-			hero_health = mini(new_max, hero_health + delta_hp)
-		else:
-			hero_health = clampi(hero_health, 1, new_max)
+		if hero_health > 0:
+			hero_health = clampi(hero_health + delta_hp, 1, new_max)
 
 
 func sync_from_actor(actor) -> void:

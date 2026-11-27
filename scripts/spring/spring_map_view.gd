@@ -603,7 +603,7 @@ func _draw_revive_prompt() -> void:
 	draw_string(font, Vector2(340.0, 296.0), "这一处失守了", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, P.WARN)
 	draw_string(font, Vector2(340.0, 330.0), "每个区域可以续行一次：消耗 %d 份补给，回复至三成生命。" % BridgeScript.CONTINUE_SUPPLY_COST, HORIZONTAL_ALIGNMENT_LEFT, 600.0, 14, P.TEXT_BODY)
 	draw_string(font, Vector2(340.0, 356.0), "现有补给 %d 份。" % run.supplies, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
-	_draw_button(REVIVE_YES, "续行", run.supplies >= BridgeScript.CONTINUE_SUPPLY_COST)
+	_draw_button(REVIVE_YES, "续行", BridgeScript.can_continue(run))
 	_draw_button(REVIVE_NO, "结束本局", true)
 
 func _handle_event_tap(point: Vector2) -> void:
@@ -710,12 +710,13 @@ func _handle_reward_tap(point: Vector2) -> void:
 
 func _handle_revive_tap(point: Vector2) -> void:
 	if REVIVE_YES.has_point(point):
+		if not run.revive_prompt or not BridgeScript.can_continue(run):
+			return
 		var outcome: Dictionary = BridgeScript.continue_run(run)
 		status_message = str(outcome.get("message", ""))
-		run.revive_prompt = false
-		if not bool(outcome.get("ok", false)):
-			run.exploration.finish("defeat")
-		_save()
+		if bool(outcome.get("ok", false)):
+			run.revive_prompt = false
+			_save()
 		return
 	if REVIVE_NO.has_point(point):
 		run.revive_prompt = false

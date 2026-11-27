@@ -10,6 +10,7 @@ const BoardViewScript = preload("res://scripts/ui/board_view.gd")
 const BoardThreatViewScript = preload("res://scripts/ui/board_threat_view.gd")
 const HudViewScript = preload("res://scripts/ui/hud_view.gd")
 const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
+const SkillInput = preload("res://scripts/ui/battle_skill_input.gd")
 const SettlementViewScript = preload("res://scripts/ui/settlement_view.gd")
 const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
@@ -272,6 +273,7 @@ func _rotate_camera(step: int) -> void:
 	Palette.board_grid_size = controller.grid_size
 	Palette.rotate_camera(step)
 	fx.snap_actor_positions(controller)
+	hover_cell = Vector2i(-1, -1)
 	status_message = "已切换至 %s（按 Q / E 旋转四角镜头）。" % Palette.camera_label()
 	queue_redraw()
 
@@ -318,6 +320,7 @@ func _cancel_target_selection() -> void:
 func _handle_deploy_tap(position: Vector2) -> void:
 	if Palette.END_TURN_RECT.has_point(position):
 		if controller.request_begin_battle():
+			fx.snap_actor_positions(controller)
 			status_message = "部署完成，正式开战。"
 		else:
 			status_message = "还有角色没有就位，无法开战。"
@@ -381,6 +384,10 @@ func _handle_tap(position: Vector2) -> void:
 	if not Palette.is_inside_board(cell, controller.grid_size):
 		return
 
+	if selected_skill >= 0 and str(skill_bar[selected_skill]["mode"]) == "cell":
+		SkillInput.cast(self, skill_bar[selected_skill], "", cell)
+		return
+
 	if controller.beacons.has(cell) and int(controller.beacons[cell].get("health", 0)) > 0:
 		var b: Dictionary = controller.beacons[cell]
 		if str(b.get("kind", "")) == "ward_node":
@@ -421,6 +428,10 @@ func _handle_tap(position: Vector2) -> void:
 				queue_redraw()
 			return
 
+	if selected_skill >= 0:
+		status_message = "当前技能需要目标；点击合法目标或右键取消，未消耗 AP。"
+		queue_redraw()
+		return
 	var path := _path_to_cell(cell)
 	if path.is_empty():
 		status_message = "该位置无法到达，或超出两格移动范围。"
@@ -489,34 +500,10 @@ func _handle_settlement_tap(position: Vector2) -> void:
 # --- player actions ----------------------------------------------------------
 
 func _on_skill_pressed(index: int) -> void:
-	if index < 0 or index >= skill_bar.size():
-		return
-	var skill: Dictionary = skill_bar[index]
-	if skill["mode"] == "self":
-		selected_skill = -1
-		# One entry point for every character: the runtime resolves the caster
-		# from the active character and dispatches on the skill's effect id.
-		var cast_ok: bool = controller.request_skill(StringName(str(skill["id"])))
-		if cast_ok:
-			status_message = "「%s」已生效。" % str(skill["name"])
-		else:
-			status_message = "无法施放「%s」：检查行动点、终极能量与当前阶段。" % str(skill["name"])
-		queue_redraw()
-		return
-	selected_skill = index
-	if str(skill["mode"]) == "ally":
-		status_message = "已选择「%s」，点击自己或 %d 格内友军施放。" % [str(skill["name"]), int(skill["max_range"])]
-	else:
-		status_message = "已选择「%s」，点击目标敌人施放。" % str(skill["name"])
-	queue_redraw()
+	SkillInput.select(self, index)
 
 func _use_skill_on(actor_id: String) -> void:
-	var skill: Dictionary = skill_bar[selected_skill]
-	if controller.request_skill(StringName(str(skill["id"])), actor_id):
-		status_message = "「%s」已生效。" % str(skill["name"])
-	else:
-		status_message = "「%s」未能施放：检查行动点、射程、视线与资源。" % str(skill["name"])
-	queue_redraw()
+	SkillInput.cast(self, skill_bar[selected_skill], actor_id)
 
 ## Candidate path only. The controller re-validates it through is_path_legal
 ## before committing the move, so this stays a hint rather than a decision.

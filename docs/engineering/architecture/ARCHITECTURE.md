@@ -10,13 +10,13 @@ ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗
 | 场景与内容 | `.tscn` 场景、`.tres` 自定义 Resource、显式内容目录、随资源提交的 `.uid` 和导入元数据；无需 .NET 或运行时插件 |
 | 本地数据 | `user://spring_run.json` 记录春之境进度，`user://atelier_stash.json` 记录局外残晶和打包栏。教学关的局内背包在 `RunState` 内存中 |
 | 自动化 | Godot 无头 GDScript 套件；PowerShell、Bash 与 Windows 批处理入口；GitHub Actions 在 Ubuntu 和 Windows 采用同版引擎 |
-| 发行与资产 | Windows Desktop x86_64 导出预设，内嵌 PCK；`tools/process_sprites.py` 是可选资产工具，依赖 Python、OpenCV、NumPy 与 Pillow；该工具的依赖版本尚未锁定 |
+| 发行与资产 | Windows Desktop x86_64 预设内嵌 PCK，`tools/build_windows.ps1` 执行回归、导出、包体和启动检查；可选素材工具使用 `tools/requirements.txt` 锁定的 Python 依赖，真实素材双次输出已验证 |
 
 1. 用 Godot 4.7.2 Standard 导入根目录中的 `project.godot`，按 **F5** 启动。
 2. 进入大厅，点击「选择地图」。教学遗迹依序推进三关。春之境普通模式选格并确认移动，困难模式先绘制以首领格为终点的路线。
 3. 战斗中左键移动或选目标，`1–4` 选技能，`Q/E` 转镜头，`B` 打开背包，Enter/Space 结束回合。
 4. 自动化先执行 `godot --headless --path . --import`，再从根目录执行 `GODOT=/path/to/godot bash tests/run_all.sh`。Windows 也可执行 `./tests/run_all.ps1 -Godot <Godot-console.exe>`，该入口包含导入。
-5. 导出时安装匹配的 Windows 模板，创建 `build/`，运行 `godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_x64.exe`。人工验收见 [Windows 验证说明](../../delivery/TESTER_WINDOWS_0.1.md)。
+5. Windows 构建执行 `python tools/fetch_windows_template.py` 和 `./tools/build_windows.ps1 -Godot <Godot-console.exe>`，工具核对匹配模板后生成带校验值和日志的 ZIP。复现与待人工验收见 [Windows 交接](../../delivery/WINDOWS_DELIVERY.md)。
 
 ## 场景、状态与核心循环
 
@@ -145,6 +145,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 |---|---|
 | `battle_fx_state.gd` | 瞬态 FX 状态：角色视觉位置/跳跃插值/受击闪烁/突进、飘字与冲击环老化、敌方分步演出计时；`snapshot()` 生成下游 board/hud 视图只读消费的字典 |
 | `battle_banner_text.gd` | 状态栏文案单一来源：部署提示、教学关分步引导与回落逻辑；只读不改状态 |
+| `battle_skill_input.gd` | 技能选择/确认与费用反馈；支持地格目标，拒绝非法空地操作，成功后清理选中状态 |
+| `board_threat_tiles.gd` | 意图到地格的统一投影与高亮合成；单主填色、固定优先级和多攻击类型边线，供危险查询共用 |
 | `battle_view.gd` | 编排：关卡流程、点击分发、`Q/E` 旋转视角与 `B` 键背包切换、FX/文案组件委托；另有春之境单场模式，由 `spring_battle_bridge` 注入一场遭遇，结账后回地图 |
 | `board_view.gd` | 编排层：等距石板棋盘与侧棱、移动/悬停/目标提示、目标谓词 `can_target()` / `can_target_ally()`；其余绘制转发给威胁层与实体层 |
 | `board_threat_view.gd` | 威胁层：敌方攻击预告（警戒斜条纹）、落点伤害标签、打击闪爆、飘字、受威压呼吸红晕，以及全家族共用的 `is_cell_in_danger()` 查询 |
@@ -173,6 +175,24 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `spring_save_transaction.gd` | 记录两份已计算的存档并在中断后重写，恢复期间阻止其他工坊写入 |
 | `main.gd` | 历史 Node2D 样例脚本；场景启动路径以 `project.godot` 为准 |
 
+### 暂停、声音与过渡
+
+`project.godot` 自动加载 `GameShell`，跨场景持有暂停菜单、音频和过渡遮罩。它以 `PROCESS_MODE_ALWAYS` 运行；暂停和过渡期间将场景树暂停，正常游戏节点停止处理，菜单仍可操作。`SceneTravel` 统一场景切换并拦截重复进入；无头环境保留同步切场景入口供规则测试使用。暂停菜单的「退出」与「保存并退出」均返回标题，后者先写入断点；返回成功后清空内存中的战斗/地图/区域交接，避免重新出征误入旧遭遇。磁盘自动存档和已保存断点保留，只有标题页的「退出游戏」关闭程序。
+
+| 模块 | 职责 |
+|---|---|
+| `game_shell.gd` | 暂停/恢复、退出请求、跨场景过渡及暂停入口 |
+| `pause_menu.gd` | 与现有金色/暗色/浅青色风格一致的六项菜单、关于及退出确认 |
+| `scene_transition.gd` | 金色回声纹样、标题与淡入淡出绘制 |
+| `scene_travel.gd` | 场景切换、输入隔离与音效调用入口 |
+| `game_audio.gd` | 原创氛围音乐、界面/战斗提示音，独立 Music/SFX 总线及持久开关 |
+| `session_codec.gd` | 仅 JSON 数据的类型编码；保留向量键、StringName、颜色和 64 位 RNG 状态，不读取对象或执行脚本 |
+| `session_save.gd` | `user://suspended_journey.json` 的版本、校验、原子写入与一次性恢复入口 |
+| `battle_session.gd` | 战场、角色、状态、行动意图、机制账本、随机状态和敌方演出计时的完整快照 |
+| `play_session.gd` | 战斗/地图暂停存档与地图界面恢复的分派 |
+
+恢复战斗不会重新构建遭遇、消耗工坊补给或重放已完成的动作。春之境快照同时保存对应的战前地图，返回时不依赖可能被其他新局更新的地图文件。标题页仅对有效断点显示「继续旅程」，成功恢复后删除断点以防重复结算。音频偏好保存在 `user://audio_settings.cfg`。无头测试的两个新增存档默认使用进程独立路径，避免读写玩家文件。
+
 ## 审计范围、发现与处理
 
 基线为 2026-11-27 的 `eacd485`。审计覆盖场景入口和场景交接、运行脚本与资源引用、测试与 CI、版本和导出配置、磁盘写入点及工程文档。在已跟踪的 GDScript、场景及资源中扫描了固定 `res://` 引用，未发现缺失目标。运行时入口中未发现网络客户端、远程命令入口或凭据读取。测试运行器仅启动已定位的 Godot 进程。安全核查聚焦本地文件与测试隔离。
@@ -196,3 +216,14 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 3. **把相互依赖的内容按功能收拢**。从小场景与其私有脚本开始，保留共享的角色、敌人和装备 Resource 目录。素材工具的依赖锁定、资源路径与 Windows 打包冒烟可独立验证；当前没有 Android 导出配置及真机结果。 [Godot 项目组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/project_organization.html)
 
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。
+
+压力计次与击杀返 AP 额度现由每场 `BattleLedger` 持有，随遭遇统一重置并自动进入暂停快照；旧快照的顶层 pressure 字段由 `BattleSession.restore()` 迁入账本，不再使用进程全局实例 ID 索引。
+
+
+### 流程与规则边界补充（2026-11-28）
+
+- `SpringMapFlow` 负责地图恢复、检查点、进战/回图、待决事件/领奖/续行；场景提供存档路径和可注入的切换 Callable，地图视图委托流程并保留输入/绘制。
+- `BattleRewards` 由教学视图驱动，单场 `rewards_settled` 随账本保存和重置；春之境继续由事务结算。BattleFlow 不认识工坊奖励或桥接模式。
+- `KnockbackService` 统一碰撞、位移和意图同步；SkillEffects/SkillExecutor 保留兼容委托，均打断显式 interruptible 蓄势，保留既有碰撞事件开关差异。
+- `project.godot` 声明 `echo_*` 动作，InputRouter 消费命名输入并保持默认键位；地图取消与全局暂停读取各自命名动作。暂停载荷校验场景与坐标/生命边界后再应用。
+- 技能完整说明直接读 SkillDefinition，短提示由字段生成；素材工具锁定与复现见 [工具说明](../../../tools/README.md)。

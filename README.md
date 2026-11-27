@@ -8,6 +8,14 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 
 ## 当前可玩内容
 
+### 暂停、继续旅程与场景过渡
+
+- 教学战斗、春之境战斗与地图探索均可按 **Esc** 或点击右上角 **暂停**。暂停期间冻结回合结算、动画与困难路线自动行进。
+- 暂停菜单提供 **继续 / 保存并退出 / 退出 / 开关音乐 / 开关音效 / 关于**。这里的 **退出是返回标题界面**，确认后不保存当前暂停位置；已有自动存档保留。关闭程序请使用标题页的「退出游戏」。
+- **保存并退出**保存当前部署、玩家/敌方回合、AP、生命、状态、装备、待执行意图与地图进度，然后返回标题，可立即选择 **继续旅程**。保存失败会留在暂停界面。成功恢复后消费该断点，避免重复结算奖励；既有春之境自动存档继续保留。
+- 音乐与音效独立开关并持久保存。包含项目原创的循环氛围音乐、界面提示和战斗音效，可用 `python tools/generate_pause_audio.py` 重新生成。
+- 游戏启动、进入大厅/地图/战斗及教学切关使用金色回声纹样与暗色淡入淡出。过渡期间拦截操作，避免连点重复进入场景。
+
 使用 Godot 4.7.2 Standard 打开 `project.godot` 按 `F5` 即可直接实机试玩完整闭环：
 
 ### 1. 黄昏工坊大厅与「黄昏补给商行」
@@ -35,7 +43,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
   * **翡翠绿**＝己方可移动安全格；**银白虚线箭头**＝敌方移动/冲锋路径；
   * **正红**＝近战/蓄力/突袭区；**宝蓝**＝远程狙击/锁命区；**品紫**＝法术脉冲区。
 * **悬停聚焦 & 零遮挡受击明细**：
-  * 鼠标悬停任意敌人或危险格时，自动压暗无关预告并聚焦目标路线与攻击区；
+  * 鼠标悬停任意敌人或危险格时，聚焦目标路线与攻击区；无关危险格仍保留可见填色与独立边线；
   * 棋盘格子仅保留单行极简伤害芯片，**左下角主角血条正上方**自动展开受击汇总与逐条招式明细（含 `[致死!]` 提示）；
   * 敌人头顶标出出手顺序 `①②③`，敌方回合逐怪高亮并飘出招式名。
 
@@ -65,24 +73,24 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 | 操作 | 输入方式 |
 | :--- | :--- |
 | **移动** | 左键点击高亮绿色格子（单次最多 2 格） |
-| **施放技能** | 点击底部技能槽或按数字键 `1–4`，再点击目标敌人或结界节点 |
+| **施放技能** | 点击底部技能槽或按数字键 `1–4`，再点击合法目标；樱的落英可点空地 |
 | **旋转镜头** | `Q`（逆时针） / `E`（顺时针） |
 | **装备与背包** | `B` 键开关（随时穿卸装备、激活铭文或使用补给道具） |
-| **取消选择** | `Esc` 或鼠标右键 |
+| **取消选择 / 暂停** | 鼠标右键取消选择；`Esc` 打开暂停菜单 |
 | **结束回合** | 点击右下角「结束回合」、`Enter` 或 `Space` |
 
 ---
 
 ## 打包 Windows 试玩包
 
-仓库已内置 Windows Desktop 导出预设（`export_presets.cfg`：单文件内嵌资源 exe，排除测试脚本及素材源图）。本机装有 4.7.2 导出模板后执行：
+仓库已内置 Windows Desktop 导出预设（单文件内嵌资源 exe，排除测试、素材源图、工具与文档）。Windows 工程交接使用以下入口，自动导入、全量回归、导出、包体检查与 exe 无界面启动：
 
-```sh
-mkdir -p build
-godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_x64.exe
+```powershell
+python tools/fetch_windows_template.py
+./tools/build_windows.ps1 -Godot 'C:/Godot/Godot_v4.7.2-stable_win64_console.exe'
 ```
 
-测试交付规范见 [`docs/delivery/TESTER_WINDOWS_0.1.md`](docs/delivery/TESTER_WINDOWS_0.1.md)。`build/` 为本地产物目录，不入库。
+产物在 `build/windows/`，含 ZIP、exe、来源提交/校验值、资源清单、日志和测试者说明。构建复现与待人工验收表见 [Windows 交接](docs/delivery/WINDOWS_DELIVERY.md)，初次运行见 [测试说明](docs/delivery/TESTER_WINDOWS_0.1.md)。Windows 实机验收交由人工，Android 暂缓。`build/` 为本地产物目录，不入库。
 
 ---
 
@@ -122,6 +130,8 @@ contracts: ok
 
 ## 文档导航
 
+实机缺陷定位与回归结果见 [实机修复记录](docs/engineering/quality/PLAYTEST_FIXES_2026-11-27.md)。
+
 `docs/` 按用途分为 `design/`（世界观 / 规则 / 角色 / 内容 / 美术）、`engineering/`（架构 / 质量 / 决策）、`planning/`（状态 / 任务）、`delivery/`（验收）与 `archive/`（只读历史）。完整目录说明与逐篇摘要见 [`docs/README.md`](docs/README.md)。
 
 | 分组 | 文档 |
@@ -131,7 +141,7 @@ contracts: ok
 | **角色与数值** | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](docs/design/characters/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md)、[`数值主规格`](docs/design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md)、[`skill_design_principles`](docs/design/systems/skill_design_principles_zh-CN.md)、[`battle_status_system`](docs/design/systems/battle_status_system_zh-CN.md) |
 | **赛季内容** | [`未尽之春设计汇总`](docs/design/content/ECHO_SPRING_THAT_NEVER_FINISHED_DESIGN_SUMMARY_2026-11-26.md) |
 | **工程与基线** | [`ARCHITECTURE`](docs/engineering/architecture/ARCHITECTURE.md)、[`BASELINE`](docs/engineering/quality/BASELINE.md)、[`DECISIONS_AND_OPEN_QUESTIONS`](docs/engineering/decisions/DECISIONS_AND_OPEN_QUESTIONS.md) |
-| **计划与交付** | [`PROJECT_STATUS`](docs/planning/PROJECT_STATUS.md)、[`TASK_PLAN`](docs/planning/TASK_PLAN.md)、[`TESTER_WINDOWS_0.1`](docs/delivery/TESTER_WINDOWS_0.1.md) |
+| **计划与交付** | [`PROJECT_STATUS`](docs/planning/PROJECT_STATUS.md)、[`TASK_PLAN`](docs/planning/TASK_PLAN.md)、[`TESTER_WINDOWS_0.1`](docs/delivery/TESTER_WINDOWS_0.1.md)、[`WINDOWS_DELIVERY`](docs/delivery/WINDOWS_DELIVERY.md) |
 | **历史归档** | [`README_LEGACY`](docs/archive/README_LEGACY.md)、[`sevrin_skill_kit`](docs/archive/sevrin_skill_kit_zh-CN.md)、[`GODOT_ENGINE_VALIDATION`](docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md) |
 
 ## 仓库结构

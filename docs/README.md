@@ -74,6 +74,7 @@
 |---|---|
 | [`BASELINE`](engineering/quality/BASELINE.md) | 逐套件断言数、CI 口径、覆盖下限与历次变更记录 |
 | [`IMPLEMENTATION_DEBT_v1.0`](engineering/quality/IMPLEMENTATION_DEBT_v1.0_zh-CN.md) | 法则落地欠账：D-01 至 D-04 的现状与核对方式 |
+| [`PLAYTEST_FIXES_2026-11-27`](engineering/quality/PLAYTEST_FIXES_2026-11-27.md) | 七项实机问题的定位、修复与回归记录 |
 
 ## 决策记录（`engineering/decisions/`）
 
@@ -81,6 +82,7 @@
 |---|---|
 | [`DECISIONS_AND_OPEN_QUESTIONS`](engineering/decisions/DECISIONS_AND_OPEN_QUESTIONS.md) | 已确认基础规则、已移除机制、待决问题与待测试项 |
 | [`ECHO_COMBAT_PENDING_DECISIONS_v0.3.2`](engineering/decisions/ECHO_COMBAT_PENDING_DECISIONS_v0.3.2_zh-CN.md) | 0.3.2 战斗裁决单：伤害、多段、资源、状态等逐条裁定 |
+| [`CURRENT_SCOPE_AND_DECISIONS`](engineering/decisions/CURRENT_SCOPE_AND_DECISIONS.md) | 当前交付范围、旧规划对账与 ECHO-001/002/003 决策登记 |
 
 ## 计划与状态（`planning/`）
 
@@ -94,6 +96,7 @@
 | 文档 | 核心内容 |
 |---|---|
 | [`TESTER_WINDOWS_0.1`](delivery/TESTER_WINDOWS_0.1.md) | Windows 试玩包内容、启动步骤、观察项与安全边界 |
+| [`WINDOWS_DELIVERY`](delivery/WINDOWS_DELIVERY.md) | 从指定提交构建 Windows 试玩包、校验值与人工交接流程 |
 
 ## 历史归档（`archive/`，只读）
 

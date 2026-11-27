@@ -33,6 +33,9 @@ const KIND_BOSS: String = "boss"
 
 ## Set by the map before it changes scene; read by the battle in _ready.
 static var pending: Dictionary = {}
+## Captured with a suspended fight, so resuming never depends on a newer map save.
+static var suspended_map: Dictionary = {}
+static var restore_map: bool = false
 ## Set by the battle before it changes back; consumed by the map in _ready.
 static var last_result: Dictionary = {}
 ## Optional mode handoff from the Lobby ("normal" / "hard" / "" for resume).
@@ -79,6 +82,7 @@ static func consume_result() -> Dictionary:
 static func prepare(run, encounter_id: StringName, place_id: StringName, kind: String = KIND_BATTLE) -> bool:
 	if not SpringEncounterCatalog.has_encounter(encounter_id):
 		return false
+	suspended_map = run.to_dict()
 	pending = {
 		"encounter": encounter_id,
 		"place": place_id,
@@ -271,8 +275,15 @@ static func roll_reward_choices(run, source: String, count: int, seed_value: int
 
 ## §11.3: one continuation per area, paid in supplies, health restored to 30%.
 ## Atomic: supplies leave only when the heal actually applies.
+static func can_continue(run) -> bool:
+	return run != null and not run.revive_used and not run.exploration.finished and run.supplies >= CONTINUE_SUPPLY_COST
+
+
 static func continue_run(run) -> Dictionary:
 	var outcome := {"ok": false, "message": ""}
+	if run == null or run.exploration.finished:
+		outcome["message"] = "本次探索已经结束。"
+		return outcome
 	if run.revive_used:
 		outcome["message"] = "本区域的续行已经用过了。"
 		return outcome

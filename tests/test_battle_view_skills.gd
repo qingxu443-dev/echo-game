@@ -201,24 +201,23 @@ func _tap_cell(view: Node, cell: Vector2i) -> void:
 	view.call("_handle_tap", rect.position + rect.size * 0.5)
 
 
-## The skill bar keeps its own short and full copies of every skill's numbers.
-## Those copies rot silently when the catalogue changes - the same failure mode
-## the doc-number guards exist for - so pin the four numbers that matter.
+## The skill bar reads the catalogue directly; keep the displayed costs and
+## combat semantics checked against the same definitions and run modifiers.
 func _test_skill_bar_copies_track_the_catalogue() -> void:
 	var bar = SkillBarViewScript
-	var blade_desc: String = str(bar.SKILL_FULL_DESC[&"oathblade"])
+	var blade_desc: String = str(bar.full_description(&"oathblade"))
 	var blade = SkillRegistryScript.get_skill(&"oathblade")
 	_check(blade_desc.contains("%d AP" % blade.ap_cost), "the blade copy states the catalogue's AP cost")
 	_check(blade_desc.contains("%d%%" % roundi(blade.damage_multiplier * 100.0)), "the blade copy states the catalogue's multiplier")
 	var run_state = RunStateScript.new()
 	_check(blade_desc.contains("%d 真实伤害" % run_state.collision_damage()), "the blade copy states the run's collision damage")
 
-	var guard_desc: String = str(bar.SKILL_FULL_DESC[&"absolute_guard"])
+	var guard_desc: String = str(bar.full_description(&"absolute_guard"))
 	var guard = SkillRegistryScript.get_skill(&"absolute_guard")
 	_check(guard_desc.contains("%d AP" % guard.ap_cost), "the verdict copy states the catalogue's AP cost")
 	_check(guard_desc.contains("%d%%" % roundi(guard.damage_multiplier * 100.0)), "the verdict copy states the catalogue's multiplier")
 
-	var mark_desc: String = str(bar.SKILL_FULL_DESC[&"oathkeeper_judgment_mark"])
+	var mark_desc: String = str(bar.full_description(&"oathkeeper_judgment_mark"))
 	var mark = SkillRegistryScript.get_skill(&"oathkeeper_judgment_mark")
 	_check(mark_desc.contains("%d%%" % roundi(mark.damage_multiplier * 100.0)), "the mark copy states the catalogue's multiplier")
 	_check(mark_desc.contains("+%d%%" % roundi((run_state.mark_vulnerability_multiplier() - 1.0) * 100.0)), "the mark copy states the run's vulnerability")

@@ -32,7 +32,6 @@ const MAX_MODULE_LINES := 600
 ## 加代码让它变红；拆到 600 行以内后请把条目删掉——留着会变成永久豁免，
 ## 而永久豁免和没有守卫是一回事。
 const MODULE_LINE_DEBT := {
-	"spring_map_view.gd": 776,
 	"battle_controller.gd": 608,
 }
 
@@ -449,6 +448,15 @@ static func report() -> bool:
 		print("contracts: %d promise(s) without a test; name the test in the tag" % promises.size())
 		ok = false
 
+	var links := check_doc_links()
+	if links.is_empty():
+		print("doc-links: ok")
+	else:
+		for problem in links:
+			print("doc-links: ", problem)
+		print("doc-links: %d broken link(s); fix the path or restore the file" % links.size())
+		ok = false
+
 	return ok
 
 
@@ -458,3 +466,43 @@ static func _count_module_rows() -> int:
 		if _module_row_re.search(line) != null:
 			rows += 1
 	return rows
+
+
+## 文档搬家最容易留下的是断链，而此前没有任何守卫检查它。
+## 只校验仓库内相对链接与以 `docs/` 开头的根相对链接；外链、锚点和 mailto 跳过。
+static var _md_link_re: RegEx = _compile("\\]\\(([^)]+)\\)")
+
+static func check_doc_links() -> Array[String]:
+	var problems: Array[String] = []
+	var pending: Array[String] = ["res://"]
+	while not pending.is_empty():
+		var folder: String = pending.pop_back()
+		var dir := DirAccess.open(folder)
+		if dir == null:
+			continue
+		for file_name in dir.get_files():
+			if file_name.ends_with(".md"):
+				_check_md_links(folder.path_join(file_name), problems)
+		for child in dir.get_directories():
+			if not child.begins_with("."):
+				pending.append(folder.path_join(child))
+	return problems
+
+
+static func _check_md_links(path: String, problems: Array[String]) -> void:
+	for match in _md_link_re.search_all(read_text(path)):
+		var target: String = match.get_string(1).strip_edges()
+		if target.is_empty() or target.begins_with("http://") or target.begins_with("https://") or target.begins_with("mailto:") or target.begins_with("#"):
+			continue
+		var path_part: String = target.split("#", true, 1)[0]
+		if path_part.is_empty():
+			continue
+		var resolved: String
+		if path_part.begins_with("docs/"):
+			resolved = "res://" + path_part
+		elif path_part.begins_with("/"):
+			resolved = "res://" + path_part.trim_prefix("/")
+		else:
+			resolved = path.get_base_dir().path_join(path_part).simplify_path()
+		if not FileAccess.file_exists(resolved) and not DirAccess.dir_exists_absolute(resolved):
+			problems.append("%s links to missing %s" % [path.trim_prefix("res://"), target])

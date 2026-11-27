@@ -1,6 +1,8 @@
 # ECHO 项目框架与技术栈方案 v1.0
 
-> **历史提示**（2026-11-28 归档）：本提案的目标结构已由 `docs/engineering/architecture/ARCHITECTURE.md` 取代，正文仅保留为重构决策快照，不再作为实施依据。
+> 历史框架提案。各步骤当前完成、替代和待决状态见 [当前范围对账](../engineering/decisions/CURRENT_SCOPE_AND_DECISIONS.md)；本文数字和迁移期约束保留为历史背景。
+>
+> **历史提示**（2026-11-28 归档）：目标结构已由 [`ARCHITECTURE`](../engineering/architecture/ARCHITECTURE.md) 取代，正文仅保留为重构决策快照，不再作为实施依据。
 
 - 文档状态：提案（已部分实施——见下方「实施进度」），正文保留为评审快照
 - 适用范围：ECHO Prototype 0.1 → 0.2 的重构基线

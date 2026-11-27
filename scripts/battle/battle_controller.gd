@@ -516,8 +516,8 @@ func request_oathkeeper_judgment_mark(target_actor_id: String) -> bool:
 
 ## Single entry point for the active character. Adding a character adds data and,
 ## only if it invents a new mechanic, one branch in CharacterSkillRuntime.
-func request_skill(skill_id: StringName, target_actor_id: String = "") -> bool:
-	return CharacterSkillRuntimeScript.request(self, skill_id, target_actor_id)
+func request_skill(skill_id: StringName, target_actor_id: String = "", target_cell: Vector2i = Vector2i(-1, -1)) -> bool:
+	return CharacterSkillRuntimeScript.request(self, skill_id, target_actor_id, target_cell)
 
 
 ## §14 樱华蓄斩: break a telegraphed charged strike that the sheet marks as

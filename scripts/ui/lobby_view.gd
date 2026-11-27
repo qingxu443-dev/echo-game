@@ -216,7 +216,7 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 	var tree := get_tree()
 	if tree == null:
 		return true
-	var error := tree.change_scene_to_file(target_path)
+	var error := SceneTravel.change(tree, target_path, str(entry.get("title", "踏入遗迹")))
 	if error != OK:
 		status_notice = "目标地图场景无法打开。"
 		queue_redraw()
@@ -238,7 +238,7 @@ func return_to_title() -> bool:
 	var tree := get_tree()
 	if tree == null:
 		return true
-	var error := tree.change_scene_to_file(MENU_SCENE_PATH)
+	var error := SceneTravel.change(tree, MENU_SCENE_PATH)
 	if error != OK:
 		push_error("Lobby: unable to return to title. Error: %s" % error)
 		return false

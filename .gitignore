@@ -26,3 +26,6 @@ Thumbs.db
 *.tmp
 *.bak
 *~
+
+# Python tool caches
+__pycache__/

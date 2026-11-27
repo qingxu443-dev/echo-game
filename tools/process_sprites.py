@@ -119,30 +119,36 @@ def make_portrait(full_rgba: Image.Image, size: int = PORTRAIT_SIZE) -> Image.Im
     return canvas.resize((size, size), Image.Resampling.LANCZOS)
 
 
-def process_all() -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    PORTRAIT_DIR.mkdir(parents=True, exist_ok=True)
-    if not RAW_DIR.exists():
-        print(f"No raw directory found: {RAW_DIR}")
+def process_all(raw_dir: Path = RAW_DIR, out_dir: Path = OUT_DIR) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    portrait_dir = out_dir / "portraits"
+    portrait_dir.mkdir(parents=True, exist_ok=True)
+    if not raw_dir.exists():
+        print(f"No raw directory found: {raw_dir}")
         return
-    files = sorted(RAW_DIR.glob("*.png"))
+    files = sorted(raw_dir.glob("*.png"))
     if not files:
-        print(f"No PNG files found in {RAW_DIR}")
+        print(f"No PNG files found in {raw_dir}")
         return
     for src in files:
         im = Image.open(src).convert("RGBA")
         arr = np.array(im)
         cleaned = remove_white_background(arr)
         final_img = trim_and_resize(cleaned, TARGET_HEIGHT)
-        dst = OUT_DIR / src.name
+        dst = out_dir / src.name
         final_img.save(dst, "PNG", optimize=True)
         print(f"[OK] {src.name} -> {dst} ({final_img.size[0]}x{final_img.size[1]})")
         if not src.stem.endswith("_back"):
             portrait = make_portrait(final_img, PORTRAIT_SIZE)
-            p_dst = PORTRAIT_DIR / src.name
+            p_dst = portrait_dir / src.name
             portrait.save(p_dst, "PNG", optimize=True)
             print(f"  [PORTRAIT] -> {p_dst} ({portrait.size[0]}x{portrait.size[1]})")
 
 
 if __name__ == "__main__":
-    process_all()
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, default=RAW_DIR)
+    parser.add_argument("--output", type=Path, default=OUT_DIR)
+    args = parser.parse_args()
+    process_all(args.input, args.output)

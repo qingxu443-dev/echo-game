@@ -35,6 +35,8 @@ static func apply(
 	if target == null:
 		push_error("DamagePipeline: unknown target '%s'" % target_actor_id)
 		return
+	if target.is_defeated():
+		return
 
 	var effective_amount: int = amount
 	# Judgment Mark vulnerability: next hit on a marked enemy deals +30% (or +55% with Deep Judgment mod) and consumes the mark.

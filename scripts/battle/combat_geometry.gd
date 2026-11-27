@@ -33,18 +33,25 @@ static func can_aim(battle, skill, target, depth_bonus: int = 0, needs_orthogona
 	var caster = battle.get_active_character()
 	if caster == null or target == null or not target.is_alive():
 		return false
-	var distance: int = GridRulesScript.manhattan_distance(caster.cell, target.cell)
+	return can_aim_cell(battle, skill, target.cell, depth_bonus, needs_orthogonal_lane)
+
+
+static func can_aim_cell(battle, skill, cell: Vector2i, depth_bonus: int = 0, needs_orthogonal_lane: bool = false) -> bool:
+	var caster = battle.get_active_character()
+	if caster == null or not caster.is_alive() or not GridRulesScript.is_inside_bounds(cell, battle.grid_size) or battle.blocked_cells.has(cell):
+		return false
+	var distance: int = GridRulesScript.manhattan_distance(caster.cell, cell)
 	if distance < skill.min_range or distance > skill.max_range:
 		return false
 	if skill.shape == SkillDefinitionScript.SHAPE_FAN:
-		return centre_lane_clear(battle, caster, target, skill.shape_depth + depth_bonus)
+		return centre_lane_clear_at(battle, caster, cell, skill.shape_depth + depth_bonus)
 	if distance <= 1:
 		return true
 	if needs_orthogonal_lane:
 		return GridRulesScript.has_clear_orthogonal_line(
-			caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id))
+			caster.cell, cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id))
 	return GridRulesScript.has_clear_line_of_sight(
-		caster.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(caster.actor_id))
+		caster.cell, cell, battle.blocked_cells, battle.get_sight_blockers(caster.actor_id))
 
 
 ## A rectangle is cast through the cell in front of the caster, so only that lane
@@ -52,14 +59,18 @@ static func can_aim(battle, skill, target, depth_bonus: int = 0, needs_orthogona
 ## whenever one corner sat behind a wall, and a three-wide block has no single
 ## line to begin with.
 static func centre_lane_clear(battle, caster, target, depth: int) -> bool:
-	var direction: Vector2i = direction_toward(caster.cell, target.cell)
+	return centre_lane_clear_at(battle, caster, target.cell, depth)
+
+
+static func centre_lane_clear_at(battle, caster, cell: Vector2i, depth: int) -> bool:
+	var direction: Vector2i = direction_toward(caster.cell, cell)
 	if direction == Vector2i.ZERO:
 		return false
 	for step in range(1, depth + 1):
-		var cell: Vector2i = caster.cell + direction * step
-		if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
+		var lane_cell: Vector2i = caster.cell + direction * step
+		if not GridRulesScript.is_inside_bounds(lane_cell, battle.grid_size):
 			break
-		if battle.blocked_cells.has(cell):
+		if battle.blocked_cells.has(lane_cell):
 			return false
 	return true
 

@@ -45,8 +45,8 @@ static func create_skills() -> Array[SkillDefinition]:
 	# 落英 - three segments of 30% each.
 	var falling := _make(
 		&"sakura_falling_petals", "落英",
-		"消耗 2 AP；对面前横 3 格、纵 2 格区域内敌人三段攻击，每段 30% ATK，命中后施加残香。",
-		2, SkillDefinitionScript.TARGET_ACTOR, 1, 3,
+		"消耗 2 AP；点选地格确定方向（可选空地），对面前横 3 格、纵 2 格区域内敌人三段攻击，每段 30% ATK，命中后施加残香。",
+		2, SkillDefinitionScript.TARGET_CELL, 1, 3,
 		SkillDefinitionScript.DAMAGE_PHYSICAL, 0.9, &"sakura_falling_petals",
 		CharacterScript.SLOT_ACTIVE_TWO)
 	falling.hits = 3

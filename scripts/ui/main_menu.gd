@@ -15,8 +15,8 @@ const BACKGROUND_PATH := "res://assets/ui/main_menu_background.png"
 const OPTION_START := 0
 const OPTION_EXIT := 1
 const OPTIONS: Array[Dictionary] = [
-	{"label": "进入大厅", "sub": "ENTER LOBBY · CAMP HUB"},
-	{"label": "退出游戏", "sub": "EXIT TO DESKTOP"},
+	{"label": "进入大厅", "sub": "ENTER LOBBY · CAMP HUB", "action": "start"},
+	{"label": "退出游戏", "sub": "EXIT TO DESKTOP", "action": "exit"},
 ]
 
 var background: Texture2D
@@ -24,9 +24,17 @@ var selected_option: int = OPTION_START
 var elapsed: float = 0.0
 var hover_slide: Array[float] = [1.0, 0.0]
 var motes: Array[Dictionary] = []
+var entries: Array[Dictionary] = []
+var notice: String = ""
 
 
 func _ready() -> void:
+	entries.assign(OPTIONS.duplicate(true))
+	if not SessionSave.read().is_empty():
+		entries.push_front({"label": "继续旅程", "sub": "RESUME YOUR JOURNEY", "action": "resume"})
+	hover_slide.resize(entries.size())
+	hover_slide.fill(0.0)
+	hover_slide[0] = 1.0
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	background = _load_background()
 	_init_motes()
@@ -64,7 +72,7 @@ func _init_motes() -> void:
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	for i in range(OPTIONS.size()):
+	for i in range(entries.size()):
 		var target := 1.0 if i == selected_option else 0.0
 		hover_slide[i] = lerpf(hover_slide[i], target, minf(1.0, delta * 12.0))
 	for m in motes:
@@ -107,7 +115,7 @@ func _draw() -> void:
 	var sy: float = size.y / 720.0
 	var left_x: float = 112.0 * sx
 
-	for i in range(OPTIONS.size()):
+	for i in range(entries.size()):
 		var rect := _option_rect(i)
 		var s: float = hover_slide[i]
 		if s > 0.02:
@@ -122,11 +130,11 @@ func _draw() -> void:
 		var shift_x: float = 16.0 * sx + 12.0 * s * sx
 		var text_col := Color(0.80, 0.81, 0.84, 0.82).lerp(Color(0.98, 0.92, 0.78, 1.0), s)
 		var sub_col := Color(0.60, 0.63, 0.68, 0.62).lerp(Color(0.86, 0.74, 0.48, 0.90), s)
-		draw_string(font, rect.position + Vector2(shift_x, rect.size.y * 0.52), str(OPTIONS[i]["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(24.0 * sy), text_col)
-		draw_string(font, rect.position + Vector2(shift_x, rect.size.y * 0.82), str(OPTIONS[i]["sub"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.0 * sy), sub_col)
+		draw_string(font, rect.position + Vector2(shift_x, rect.size.y * 0.52), str(entries[i]["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(24.0 * sy), text_col)
+		draw_string(font, rect.position + Vector2(shift_x, rect.size.y * 0.82), str(entries[i]["sub"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.0 * sy), sub_col)
 
 	# 5. Quiet footer tag
-	draw_string(font, Vector2(left_x, size.y - 34.0 * sy), "黄昏纪元  ·  有些声音，从未真正消失   |   按 ↑↓ 选择，Enter 开始", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.0 * sy), Color(0.76, 0.78, 0.82, 0.62))
+	draw_string(font, Vector2(left_x, size.y - 34.0 * sy), notice if not notice.is_empty() else "黄昏纪元  ·  有些声音，从未真正消失   |   按 ↑↓ 选择，Enter 开始", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.0 * sy), Color(0.76, 0.78, 0.82, 0.62))
 
 
 func _option_rect(index: int) -> Rect2:
@@ -142,7 +150,7 @@ func _option_rect(index: int) -> Rect2:
 func _move_selection(direction: int) -> void:
 	if direction == 0:
 		return
-	selected_option = wrapi(selected_option + signi(direction), 0, OPTIONS.size())
+	selected_option = wrapi(selected_option + signi(direction), 0, entries.size())
 	queue_redraw()
 
 
@@ -163,13 +171,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		for i in range(OPTIONS.size()):
+		for i in range(entries.size()):
 			if _option_rect(i).has_point(event.position) and selected_option != i:
 				selected_option = i
 				queue_redraw()
 				break
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		for i in range(OPTIONS.size()):
+		for i in range(entries.size()):
 			if _option_rect(i).has_point(event.position):
 				selected_option = i
 				queue_redraw()
@@ -179,10 +187,19 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _activate_selected() -> void:
-	match selected_option:
-		OPTION_START:
-			var error := get_tree().change_scene_to_file(LOBBY_SCENE_PATH)
+	match str(entries[selected_option].get("action", "")):
+		"resume":
+			var path := SessionSave.stage()
+			if path.is_empty():
+				notice = "旅程存档无法读取，请进入大厅开始新的冒险。"
+				return
+			var error := SceneTravel.change(get_tree(), path, "重返未尽的旅程")
+			if error != OK:
+				SessionSave.pending = {}
+				notice = "暂时无法继续旅程，请稍后重试。"
+		"start":
+			var error := SceneTravel.change(get_tree(), LOBBY_SCENE_PATH, "重返黄昏工坊")
 			if error != OK:
 				push_error("Unable to open ECHO lobby scene. Error: %s" % error)
-		OPTION_EXIT:
+		"exit":
 			get_tree().quit()

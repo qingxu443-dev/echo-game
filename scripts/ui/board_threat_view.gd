@@ -8,6 +8,7 @@ extends RefCounted
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
+const ThreatTiles = preload("res://scripts/ui/board_threat_tiles.gd")
 const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
@@ -51,9 +52,9 @@ static func _focused_source_ids(controller, fx_state: Dictionary) -> Dictionary:
 			out[String(actor_id)] = true
 			return out
 	for intent in _active_intents(controller):
-		if intent.target_cell == hc or intent.affected_cells.has(hc) or intent.move_path.has(hc):
+		if ThreatTiles.cells_for(controller, intent).has(hc) or intent.move_path.has(hc):
 			out[intent.source_actor_id] = true
-		elif _reactive_cells_for_intent(controller, intent).has(hc):
+		elif TacticalPressure.is_reactive_cell(controller, intent, hc):
 			out[intent.source_actor_id] = true
 	return out
 
@@ -163,31 +164,11 @@ static func _draw_lingering_tile(canvas: CanvasItem, cell: Vector2i, pulse: floa
 # --- telegraphs & reactive/intercept caution zones ----------------------------
 
 static func _reactive_cells_for_intent(controller, intent) -> Array[Vector2i]:
-	var cells: Array[Vector2i] = []
-	if intent.action_id != "basic_melee" or not intent.target_actor_id.is_empty():
-		return cells
-	var source = controller.get_actor(intent.source_actor_id)
-	if source == null or not source.is_alive():
-		return cells
-	var origin: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else source.cell
-	var occupied: Dictionary = controller.get_occupied_cells(source.actor_id)
-	for dir in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-		var adj: Vector2i = origin + dir
-		if adj == intent.target_cell or not P.is_inside_board(adj, controller.grid_size) or controller.blocked_cells.has(adj):
-			continue
-		cells.append(adj)
-		# Elites & bosses can also step 1 tile to chase a hero within 2 tiles.
-		if int(source.tier) >= 1 and not occupied.has(adj):
-			for dir2 in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-				var c2: Vector2i = adj + dir2
-				if c2 != origin and c2 != intent.target_cell and GridRulesScript.manhattan_distance(origin, c2) == 2 and P.is_inside_board(c2, controller.grid_size) and not controller.blocked_cells.has(c2) and not cells.has(c2):
-					cells.append(c2)
-	return cells
+	return TacticalPressure.reactive_cells(controller, intent)
 
 
 static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
-	var t: float = float(fx_state.get("time", 0.0))
-	var pulse: float = 0.72 + 0.28 * sin(t * 5.2)
+	ThreatTiles.draw(canvas, controller, float(fx_state.get("time", 0.0)))
 	var focused := _focused_source_ids(controller, fx_state)
 	var has_focus := not focused.is_empty()
 	var active := _active_intents(controller)
@@ -197,64 +178,50 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 		var source = controller.get_actor(intent.source_actor_id)
 		var is_focus: bool = (not has_focus) or focused.has(intent.source_actor_id)
 		var dim: float = 1.0 if is_focus else 0.22
-		var p_eff: float = pulse * dim
 		var path_cells: Array = intent.move_path if not intent.move_path.is_empty() else (intent.affected_cells if intent.action_id == "pursuit" else [])
 		if not path_cells.is_empty() and source != null and source.is_alive():
 			_draw_move_arrow_chain(canvas, source.cell, path_cells, dim, is_focus and has_focus)
+		var target_cells := ThreatTiles.cells_for(controller, intent)
+		var aim_cell: Vector2i = target_cells[0] if intent.target_mode == IntentScript.TargetMode.ACTOR_LOCKED and not target_cells.is_empty() else intent.target_cell
 		var origin_cell: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else (source.cell if source != null else Vector2i.ZERO)
 
-		# Show amber reactive-melee caution rings when hovering this enemy or when
-		# the hero is standing inside a reactive tile (keeps default board crisp).
+		# Amber caution remains visible before moving; focus and current danger
+		# strengthen it without changing the shared eligibility geometry.
 		if intent.action_id == "basic_melee" and intent.target_actor_id.is_empty():
 			var hero = controller.get_active_character()
 			for rc in _reactive_cells_for_intent(controller, intent):
 				var hero_on_rc: bool = hero != null and hero.is_alive() and hero.cell == rc
-				if (is_focus and has_focus) or hero_on_rc:
-					_draw_caution_tile(canvas, rc, Color(1.0, 0.62, 0.16), (0.90 if hero_on_rc else 0.62) * dim)
+				if not controller.blocked_cells.has(rc):
+					_draw_caution_tile(canvas, rc, Color(1.0, 0.62, 0.16), 0.90 if hero_on_rc or (is_focus and has_focus) else 0.50)
 
 		match intent.action_id:
 			"ground_pulse", "echo_bolt":
-				for area_cell in intent.affected_cells:
-					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_PULSE_FILL, P.TELEGRAPH_PULSE_LINE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(intent.target_cell), P.TELEGRAPH_PULSE_LINE, 20.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), P.TELEGRAPH_PULSE_LINE, 20.0, dim)
 			"aimed_shot", "light_shot":
-				for area_cell in intent.affected_cells:
-					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_SHOT_FILL, P.TELEGRAPH_SHOT_LINE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(intent.target_cell), P.TELEGRAPH_SHOT_LINE, 8.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), P.TELEGRAPH_SHOT_LINE, 8.0, dim)
 			"charged_strike", "sakura_shock":
-				for area_cell in intent.affected_cells:
-					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_CHARGE_FILL, P.TELEGRAPH_CHARGE_LINE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(intent.target_cell), P.TELEGRAPH_CHARGE_LINE, 12.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(aim_cell), P.TELEGRAPH_CHARGE_LINE, 12.0, dim)
 			"blight_field":
-				for area_cell in intent.affected_cells:
-					_draw_hazard_tile(canvas, area_cell, P.HAZARD_BLIGHT_FILL, P.HAZARD_BLIGHT_LINE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(intent.target_cell), P.HAZARD_BLIGHT_LINE, 12.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(aim_cell), P.HAZARD_BLIGHT_LINE, 12.0, dim)
 			"spring_bloom":
-				for area_cell in intent.affected_cells:
-					_draw_hazard_tile(canvas, area_cell, P.HAZARD_SPRING_FILL, P.HAZARD_SPRING_LINE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -32.0), P.cell_center(intent.target_cell), P.HAZARD_SPRING_LINE, 10.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -32.0), P.cell_center(aim_cell), P.HAZARD_SPRING_LINE, 10.0, dim)
 			"basic_melee", "shadow_raid":
-				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_CHARGE_FILL, P.RING_MELEE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -26.0), P.cell_center(intent.target_cell), P.RING_MELEE, 8.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -26.0), P.cell_center(aim_cell), P.RING_MELEE, 8.0, dim)
 			"lock_on":
-				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_SHOT_FILL, P.TELEGRAPH_SHOT_LINE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(intent.target_cell), P.TELEGRAPH_SHOT_LINE, 4.0, dim)
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), P.TELEGRAPH_SHOT_LINE, 4.0, dim)
 			"locked_shot":
-				for area_cell in intent.affected_cells:
-					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_SHOT_FILL, P.TELEGRAPH_SHOT_LINE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(intent.target_cell), P.TELEGRAPH_SHOT_LINE, 12.0, dim)
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), P.TELEGRAPH_SHOT_LINE, 12.0, dim)
 			"rot_curse":
-				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_PULSE_FILL, P.TELEGRAPH_PULSE_LINE, p_eff)
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -32.0), P.cell_center(intent.target_cell), P.TELEGRAPH_PULSE_LINE, 6.0, dim)
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -32.0), P.cell_center(aim_cell), P.TELEGRAPH_PULSE_LINE, 6.0, dim)
 			"wait":
 				if source != null and source.is_alive():
 					P.draw_polyline_closed(canvas, P.cell_diamond(source.cell, 6.0), Color(P.RING_WAIT.r, P.RING_WAIT.g, P.RING_WAIT.b, dim), 1.5)
@@ -289,16 +256,6 @@ static func _draw_caution_tile(canvas: CanvasItem, cell: Vector2i, color: Color,
 		canvas.draw_dashed_line(pts[i], pts[(i + 1) % 4], Color(color.r, color.g, color.b, 0.88 * alpha), 1.8, 5.0)
 
 
-static func _draw_hazard_tile(canvas: CanvasItem, cell: Vector2i, fill: Color, line: Color, pulse: float) -> void:
-	var outer := P.cell_diamond(cell, 1.5)
-	canvas.draw_colored_polygon(outer, Color(fill.r, fill.g, fill.b, fill.a * pulse))
-	var stripe_col := Color(line.r, line.g, line.b, 0.35 * pulse)
-	for frac in [0.25, 0.5, 0.75]:
-		canvas.draw_line(outer[0].lerp(outer[3], frac), outer[1].lerp(outer[2], frac), stripe_col, 2.0, true)
-	P.draw_polyline_closed(canvas, outer, Color(line.r, line.g, line.b, minf(1.0, 0.7 + 0.3 * pulse) * minf(1.0, pulse / 0.45)), 3.0)
-	P.draw_polyline_closed(canvas, P.cell_diamond(cell, 7.0), Color(line.r, line.g, line.b, 0.45 * pulse), 1.4)
-
-
 # --- incoming threat summary & ultra-compact board chips ----------------------
 
 ## Single source of truth for everything about to hit `cell`: used both by the
@@ -320,7 +277,7 @@ static func incoming_threats_at(controller, cell: Vector2i) -> Dictionary:
 				break
 		if caution.is_empty():
 			for intent in active:
-				if _reactive_cells_for_intent(controller, intent).has(cell):
+				if TacticalPressure.is_reactive_cell(controller, intent, cell):
 					caution = "⚠ 贴身追击：敌方近战将转身或追步劈砍"
 					break
 	return {"entries": entries, "total_dmg": total_dmg, "hit_count": hit_count, "caution": caution}
@@ -471,15 +428,13 @@ static func is_cell_in_danger(controller, cell: Vector2i) -> bool:
 	if controller.hazards.has(cell):
 		return true
 	for intent in controller.intents:
-		if intent.state != IntentScript.IntentState.ACTIVE:
+		if intent.state != IntentScript.IntentState.ACTIVE or intent.action_id == "lock_on":
 			continue
-		match intent.action_id:
-			"charged_strike", "aimed_shot", "light_shot", "ground_pulse", "echo_bolt", "basic_melee", "blight_field", "spring_bloom", "sakura_shock":
-				if intent.target_cell == cell or intent.affected_cells.has(cell):
-					return true
-			"locked_shot", "shadow_raid", "rot_curse":
-				if intent.target_cell == cell or intent.affected_cells.has(cell):
-					return true
+		if TacticalPressure.is_reactive_cell(controller, intent, cell):
+			return true
+		var source = controller.get_actor(intent.source_actor_id)
+		if source != null and source.is_alive() and ThreatTiles.ACTION_STYLES.has(intent.action_id) and ThreatTiles.cells_for(controller, intent).has(cell):
+			return true
 	return false
 
 

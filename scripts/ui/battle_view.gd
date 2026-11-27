@@ -10,6 +10,7 @@ const BoardViewScript = preload("res://scripts/ui/board_view.gd")
 const BoardThreatViewScript = preload("res://scripts/ui/board_threat_view.gd")
 const HudViewScript = preload("res://scripts/ui/hud_view.gd")
 const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
+const SkillInput = preload("res://scripts/ui/battle_skill_input.gd")
 const SettlementViewScript = preload("res://scripts/ui/settlement_view.gd")
 const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
@@ -43,8 +44,11 @@ var inventory_page: int = 0
 ## campaign path (three lessons in a row) is untouched and stays the default.
 var spring_mode: bool = false
 
-
 func _ready() -> void:
+	var suspended := SessionSave.consume("battle")
+	if not suspended.is_empty() and BattleSession.restore(self, suspended):
+		SessionSave.clear()
+		return
 	var claim_requested := SpringBattleBridgeScript.consume_tutorial_loadout_request()
 	if SpringBattleBridgeScript.has_pending():
 		_begin_spring_fight()
@@ -65,7 +69,6 @@ func _ready() -> void:
 		for item in claim.get("items", []):
 			run_state.add_to_backpack(item)
 
-
 ## One fight, injected from the map. Everything the run needs arrives in the
 ## bridge payload; nothing is read from the save here, so a fight is always
 ## against exactly the run the map handed over.
@@ -84,7 +87,7 @@ func _begin_spring_fight() -> void:
 			"hero_max_health": int(payload.get("hero_max_health", 1)),
 		}
 		SpringBattleBridgeScript.clear_pending()
-		var error := get_tree().change_scene_to_file(SpringBattleBridgeScript.MAP_SCENE_PATH)
+		var error := SceneTravel.change(get_tree(), SpringBattleBridgeScript.MAP_SCENE_PATH)
 		if error != OK:
 			push_error("无法返回春之境。Error: %s" % error)
 		return
@@ -100,7 +103,6 @@ func _begin_spring_fight() -> void:
 	LootCatalogScript.seed_rng(loot_seed)
 	run_state.loot_seed = loot_seed
 	_start_level(0)
-
 
 ## Hands the outcome back to the map scene. Called from the settlement button.
 func _return_to_map() -> void:
@@ -119,10 +121,9 @@ func _return_to_map() -> void:
 	}
 	SpringBattleBridgeScript.last_result = result
 	SpringBattleBridgeScript.clear_pending()
-	var error := get_tree().change_scene_to_file(SpringBattleBridgeScript.MAP_SCENE_PATH)
+	var error := SceneTravel.change(get_tree(), SpringBattleBridgeScript.MAP_SCENE_PATH)
 	if error != OK:
 		push_error("无法返回春之境。Error: %s" % error)
-
 
 func _begin_fresh_run() -> void:
 	run_state.reset()
@@ -130,7 +131,6 @@ func _begin_fresh_run() -> void:
 	LootCatalogScript.seed_rng(loot_seed)
 	run_state.loot_seed = loot_seed
 	_start_level(0)
-
 
 func _start_level(index: int) -> void:
 	if index < 0 or index >= levels.size():
@@ -151,12 +151,11 @@ func _start_level(index: int) -> void:
 	status_message = level.tactical_hint_zh
 	skill_bar = SkillBarViewScript.build_entries(controller)
 	_reset_fx_for_encounter()
+	SceneTravel.reveal(self, str(level.display_name_zh))
 	queue_redraw()
-
 
 func _reset_fx_for_encounter() -> void:
 	fx.reset_for_encounter(controller)
-
 
 func _process(delta: float) -> void:
 	fx.advance(delta, controller)
@@ -169,16 +168,13 @@ func _process(delta: float) -> void:
 
 	queue_redraw()
 
-
 func _current_level() -> EncounterDefinition:
 	if current_level < 0 or current_level >= levels.size():
 		return null
 	return levels[current_level]
 
-
 func _has_next_level() -> bool:
 	return current_level + 1 < levels.size()
-
 
 # --- rendering ---------------------------------------------------------------
 
@@ -195,17 +191,14 @@ func _draw() -> void:
 	elif controller.phase == ControllerScript.BattlePhase.FINISHED:
 		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level(), pending_rewards, spring_mode)
 
-
 ## The active character's display name, for prompts that name who is being
 ## placed. Read from the sheet so swapping the lead does not leave a stale name
 ## in the banner.
 func _hero_name() -> String:
 	return BattleBannerText.hero_name(controller)
 
-
 func _effective_banner_message() -> String:
 	return BattleBannerText.effective_message(controller, _current_level(), status_message)
-
 
 func _is_cell_in_active_telegraph(cell: Vector2i) -> bool:
 	# Delegate to the threat layer's predicate instead of re-listing the action
@@ -214,12 +207,10 @@ func _is_cell_in_active_telegraph(cell: Vector2i) -> bool:
 	# "safe". One source of truth keeps the hint and the red outline agreeing.
 	return BoardThreatViewScript.is_cell_in_danger(controller, cell)
 
-
 ## Kept on the view because the integration suite asks it directly; the rule
 ## itself lives in BoardView so the ring and the cast share one predicate.
 func _can_target_actor(skill_id: String, actor_id: String) -> bool:
 	return BoardViewScript.can_target(controller, skill_bar, skill_id, actor_id)
-
 
 ## Layout delegators. The integration suite taps through the view's own geometry
 ## helpers rather than hard-coded coordinates, so these must stay reachable even
@@ -227,18 +218,16 @@ func _can_target_actor(skill_id: String, actor_id: String) -> bool:
 func _skill_rect(index: int) -> Rect2:
 	return SkillBarViewScript.skill_rect(index)
 
-
 func _cell_rect(cell: Vector2i) -> Rect2:
 	return Palette.cell_rect(cell)
-
 
 func _cell_center(cell: Vector2i) -> Vector2:
 	return Palette.cell_center(cell)
 
-
 # --- input -------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
+	if SceneTravel.intercept(self, event): return
 	if event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
 		hovered_skill = -1
@@ -280,14 +269,13 @@ func _input(event: InputEvent) -> void:
 					inventory_page = 0
 				queue_redraw()
 
-
 func _rotate_camera(step: int) -> void:
 	Palette.board_grid_size = controller.grid_size
 	Palette.rotate_camera(step)
 	fx.snap_actor_positions(controller)
+	hover_cell = Vector2i(-1, -1)
 	status_message = "已切换至 %s（按 Q / E 旋转四角镜头）。" % Palette.camera_label()
 	queue_redraw()
-
 
 func _end_player_turn() -> void:
 	if controller.phase != ControllerScript.BattlePhase.PLAYER:
@@ -297,7 +285,6 @@ func _end_player_turn() -> void:
 		fx.prepare_enemy_step()
 		status_message = "【敌方回合】敌方正在结算攻势…"
 	queue_redraw()
-
 
 ## Cycles command to the next living party member. Free: the AP pool is shared,
 ## so switching is a decision about who spends it, not a resource of its own.
@@ -321,7 +308,6 @@ func _switch_character() -> void:
 		status_message = "已切换到 %s。" % label
 	queue_redraw()
 
-
 func _cancel_target_selection() -> void:
 	if selected_skill < 0:
 		return
@@ -329,12 +315,12 @@ func _cancel_target_selection() -> void:
 	status_message = "已取消目标选择。"
 	queue_redraw()
 
-
 ## §11.1: no AP, no turn, no enemy action - the only two verbs here are "put the
 ## character somewhere in the zone" and "confirm".
 func _handle_deploy_tap(position: Vector2) -> void:
 	if Palette.END_TURN_RECT.has_point(position):
 		if controller.request_begin_battle():
+			fx.snap_actor_positions(controller)
 			status_message = "部署完成，正式开战。"
 		else:
 			status_message = "还有角色没有就位，无法开战。"
@@ -358,7 +344,6 @@ func _handle_deploy_tap(position: Vector2) -> void:
 	else:
 		status_message = "该格无法部署（障碍或已被占据）。"
 	queue_redraw()
-
 
 func _handle_tap(position: Vector2) -> void:
 	if inventory_open:
@@ -397,6 +382,10 @@ func _handle_tap(position: Vector2) -> void:
 
 	var cell := Palette.cell_at(position)
 	if not Palette.is_inside_board(cell, controller.grid_size):
+		return
+
+	if selected_skill >= 0 and str(skill_bar[selected_skill]["mode"]) == "cell":
+		SkillInput.cast(self, skill_bar[selected_skill], "", cell)
 		return
 
 	if controller.beacons.has(cell) and int(controller.beacons[cell].get("health", 0)) > 0:
@@ -439,6 +428,10 @@ func _handle_tap(position: Vector2) -> void:
 				queue_redraw()
 			return
 
+	if selected_skill >= 0:
+		status_message = "当前技能需要目标；点击合法目标或右键取消，未消耗 AP。"
+		queue_redraw()
+		return
 	var path := _path_to_cell(cell)
 	if path.is_empty():
 		status_message = "该位置无法到达，或超出两格移动范围。"
@@ -447,7 +440,6 @@ func _handle_tap(position: Vector2) -> void:
 	else:
 		status_message = "无法移动，请检查行动点和路径。"
 	queue_redraw()
-
 
 func _handle_inventory_tap(position: Vector2) -> void:
 	var action: String = InventoryViewScript.hit(position, run_state.backpack.size(), inventory_page)
@@ -488,8 +480,11 @@ func _handle_inventory_tap(position: Vector2) -> void:
 		inventory_page = clampi(inventory_page, 0, pages - 1)
 		queue_redraw()
 
-
 func _handle_settlement_tap(position: Vector2) -> void:
+	if not BattleRewards.settle(controller, spring_mode, atelier_save_path):
+		status_message = "战后残晶保存失败，当前战果已保留，请检查存档位置后重试。"
+		queue_redraw()
+		return
 	var won: bool = controller.battle_result == "victory"
 	var action: String = SettlementViewScript.hit(position, won, _has_next_level(), spring_mode)
 	match action:
@@ -506,40 +501,13 @@ func _handle_settlement_tap(position: Vector2) -> void:
 			else:
 				_begin_fresh_run()
 
-
 # --- player actions ----------------------------------------------------------
 
 func _on_skill_pressed(index: int) -> void:
-	if index < 0 or index >= skill_bar.size():
-		return
-	var skill: Dictionary = skill_bar[index]
-	if skill["mode"] == "self":
-		selected_skill = -1
-		# One entry point for every character: the runtime resolves the caster
-		# from the active character and dispatches on the skill's effect id.
-		var cast_ok: bool = controller.request_skill(StringName(str(skill["id"])))
-		if cast_ok:
-			status_message = "「%s」已生效。" % str(skill["name"])
-		else:
-			status_message = "无法施放「%s」：检查行动点、终极能量与当前阶段。" % str(skill["name"])
-		queue_redraw()
-		return
-	selected_skill = index
-	if str(skill["mode"]) == "ally":
-		status_message = "已选择「%s」，点击自己或 %d 格内友军施放。" % [str(skill["name"]), int(skill["max_range"])]
-	else:
-		status_message = "已选择「%s」，点击目标敌人施放。" % str(skill["name"])
-	queue_redraw()
-
+	SkillInput.select(self, index)
 
 func _use_skill_on(actor_id: String) -> void:
-	var skill: Dictionary = skill_bar[selected_skill]
-	if controller.request_skill(StringName(str(skill["id"])), actor_id):
-		status_message = "「%s」已生效。" % str(skill["name"])
-	else:
-		status_message = "「%s」未能施放：检查行动点、射程、视线与资源。" % str(skill["name"])
-	queue_redraw()
-
+	SkillInput.cast(self, skill_bar[selected_skill], actor_id)
 
 ## Candidate path only. The controller re-validates it through is_path_legal
 ## before committing the move, so this stays a hint rather than a decision.
@@ -556,11 +524,12 @@ func _path_to_cell(goal: Vector2i) -> Array[Vector2i]:
 		controller.PLAYER_MOVE_MAX_STEPS
 	)
 
-
 # --- controller signals ------------------------------------------------------
 
 func _on_battle_event(event: Dictionary) -> void:
 	var event_type: String = str(event.get("type", ""))
+	if event_type == "actor_moved": SceneTravel.sound(self, "move")
+	elif event_type == "damage_applied": SceneTravel.sound(self, "hit")
 	var out_status: Array = []
 	var out_selected: Array = []
 	fx.on_event(event_type, event, controller, out_status, out_selected)
@@ -575,9 +544,9 @@ func _on_battle_event(event: Dictionary) -> void:
 
 	queue_redraw()
 
-
 func _on_battle_finished(result: String) -> void:
 	inventory_open = false
+	var rewards_saved := BattleRewards.settle(controller, spring_mode, atelier_save_path)
 	if result == "victory":
 		pending_rewards = controller.collect_remaining_chests()
 		var hero = controller.get_active_character()
@@ -593,4 +562,6 @@ func _on_battle_finished(result: String) -> void:
 			status_message = "战斗失败。返回春之境后可消耗补给续行一次。"
 		else:
 			status_message = "遭遇战失败，点击重开将清空本局装备与背包重新开始。"
+	if not rewards_saved:
+		status_message += " 残晶保存失败，离开前请重试结算。"
 	queue_redraw()

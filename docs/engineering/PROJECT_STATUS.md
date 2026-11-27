@@ -4,13 +4,15 @@
 >
 > 当前开发主线：`main`  
 > 引擎版本：Godot 4.7.2 Standard  
-> 目标平台：Windows 桌面原型验证；Android 横屏与触控验证仍在后续待办中
+> 目标平台：Windows 桌面原型验证；Android 按用户指令暂缓
 
 后续工作统一按 [任务清单](TASK_PLAN.md) 的任务 ID、依赖与验收条件推进。
 
 本轮实机缺陷的逐项原因、修复与仍待复现项见 [实机修复记录](PLAYTEST_FIXES_2026-11-27.md)。
 
 旧规划与现行行为的对账、在途分支及尚待裁决的范围见 [当前范围与决策登记](CURRENT_SCOPE_AND_DECISIONS.md)。
+
+Windows 自动构建、来源提交/校验值、包体排除与启动检查已落地；交互、教学、整局、目标设备性能和候选验收交由人工完成，记录入口见 [Windows 交接](WINDOWS_DELIVERY.md)。
 
 ## 一、当前阶段
 

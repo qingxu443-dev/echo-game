@@ -43,7 +43,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
   * **翡翠绿**＝己方可移动安全格；**银白虚线箭头**＝敌方移动/冲锋路径；
   * **正红**＝近战/蓄力/突袭区；**宝蓝**＝远程狙击/锁命区；**品紫**＝法术脉冲区。
 * **悬停聚焦 & 零遮挡受击明细**：
-  * 鼠标悬停任意敌人或危险格时，自动压暗无关预告并聚焦目标路线与攻击区；
+  * 鼠标悬停任意敌人或危险格时，聚焦目标路线与攻击区；无关危险格仍保留可见填色与独立边线；
   * 棋盘格子仅保留单行极简伤害芯片，**左下角主角血条正上方**自动展开受击汇总与逐条招式明细（含 `[致死!]` 提示）；
   * 敌人头顶标出出手顺序 `①②③`，敌方回合逐怪高亮并飘出招式名。
 
@@ -73,24 +73,24 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 | 操作 | 输入方式 |
 | :--- | :--- |
 | **移动** | 左键点击高亮绿色格子（单次最多 2 格） |
-| **施放技能** | 点击底部技能槽或按数字键 `1–4`，再点击目标敌人或结界节点 |
+| **施放技能** | 点击底部技能槽或按数字键 `1–4`，再点击合法目标；樱的落英可点空地 |
 | **旋转镜头** | `Q`（逆时针） / `E`（顺时针） |
 | **装备与背包** | `B` 键开关（随时穿卸装备、激活铭文或使用补给道具） |
-| **取消选择** | `Esc` 或鼠标右键 |
+| **取消选择 / 暂停** | 鼠标右键取消选择；`Esc` 打开暂停菜单 |
 | **结束回合** | 点击右下角「结束回合」、`Enter` 或 `Space` |
 
 ---
 
 ## 打包 Windows 试玩包
 
-仓库已内置 Windows Desktop 导出预设（`export_presets.cfg`：单文件内嵌资源 exe，排除测试脚本及素材源图）。本机装有 4.7.2 导出模板后执行：
+仓库已内置 Windows Desktop 导出预设（单文件内嵌资源 exe，排除测试、素材源图、工具与文档）。Windows 工程交接使用以下入口，自动导入、全量回归、导出、包体检查与 exe 无界面启动：
 
-```sh
-mkdir -p build
-godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_x64.exe
+```powershell
+python tools/fetch_windows_template.py
+./tools/build_windows.ps1 -Godot 'C:/Godot/Godot_v4.7.2-stable_win64_console.exe'
 ```
 
-测试交付规范见 [`docs/engineering/TESTER_WINDOWS_0.1.md`](docs/engineering/TESTER_WINDOWS_0.1.md)。`build/` 为本地产物目录，不入库。
+产物在 `build/windows/`，含 ZIP、exe、来源提交/校验值、资源清单、日志和测试者说明。构建复现与待人工验收表见 [Windows 交接](docs/engineering/WINDOWS_DELIVERY.md)，初次运行见 [测试说明](docs/engineering/TESTER_WINDOWS_0.1.md)。Windows 实机验收交由人工，Android 暂缓。`build/` 不入库。
 
 ---
 

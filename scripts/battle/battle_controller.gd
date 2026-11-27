@@ -28,6 +28,7 @@ const DamagePipelineScript = preload("res://scripts/battle/damage_pipeline.gd")
 const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
+const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
@@ -537,6 +538,28 @@ func request_oathkeeper_judgment_mark(target_actor_id: String) -> bool:
 ## only if it invents a new mechanic, one branch in CharacterSkillRuntime.
 func request_skill(skill_id: StringName, target_actor_id: String = "") -> bool:
 	return CharacterSkillRuntimeScript.request(self, skill_id, target_actor_id)
+
+
+## §14 樱华蓄斩: break a telegraphed charged strike that the sheet marks as
+## interruptible. Control is expressed as this call - a dash that slams into the
+## swordsman, a knockback that moves him - and the charge bar pays for it, so the
+## elite needs three more AP of pressure before it can wind up again. Returns
+## false when there was nothing to interrupt, so callers can log a plain hit.
+func interrupt_enemy_charge(actor_id: String, reason: String) -> bool:
+	if actor_id.is_empty():
+		return false
+	for intent in intents:
+		if intent.source_actor_id != actor_id or intent.state != BattleIntentScript.IntentState.ACTIVE:
+			continue
+		if not intent.interruptible:
+			continue
+		intent.cancel("interrupted")
+		var source = actors.get(actor_id)
+		if source != null and source.skill_charge_max > 0:
+			source.skill_charge = 0
+		_emit_event("enemy_skill_interrupted", actor_id, "", "action=%s reason=%s" % [intent.action_id, reason])
+		return true
+	return false
 
 
 # --- hunter summon -----------------------------------------------------------

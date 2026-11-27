@@ -51,6 +51,13 @@ extends Resource
 ## 花影弹 0.65 - and they are not interchangeable: a boss whose sheet says 0.65
 ## should not be swinging the generic 0.80.
 @export var basic_attack_multiplier: float = 0.0
+## 樱华蓄斩 (§14): the charged strike is telegraphed for a whole player turn and
+## can be broken by control. Only the one elite that owns the move sets this, so
+## every other charge skill stays uninterruptible.
+@export var interruptible_skill: bool = false
+## 腐樱诅咒 (§14): flat defence this archetype strips from its target. Zero means
+## the archetype has no curse at all, which is every other sheet.
+@export var curse_defense_down: int = 0
 
 
 func is_valid() -> bool:
@@ -73,5 +80,7 @@ func is_valid() -> bool:
 	if ward_stance_percent < 0.0 or ward_stance_node_bonus < 0.0:
 		return false
 	if basic_attack_multiplier < 0.0:
+		return false
+	if curse_defense_down < 0:
 		return false
 	return true

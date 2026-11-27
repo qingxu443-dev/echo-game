@@ -147,6 +147,8 @@ static func start_encounter(
 		enemy_unit.ward_stance_percent = profile.ward_stance_percent
 		enemy_unit.ward_stance_node_bonus = profile.ward_stance_node_bonus
 		enemy_unit.basic_attack_multiplier = profile.basic_attack_multiplier
+		enemy_unit.interruptible_skill = profile.interruptible_skill
+		enemy_unit.curse_defense_down = profile.curse_defense_down
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		battle.actors[enemy_id] = enemy_unit

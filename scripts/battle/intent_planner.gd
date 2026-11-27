@@ -56,6 +56,22 @@ const HAZARD_DURATION_TURNS: int = 2
 const BLIGHT_HAZARD_MULTIPLIER: float = 0.25
 const LINGERING_SPRING_MULTIPLIER: float = 0.2
 
+## 百花锁命 (§14): mark one hero, then fire the strengthened arrow on the next
+## enemy phase. The document pins the multiplier at 1.15 of the pre-cut attack,
+## so the profile's `skill_damage` carries the final number (1380).
+const LOCK_ON_MIN_RANGE: int = 2
+const LOCK_ON_MAX_RANGE: int = 6
+const LOCKED_SHOT_MULTIPLIER: float = 1.15
+## 逐影突袭 (§14): the runner may cover at most three cells and must finish
+## adjacent to its mark. 1.05 is the document's multiplier; the profile pins the
+## resulting 1260 so cutting base attack cannot cut the skill with it.
+const SHADOW_RAID_MAX_RANGE: int = 4
+const SHADOW_RAID_STEPS: int = 3
+const SHADOW_RAID_MULTIPLIER: float = 1.05
+## 腐樱诅咒 (§14): one hero within four cells loses 100 defence until the next
+## enemy phase ends. Never stacks - a second curse only refreshes the clock.
+const ROT_CURSE_RANGE: int = 4
+
 
 static func plan(battle) -> Array:
 	var actors = battle.actors
@@ -141,6 +157,13 @@ static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
 
 
 static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_cells: Dictionary = {}):
+	# 百花锁命 第二段: a mark placed last enemy phase fires now. It is checked
+	# before the action list because the shot is not one of the archer's choices -
+	# it is the delayed half of a decision already made.
+	var locked_intent = _locked_shot(battle, enemy)
+	if locked_intent != null:
+		return locked_intent
+
 	var actions: Array[StringName] = actions_for(enemy)
 
 	# 1. Try any non-movement attack from the current tile first.
@@ -172,7 +195,9 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 			enemy.cell = dest
 			var follow_intent = null
 			for action_id in actions:
-				if action_id == &"pursuit":
+				# 逐影突袭 already carries its own path; evaluating it again from a
+				# simulated destination would stack two moves into one intent.
+				if action_id == &"pursuit" or action_id == &"shadow_raid":
 					continue
 				follow_intent = _build_intent(battle, enemy, target, occupied, action_id, claimed_cells)
 				if follow_intent != null:
@@ -244,6 +269,14 @@ static func _build_intent(battle, enemy, target, occupied: Dictionary, action_id
 			return _spring_bloom(battle, enemy, target)
 		&"sakura_shock":
 			return _sakura_shock(battle, enemy, target)
+		&"lock_on":
+			return _lock_on(battle, enemy, target)
+		&"locked_shot":
+			return _locked_shot(battle, enemy)
+		&"shadow_raid":
+			return _shadow_raid(battle, enemy, target)
+		&"rot_curse":
+			return _rot_curse(battle, enemy, target)
 	push_error("IntentPlanner: unknown action '%s' for archetype '%s'" % [action_id, enemy.archetype])
 	return null
 
@@ -267,7 +300,11 @@ static func _charged_strike(battle, enemy, target, occupied: Dictionary):
 			var cell: Vector2i = row_center + perp * side
 			if GridRulesScript.is_inside_bounds(cell, battle.grid_size) and not battle.blocked_cells.has(cell):
 				affected.append(cell)
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "charged_strike", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, _signature_damage(enemy, CHARGED_STRIKE_MULTIPLIER), 0)
+	var intent = BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "charged_strike", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, _signature_damage(enemy, CHARGED_STRIKE_MULTIPLIER), 0)
+	# §14 樱华蓄斩: the one charged strike the player can break. The flag rides on
+	# the intent so the interrupt itself can stay a single generic rule.
+	intent.interruptible = "interruptible_skill" in enemy and bool(enemy.interruptible_skill)
+	return intent
 
 
 ## Plain-attack damage. §15 gives each boss its own attendance multiplier -
@@ -533,6 +570,102 @@ static func _sakura_shock(battle, enemy, target):
 	return BattleIntentScript.new(
 		_intent_id(battle, enemy), enemy.actor_id, "sakura_shock",
 		BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, _signature_damage(enemy, SAKURA_SHOCK_MULTIPLIER), 0
+	)
+
+
+## 百花锁命 第一段 (§14): mark one hero. The mark is placed by the resolver, so
+## planning stays read-only, and the shot itself is planned on the next turn -
+## that gap is the whole skill: the player sees the mark and gets one turn to
+## leave the archer's reach or break its line of sight.
+static func _lock_on(battle, enemy, target):
+	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+		return null
+	if "lock_target_id" in enemy and not String(enemy.lock_target_id).is_empty():
+		return null
+	# Only a hero can be marked; a relic beacon is not "一名玩家".
+	if target is Dictionary:
+		return null
+	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
+	if distance < LOCK_ON_MIN_RANGE or distance > LOCK_ON_MAX_RANGE:
+		return null
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id)):
+		return null
+	return BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "lock_on",
+		BattleIntentScript.TargetMode.ACTOR_LOCKED, target.actor_id, target.cell, [], 0, 0
+	)
+
+
+## 百花锁命 第二段: the delayed arrow. It tracks the marked hero rather than the
+## tile they stood on, so stepping aside does not dodge it - only leaving the
+## six-cell reach or breaking line of sight does. Range and sight are checked
+## again at resolve time, because the hero may move after this telegraph.
+static func _locked_shot(battle, enemy):
+	if not ("lock_target_id" in enemy):
+		return null
+	var target_id: String = String(enemy.lock_target_id)
+	if target_id.is_empty():
+		return null
+	var target = battle.actors.get(target_id)
+	if target == null or not target.is_alive() or target.team != "player":
+		return null
+	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
+	if distance < 1 or distance > LOCK_ON_MAX_RANGE:
+		return null
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id)):
+		return null
+	return BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "locked_shot",
+		BattleIntentScript.TargetMode.ACTOR_LOCKED, target.actor_id, target.cell, [target.cell],
+		_signature_damage(enemy, LOCKED_SHOT_MULTIPLIER), 0
+	)
+
+
+## 逐影突袭 (§14): up to three cells of path, then a strike on the mark. The path
+## travels on the intent (the resolver walks it, the telegraph draws it) so the
+## player is warned about both the destination and the blow, and the skill can be
+## dodged by vacating the landing tile rather than by outrunning it.
+static func _shadow_raid(battle, enemy, target):
+	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+		return null
+	if target is Dictionary:
+		return null
+	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
+	if distance < 2 or distance > SHADOW_RAID_MAX_RANGE:
+		return null
+	var path: Array[Vector2i] = _pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, SHADOW_RAID_STEPS)
+	if path.is_empty():
+		return null
+	if GridRulesScript.manhattan_distance(path[path.size() - 1], target.cell) != 1:
+		return null
+	var intent = BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "shadow_raid",
+		BattleIntentScript.TargetMode.ACTOR_LOCKED, target.actor_id, target.cell, [target.cell],
+		_signature_damage(enemy, SHADOW_RAID_MULTIPLIER), 0
+	)
+	intent.move_path = path
+	return intent
+
+
+## 腐樱诅咒 (§14): strip flat defence from one hero within four cells. The
+## amount rides on the intent's damage field, exactly like a ward's shield
+## amount - the resolver reads it as a penalty, never as damage.
+static func _rot_curse(battle, enemy, target):
+	if not ("curse_defense_down" in enemy) or int(enemy.curse_defense_down) <= 0:
+		return null
+	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+		return null
+	if target is Dictionary:
+		return null
+	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
+	if distance < 1 or distance > ROT_CURSE_RANGE:
+		return null
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id)):
+		return null
+	return BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "rot_curse",
+		BattleIntentScript.TargetMode.ACTOR_LOCKED, target.actor_id, target.cell, [target.cell],
+		int(enemy.curse_defense_down), 0, "magical"
 	)
 
 

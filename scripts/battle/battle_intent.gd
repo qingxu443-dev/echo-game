@@ -31,6 +31,9 @@ var hazard_cells: Array[Vector2i] = []
 var hazard_kind: String = ""
 var hazard_damage: int = 0
 var hazard_duration_turns: int = 0
+## 樱华蓄斩 alone: the telegraph can be broken by control before it resolves.
+## A cancelled intent keeps this flag so the log explains why it fizzled.
+var interruptible: bool = false
 
 
 func _init(

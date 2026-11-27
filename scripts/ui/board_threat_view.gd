@@ -110,6 +110,34 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_CHARGE_FILL, P.RING_MELEE, pulse)
 				if source != null and source.is_alive():
 					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -28.0), P.cell_center(intent.target_cell), P.RING_MELEE, 8.0)
+			"lock_on":
+				# The mark itself deals no damage; it paints the hero the archer
+				# has chosen so the next turn's arrow is not a surprise.
+				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_SHOT_FILL, P.TELEGRAPH_SHOT_LINE, pulse)
+				if source != null and source.is_alive():
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -36.0), P.cell_center(intent.target_cell), P.TELEGRAPH_SHOT_LINE, 4.0)
+			"locked_shot":
+				for area_cell in intent.affected_cells:
+					_draw_hazard_tile(canvas, area_cell, P.TELEGRAPH_SHOT_FILL, P.TELEGRAPH_SHOT_LINE, pulse)
+				if source != null and source.is_alive():
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -36.0), P.cell_center(intent.target_cell), P.TELEGRAPH_SHOT_LINE, 12.0)
+			"shadow_raid":
+				for path_cell in intent.move_path:
+					var pts := P.cell_diamond(path_cell, 7.0)
+					canvas.draw_colored_polygon(pts, P.TELEGRAPH_PURSUIT_FILL)
+					P.draw_polyline_closed(canvas, pts, P.TELEGRAPH_PURSUIT_LINE, 1.8)
+				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_CHARGE_FILL, P.RING_MELEE, pulse)
+				if source != null and source.is_alive():
+					# Draw the blow from where the dash actually ends, so the arc
+					# matches the path instead of the archer's original tile.
+					var start_cell: Vector2i = source.cell
+					if not intent.move_path.is_empty():
+						start_cell = intent.move_path[intent.move_path.size() - 1]
+					draw_aim_arc(canvas, P.cell_center(start_cell) + Vector2(0.0, -28.0), P.cell_center(intent.target_cell), P.RING_MELEE, 8.0)
+			"rot_curse":
+				_draw_hazard_tile(canvas, intent.target_cell, P.TELEGRAPH_PULSE_FILL, P.TELEGRAPH_PULSE_LINE, pulse)
+				if source != null and source.is_alive():
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(intent.target_cell), P.TELEGRAPH_PULSE_LINE, 6.0)
 			"pursuit":
 				for path_cell in intent.affected_cells:
 					var pts := P.cell_diamond(path_cell, 7.0)
@@ -176,6 +204,18 @@ static func draw_telegraph_labels(canvas: CanvasItem, controller, _fx_state: Dic
 			"sakura_shock":
 				label = "震荡 %d" % intent.damage
 				color = P.TELEGRAPH_CHARGE_MARK
+			"lock_on":
+				label = "锁命"
+				color = P.TELEGRAPH_SHOT_MARK
+			"locked_shot":
+				label = "锁命箭 %d" % intent.damage
+				color = P.TELEGRAPH_SHOT_MARK
+			"shadow_raid":
+				label = "突袭 %d" % intent.damage
+				color = P.TELEGRAPH_CHARGE_MARK
+			"rot_curse":
+				label = "降防 %d" % intent.damage
+				color = P.TELEGRAPH_PULSE_MARK
 			_:
 				continue
 
@@ -205,6 +245,9 @@ static func is_cell_in_danger(controller, cell: Vector2i) -> bool:
 			continue
 		match intent.action_id:
 			"charged_strike", "aimed_shot", "light_shot", "ground_pulse", "echo_bolt", "basic_melee":
+				if intent.target_cell == cell or intent.affected_cells.has(cell):
+					return true
+			"locked_shot", "shadow_raid", "rot_curse":
 				if intent.target_cell == cell or intent.affected_cells.has(cell):
 					return true
 	return false

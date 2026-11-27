@@ -64,10 +64,23 @@ var ward_stance_percent: float = 0.0
 var ward_stance_node_bonus: float = 0.0
 ## Overrides the action's default multiplier for this unit's plain attack.
 var basic_attack_multiplier: float = 0.0
+## 樱华蓄斩: whether this unit's charged strike can be broken by control.
+var interruptible_skill: bool = false
+## 腐樱诅咒: flat defence this unit strips from its target (0 = no curse).
+var curse_defense_down: int = 0
 ## Turn on which a temporary shield lapses; -1 means "no expiry". The player's
 ## oath shield uses a table on the battle; an enemy stance is one actor's own
 ## state, so it rides on the actor.
 var shield_expiry_turn: int = -1
+## 百花锁命 (§14): the hero this sniper has marked, or empty. The mark survives a
+## whole player turn so the shot can be telegraphed, then either lands or breaks
+## when the target leaves the archer's reach or sight.
+var lock_target_id: String = ""
+## 腐樱诅咒 (§14): flat defence removed from this actor, and the turn after which
+## it lapses. Expiry is swept at the end of an enemy phase, which is what
+## "持续至下一敌方行动阶段结束" describes.
+var defense_penalty: int = 0
+var defense_penalty_expiry_turn: int = -1
 ## Weapons/armors stolen from destroyed Relic Chests; dropped onto the ground on death.
 var stolen_equipment: Array[Dictionary] = []
 

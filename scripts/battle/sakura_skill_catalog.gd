@@ -37,7 +37,7 @@ static func create_skills() -> Array[SkillDefinition]:
 	# 流风 - 2-cell dash, then a strike on one adjacent enemy.
 	skills.append(_make(
 		&"sakura_flowing_wind", "流风",
-		"消耗 1 AP；朝指定方向突进至多 2 格，对一名邻敌造成 80% ATK 伤害并施加残香。",
+		"消耗 1 AP；朝指定方向突进至多 2 格，对一名邻敌造成 80% ATK 伤害并施加残香。命中蓄势中的敌人时打断其蓄势。",
 		1, SkillDefinitionScript.TARGET_ACTOR, 1, 3,
 		SkillDefinitionScript.DAMAGE_PHYSICAL, 0.8, &"sakura_flowing_wind",
 		CharacterScript.SLOT_ACTIVE_ONE))

@@ -213,7 +213,7 @@ func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, acti
 	var b: Dictionary = beacons[cell]
 	if int(b.get("health", 0)) <= 0:
 		return false
-	var dmg: int = maxi(1, amount)
+	var dmg: int = maxi(1, amount) if str(b.get("kind", "")) == "ward_node" else 1
 	b["health"] = maxi(0, int(b["health"]) - dmg)
 	beacons[cell] = b
 	_emit_event("beacon_damaged", source_actor_id, str(b["id"]), "action=%s cell=%s applied=%d health=%d" % [action_id, str(cell), dmg, int(b["health"])])

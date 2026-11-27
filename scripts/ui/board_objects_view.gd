@@ -167,15 +167,19 @@ static func _draw_relic_beacon(canvas: CanvasItem, controller, cell: Vector2i, b
 	var glow_col := Color(1.0, 0.35, 0.30, glow_alpha + 0.15) if in_danger else Color(0.98, 0.84, 0.45, glow_alpha)
 	canvas.draw_circle(P.cell_center(cell) + Vector2(0.0, -32.0), 8.0, glow_col)
 
-	# Chest durability HP bar underneath
+	# Chest hit-count pips underneath (2 hits to break)
 	var pos := P.cell_center(cell) + Vector2(0.0, 13.0)
+	var max_hits: int = maxi(1, int(beacon["max_health"]))
+	var cur_hits: int = clampi(int(beacon["health"]), 0, max_hits)
 	var bar_w: float = 42.0
-	var bar_h: float = 5.0
-	var rect := Rect2(pos.x - bar_w * 0.5, pos.y, bar_w, bar_h)
-	canvas.draw_rect(rect.grow(1.0), P.HP_BG, true)
-	var ratio: float = clampf(float(beacon["health"]) / float(maxi(1, int(beacon["max_health"]))), 0.0, 1.0)
-	if ratio > 0.0:
-		canvas.draw_rect(Rect2(rect.position, Vector2(bar_w * ratio, bar_h)), P.GOLD_LIGHT, true)
+	var bar_h: float = 6.0
+	var gap: float = 4.0
+	var seg_w: float = (bar_w - gap * float(max_hits - 1)) / float(max_hits)
+	var start_x: float = pos.x - bar_w * 0.5
+	canvas.draw_rect(Rect2(start_x - 1.5, pos.y - 1.5, bar_w + 3.0, bar_h + 3.0), P.HP_BG, true)
+	for i in range(max_hits):
+		var seg := Rect2(start_x + float(i) * (seg_w + gap), pos.y, seg_w, bar_h)
+		canvas.draw_rect(seg, P.GOLD_LIGHT if i < cur_hits else Color(0.24, 0.22, 0.19, 0.85), true)
 
 
 ## 春之结界 node (§15.2). Deliberately not a chest: the player has to read

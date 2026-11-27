@@ -217,8 +217,8 @@ static func _spawn_default_beacons(
 		battle.beacons[c] = {
 			"id": "beacon_%02d" % placed,
 			"cell": c,
-			"health": 2000,
-			"max_health": 2000,
+			"health": 2,
+			"max_health": 2,
 			"opened": false,
 			# A chest is a solid box: it blocks both movement and sight, unlike the
 			# 结界 nodes, which §15.2 limits to movement.

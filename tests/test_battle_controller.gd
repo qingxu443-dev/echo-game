@@ -322,14 +322,16 @@ func _test_relic_chest_enemy_steal_and_equipment_drop() -> void:
 	battle.beacons[chest_cell] = {
 		"id": "chest_test",
 		"cell": chest_cell,
-		"health": 500,
-		"max_health": 500,
+		"health": 2,
+		"max_health": 2,
 		"opened": false,
 		"loot": {"id": "test_blade", "name": "测试长刃", "kind": "weapon", "enemy_attack": 200},
 	}
 	var atk_before: int = enemy.attack
 	battle.damage_beacon_at(chest_cell, 600, enemy.actor_id, "charged_strike")
-	_check(enemy.attack == atk_before + 200, "enemy breaking a weapon chest immediately equips its attack bonus")
+	_check(int(battle.beacons[chest_cell]["health"]) == 1 and enemy.attack == atk_before, "first hit drops chest durability from 2 to 1 without breaking it")
+	battle.damage_beacon_at(chest_cell, 600, enemy.actor_id, "charged_strike")
+	_check(enemy.attack == atk_before + 200, "second hit breaks the weapon chest and enemy equips its attack bonus")
 	_check(enemy.stolen_equipment.size() == 1, "stolen weapon is tracked on the enemy for death drop")
 	_check(battle.phase != ControllerScript.BattlePhase.FINISHED, "breaking all chests never causes instant defeat")
 

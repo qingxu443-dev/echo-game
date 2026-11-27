@@ -219,7 +219,7 @@ func _test_oathblade_knockback_collisions() -> void:
 	var beacon_before: int = beacon_enemy.health
 	_check(beacon.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a beacon")
 	_check(beacon_before - beacon_enemy.health == 1243, "slamming into a beacon deals the same collision damage")
-	_check(int(beacon.beacons[beacon_cell]["health"]) == beacon_health_before - 450, "the beacon takes 450 for being in the way")
+	_check(int(beacon.beacons[beacon_cell]["health"]) == beacon_health_before - 1, "the chest loses one hit of its 2-hit durability")
 	beacon.queue_free()
 
 	# Free cell: the target moves one cell and takes only the strike. This is the

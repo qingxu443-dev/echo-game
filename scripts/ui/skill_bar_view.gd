@@ -8,27 +8,23 @@ const P = preload("res://scripts/ui/theme_palette.gd")
 const SkillDefinitionScript = preload("res://scripts/battle/skill_definition.gd")
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 
-const SKILL_HINTS := {
-	&"oathblade": "相邻 · 击退 1 格 / 撞击",
-	&"oathkeeper_judgment_mark": "1–4 格 · 轻伤 + 易伤 30%",
-	&"oath_shield": "瞬发 · 650 护盾",
-	&"absolute_guard": "2 AP + 4 能 · 周围击退",
-	&"sakura_pierce_blossom": "相邻 · 100% ATK · 施加残香",
-	&"sakura_flowing_wind": "突进 2 格 · 80% ATK · 施加残香",
-	&"sakura_falling_petals": "点地格定向 · 面前 3×2 · 三段",
-	&"sakura_endless_fragrance": "2 AP + 5 能量 · 十字四段",
-}
+static func full_description(skill_id: StringName) -> String:
+	var skill = SkillRegistryScript.get_skill(skill_id)
+	if skill == null:
+		return ""
+	return "【%s · %d AP】%s" % [skill.display_name_zh, skill.ap_cost, skill.description_zh]
 
-const SKILL_FULL_DESC := {
-	&"oathblade": "【誓刃 · 1 AP】对相邻 1 格敌人造成 100% 攻击伤害并击退 1 格；撞墙或撞怪额外造成 450 真实伤害。",
-	&"oathkeeper_judgment_mark": "【裁决印记 · 1 AP】对 1–4 格直线/斜线敌人造成 55% 攻击轻伤，并施加易伤（目标下次受伤 +30%）。",
-	&"oath_shield": "【誓盾庇护 · 1 AP】一键瞬发，获得 650 护盾（每层守誓额外 +100 盾），持续至下回合开始。",
-	&"absolute_guard": "【绝对裁决 · 2 AP + 4 能量】对自身周围 1 格（八方向）所有敌人造成 130% 攻击重击并击退 1 格（可撞墙）。",
-	&"sakura_pierce_blossom": "【穿花 · 1 AP】对相邻 1 格敌人造成 100% 攻击物理伤害，命中后施加残香。",
-	&"sakura_flowing_wind": "【流风 · 1 AP】朝指定方向突进至多 2 格，对一名相邻敌人造成 80% 攻击伤害并施加残香。",
-	&"sakura_falling_petals": "【落英 · 2 AP】点选地格定向（可选空地）；对面前 3×2 区域内敌人三段斩击，每段 30% 攻击并施加残香。",
-	&"sakura_endless_fragrance": "【无尽芳华 · 2 AP + 5 能量】以自身为中心的十字四段斩击（20/20/20/40% 攻击），每层剑意使终结斩 +5%。",
-}
+
+static func hint_for(skill) -> String:
+	if skill.shape == SkillDefinitionScript.SHAPE_FAN:
+		return "点地格定向 · 面前 %d×%d · %d 段" % [skill.shape_width, skill.shape_depth, skill.hits]
+	if skill.shape == SkillDefinitionScript.SHAPE_CROSS:
+		return "十字 %d 格 · %d 段" % [skill.max_range, skill.hits]
+	if skill.target_mode == SkillDefinitionScript.TARGET_SELF:
+		return "自身周围 %d 格" % skill.max_range if skill.max_range > 0 else "自身施放"
+	if skill.target_mode == SkillDefinitionScript.TARGET_SELF_AND_ALLY:
+		return "自己/友军 · %d 格" % skill.max_range
+	return "%d–%d 格 · %d%% ATK" % [skill.min_range, skill.max_range, roundi(skill.damage_multiplier * 100.0)]
 
 
 static func build_entries(controller) -> Array:
@@ -40,7 +36,7 @@ static func build_entries(controller) -> Array:
 		entries.append(_entry(
 			skill.skill_id,
 			skill.display_name_zh,
-			String(SKILL_HINTS.get(skill.skill_id, skill.description_zh)),
+			hint_for(skill),
 			skill.ap_cost,
 			_mode_for(skill.target_mode),
 			skill.min_range,
@@ -116,7 +112,7 @@ static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skil
 	var inspect_idx: int = hovered_skill if hovered_skill >= 0 else selected_skill
 	if inspect_idx >= 0 and inspect_idx < skill_bar.size():
 		var sk: Dictionary = skill_bar[inspect_idx]
-		var desc: String = String(SKILL_FULL_DESC.get(StringName(str(sk["id"])), str(sk["hint"])))
+		var desc: String = full_description(StringName(str(sk["id"])))
 		var tip_rect := Rect2(P.SKILL_FIRST_X, P.SKILL_BAR_Y - 36.0, P.END_TURN_RECT.end.x - P.SKILL_FIRST_X, 28.0)
 		canvas.draw_rect(tip_rect, Color(0.10, 0.12, 0.15, 0.94), true)
 		canvas.draw_rect(tip_rect, P.GOLD, false, 1.2)

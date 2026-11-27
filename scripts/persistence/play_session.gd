@@ -14,7 +14,7 @@ static func save(scene: Node) -> bool:
 
 
 static func restore_map(scene: Node, data: Dictionary) -> bool:
-	if not SessionSave.valid(data): return false
+	if data.get("scene", "") != "map" or not SessionSave.valid(data): return false
 	scene.run = SpringRun.from_dict(data.run)
 	for key in MAP_UI:
 		if data.get("ui", {}).has(key): scene.set(key, data.ui[key])

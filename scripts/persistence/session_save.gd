@@ -51,6 +51,7 @@ static func valid(data: Dictionary) -> bool:
 		var id := str(actor.get("actor_id", ""))
 		if id.is_empty() or ids.has(id) or actor.get("team", "") not in ["player", "enemy"]: return false
 		if int(actor.get("max_health", 0)) <= 0 or int(actor.get("health", -1)) < 0: return false
+		if int(actor.health) > int(actor.max_health) or not GridRules.is_inside_bounds(actor.cell, state.grid_size): return false
 		ids[id] = true
 	for intent in data.intents:
 		if not intent is Dictionary or not ids.has(str(intent.get("source_actor_id", ""))): return false

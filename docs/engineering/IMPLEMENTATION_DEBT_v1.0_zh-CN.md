@@ -13,7 +13,7 @@
 
 | # | 对应法则 | 欠账 | 状态 |
 |---|---|---|---|
-| D-01 | 三 回声衰减 | `K` 是公式内字面量，非命名常量 | 未参数化 |
+| D-01 | 三 回声衰减 | `K` 是公式内字面量，非命名常量 | 已参数化（2026-11-27） |
 | D-02 | 四 局部异象 | 无关卡级参数覆写入口 | 未实现 |
 | D-03 | 一 推论 余震 | 无残余回响机制 | 未实现 |
 | D-04 | 一 既定回响 | 三个参数均为硬编码行为 | 未参数化 |
@@ -24,7 +24,7 @@
 
 ### D-01｜`K` 未参数化（法则三）
 
-**现状**：`CombatMath.calculate_damage` 内直接写死常数。
+**现状（已修）**：`K` 已提取为 `CombatMath.ATTENUATION_K` 常量，`calculate_damage` 与 `resistance_percent` 均支持可选的 `attenuation_k` 参数（默认 1000，数值不变）。
 
 ```gdscript
 return maxi(1, floori(float(raw_damage) * 1000.0 / (1000.0 + float(safe_resistance))))

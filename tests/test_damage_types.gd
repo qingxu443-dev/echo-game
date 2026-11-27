@@ -22,6 +22,7 @@ func _run() -> void:
 	_test_true_damage_ignores_mitigation_but_not_shield()
 	_test_critical_is_a_hook_not_a_rule()
 	_test_resistance_percent_matches_the_pipeline()
+	_test_attenuation_k_is_named_and_overridable()
 	_report()
 
 
@@ -112,3 +113,17 @@ func _test_resistance_percent_matches_the_pipeline() -> void:
 	_check(CombatMath.resistance_percent(0) == 0.0, "zero resistance reads as 0%")
 	_check(absf(CombatMath.resistance_percent(1000) - 50.0) < 0.001, "1000 points reads as 50%")
 	_check(absf(CombatMath.resistance_percent(111) - 9.99) < 0.01, "Sakura's 111 points reads as 10%")
+
+
+## D-01 法则三：K 从公式字面量变成命名常量，并且可以传参覆写。
+## 步骤①——默认值必须与重构前逐点一致；步骤②——换 K 后减伤按新公式走。
+func _test_attenuation_k_is_named_and_overridable() -> void:
+	_check(CombatMath.ATTENUATION_K == 1000, "K is a named public constant")
+	# 步骤①：默认 K 下，1000 原始 / 700 抗性 = floor(1000*1000/1700) = 588
+	_check(CombatMath.calculate_damage(1000, 700) == 588, "default K keeps the pre-refactor number")
+	# 步骤②：K 加倍到 2000，抗性的汇率改变——floor(1000*2000/(2000+700)) = 740
+	_check(CombatMath.calculate_damage(1000, 700, 2000) == 740, "overriding K changes mitigation")
+	# 百分比换算同样跟随 K，显示层与结算层不会分叉
+	_check(absf(CombatMath.resistance_percent(700, 2000) - 25.925) < 0.001, "percent conversion follows the overridden K")
+	# 非法 K（<=0）不应除零或返回负数，收敛到 1
+	_check(CombatMath.calculate_damage(1000, 700, 0) >= 1, "non-positive K is clamped, never divides by zero")

@@ -23,21 +23,8 @@ const ARMOR_BREAK_VULN_MULT: float = 1.25
 const TOLERANCE_COUNTER_MULT: float = 0.65
 const MAX_AP_REFUNDS_PER_TURN: int = 2
 
-## Per-battle transient counters keyed by battle instance_id (avoids bloating
-## BattleController beyond its strict line ceiling).
-static var _action_seq: Dictionary = {}
-static var _ap_refunds: Dictionary = {}
-
-
-static func reset_battle(battle) -> void:
-	var key: int = battle.get_instance_id()
-	_action_seq[key] = 0
-	_ap_refunds[key] = {"turn": -1, "count": 0}
-
-
 static func begin_player_action(battle) -> void:
-	var key: int = battle.get_instance_id()
-	_action_seq[key] = int(_action_seq.get(key, 0)) + 1
+	battle.ledger.pressure_sequence += 1
 
 
 static func init_enemy_pressure(enemy) -> void:
@@ -111,7 +98,7 @@ static func on_enemy_hit(battle, source, target, action_id: String) -> void:
 		return
 	if GridRulesScript.manhattan_distance(source.cell, target.cell) != 1:
 		return
-	var seq: int = int(_action_seq.get(battle.get_instance_id(), 0))
+	var seq: int = battle.ledger.pressure_sequence
 	if seq > 0 and target.last_melee_hit_seq == seq:
 		return
 	target.last_melee_hit_seq = seq
@@ -156,15 +143,14 @@ static func on_enemy_defeated(battle, target) -> void:
 			remaining_enemies += 1
 	if remaining_enemies <= 0:
 		return
-	var key: int = battle.get_instance_id()
-	var ledger: Dictionary = _ap_refunds.get(key, {"turn": -1, "count": 0})
-	if int(ledger.get("turn", -1)) != battle.turn_number:
-		ledger = {"turn": battle.turn_number, "count": 0}
-	if int(ledger["count"]) >= MAX_AP_REFUNDS_PER_TURN:
+	var ledger = battle.ledger
+	if ledger.pressure_refund_turn != battle.turn_number:
+		ledger.pressure_refund_turn = battle.turn_number
+		ledger.pressure_refund_count = 0
+	if ledger.pressure_refund_count >= MAX_AP_REFUNDS_PER_TURN:
 		return
 	if battle.ap.refund(1):
-		ledger["count"] = int(ledger["count"]) + 1
-		_ap_refunds[key] = ledger
+		ledger.pressure_refund_count += 1
 		battle._emit_event("ap_refunded", battle.active_character_id, target.actor_id, "reason=kill_refund ap=%d/%d" % [battle.ap.current, battle.ap.maximum])
 
 

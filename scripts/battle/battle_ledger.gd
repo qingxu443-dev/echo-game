@@ -32,6 +32,10 @@ var resource_gain_count: Dictionary = {}
 var echo_return_gain_turn: Dictionary = {}
 ## 本回合是否已用掉"回响疾行"的免费移动；-1 表示本回合未用。
 var free_move_used_turn: int = -1
+## 同一施法内多段近战命中的去重序号，以及当前回合击杀返 AP 次数。
+var pressure_sequence: int = 0
+var pressure_refund_turn: int = -1
+var pressure_refund_count: int = 0
 
 
 ## 每场遭遇开始时清空全部账本。旧版分散在 BattleFlow.start_encounter 的
@@ -48,6 +52,9 @@ func reset_for_encounter() -> void:
 	resource_gain_count.clear()
 	echo_return_gain_turn.clear()
 	free_move_used_turn = -1
+	pressure_sequence = 0
+	pressure_refund_turn = -1
+	pressure_refund_count = 0
 
 
 ## 每个玩家回合开始时只清"每回合一次"的账本；跨回合账本保持不变。
@@ -69,4 +76,7 @@ func snapshot() -> Dictionary:
 		"resource_gain_count": resource_gain_count.duplicate(),
 		"echo_return_gain_turn": echo_return_gain_turn.duplicate(),
 		"free_move_used_turn": free_move_used_turn,
+		"pressure_sequence": pressure_sequence,
+		"pressure_refund_turn": pressure_refund_turn,
+		"pressure_refund_count": pressure_refund_count,
 	}

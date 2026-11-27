@@ -32,9 +32,12 @@ static func start_encounter(
 	chest_items: Array[StringName] = [],
 	ward_nodes: int = 0,
 	deploy_zone_cells: Array[Vector2i] = [],
-	defer_start: bool = false
+	defer_start: bool = false,
+	enemy_stat_multiplier: float = 1.0
 ) -> bool:
 	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
+		return false
+	if enemy_stat_multiplier <= 0.0:
 		return false
 	if not GridRulesScript.is_inside_bounds(player_cell, battle.grid_size):
 		return false
@@ -130,6 +133,14 @@ static func start_encounter(
 		var enemy_id := "%s_%02d" % [archetype, index]
 		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
 		var enemy_unit = EnemyActorFactory.create(profile, enemy_id, cell)
+		# Boss encounters can scale the four core sheet stats without changing
+		# signature-skill damage, which remains authored independently in the sheet.
+		if not is_equal_approx(enemy_stat_multiplier, 1.0):
+			enemy_unit.max_health = roundi(float(profile.health) * enemy_stat_multiplier)
+			enemy_unit.health = enemy_unit.max_health
+			enemy_unit.attack = roundi(float(profile.attack) * enemy_stat_multiplier)
+			enemy_unit.defense = roundi(float(profile.defense) * enemy_stat_multiplier)
+			enemy_unit.magic_resistance = roundi(float(profile.magic_resistance) * enemy_stat_multiplier)
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		TacticalPressureScript.init_enemy_pressure(enemy_unit)
@@ -311,13 +322,16 @@ static func request_begin_battle(battle) -> bool:
 
 
 static func _actor_at(battle, cell: Vector2i) -> String:
-	for actor_id in battle.actors:
-		var actor = battle.actors[actor_id]
-		if actor.team == "player" and battle.deploy_order.find(String(actor_id)) >= battle.deploy_index:
-			continue
-		if actor.blocks_cell() and actor.cell == cell:
-			return String(actor_id)
-	return ""
+	# Use the battle's single occupancy authority so actors, relic chests and
+	# ward nodes all reserve their cells. Undeployed party members are removed
+	# from the temporary view because their initial cells are not placements.
+	var occupied: Dictionary = battle.get_occupied_cells()
+	for pending_index in range(battle.deploy_index, battle.deploy_order.size()):
+		var pending_id: String = battle.deploy_order[pending_index]
+		var pending_actor = battle.actors.get(pending_id)
+		if pending_actor != null and str(occupied.get(pending_actor.cell, "")) == pending_id:
+			occupied.erase(pending_actor.cell)
+	return str(occupied.get(cell, ""))
 
 
 static func end_player_turn(battle) -> bool:

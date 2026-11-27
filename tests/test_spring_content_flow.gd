@@ -11,6 +11,7 @@ extends "res://tests/framework/test_case.gd"
 ## and a boss win closes 春之境.
 
 const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
+const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
 const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
@@ -172,13 +173,30 @@ func _test_elite_offers_three() -> void:
 
 func _test_boss_closes_the_region() -> void:
 	var run := _fresh_run()
+	run.exploration.stamina = 4
 	run.exploration.mark_completed(&"battle_1")
 	BridgeScript.last_result = _result({"kind": BridgeScript.KIND_BOSS, "place": "boss"})
 	var outcome: Dictionary = BridgeScript.settle(run)
+	var transition: Dictionary = outcome.get("region_transition", {})
 	_check(run.exploration.completed.has(&"boss"), "the boss node is finished")
 	_check(run.exploration.finished, "beating the boss ends 春之境 (§3)")
-	_check(bool(outcome["finished_run"]), "the outcome reports the run as finished")
+	_check(run.exploration.finish_reason == "cleared", "a boss victory is a clear, not a defeat")
+	_check(run.exploration.stamina == 0, "remaining exploration stamina is discarded at the floor boundary")
+	_check(not run.exploration.can_interact(), "the player cannot keep exploring after the boss")
+	_check(not run.exploration.can_move_to(run.exploration.position + Vector2i.RIGHT), "the finished floor rejects further movement")
+	_check(bool(outcome["finished_run"]), "the outcome reports the current exploration as finished")
+	_check(String(transition.get("from_region", "")) == "spring", "the transition starts from 春之境")
+	_check(String(transition.get("next_region", "")) == "summer", "the next floor is 夏之境")
+	_check(String(transition.get("status", "")) == "locked", "夏之境 remains locked in this build")
+	_check(not bool(transition.get("can_enter", true)), "the locked next floor cannot be entered")
+	_check(str(outcome["message"]).contains("夏之境") and str(outcome["message"]).contains("尚未解锁"),
+		"the player-facing result explains why the next floor cannot open")
 	_check(run.collectibles.size() <= 1, "the boss pays at most one collectible")
+
+	# The progression resolver is data-driven: a future unlock can be recognized
+	# without changing the boss settlement contract.
+	var available: Dictionary = RegionProgressionScript.resolve_next(&"spring", [&"spring", &"summer"])
+	_check(bool(available.get("can_enter", false)), "the progression gate recognizes an unlocked summer region")
 
 	# The boss pool may include the epic, the elite pool may not.
 	var boss_candidates: Array[String] = CollectibleCatalogScript.candidates_for("boss")

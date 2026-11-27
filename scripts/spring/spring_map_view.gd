@@ -50,7 +50,6 @@ var shop_message: String = ""
 var reward_choices: Array[StringName] = []
 var revive_prompt: bool = false
 
-
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL

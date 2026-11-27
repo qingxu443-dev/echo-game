@@ -115,9 +115,9 @@ func start_encounter(
 	chest_items: Array[StringName] = [],
 	ward_nodes: int = 0,
 	deploy_zone_cells: Array[Vector2i] = [],
-	defer_start: bool = false
+	defer_start: bool = false, enemy_stat_multiplier: float = 1.0
 ) -> bool:
-	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes, deploy_zone_cells, defer_start)
+	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes, deploy_zone_cells, defer_start, enemy_stat_multiplier)
 
 
 func end_player_turn() -> bool:

@@ -36,6 +36,7 @@ func _run() -> void:
 	_test_deployment_spends_no_ap_and_fires_no_start_effects()
 	_test_only_the_zone_accepts_a_placement()
 	_test_obstacles_and_enemies_are_not_placeable()
+	_test_chests_and_ward_nodes_share_occupancy_and_release_cells()
 	_test_placement_can_be_adjusted_before_confirming()
 	_test_confirm_requires_everyone_placed()
 	_test_confirm_starts_the_first_turn()
@@ -102,6 +103,36 @@ func _test_obstacles_and_enemies_are_not_placeable() -> void:
 	var chest_cell := Vector2i(1, 5)
 	battle.beacons[chest_cell] = {"id": "chest_block", "cell": chest_cell, "health": 2, "max_health": 2}
 	_check(not battle.request_deploy(chest_cell), "a cell holding an intact relic chest rejects placement")
+	battle.queue_free()
+
+
+
+## Relic chests and spring ward nodes use the same occupancy contract.
+## Destroyed objects release their cells; live objects never accept placement.
+func _test_chests_and_ward_nodes_share_occupancy_and_release_cells() -> void:
+	var battle = _begin_deploying()
+	var chest_cell := Vector2i(1, 5)
+	var node_cell := Vector2i(2, 5)
+	battle.beacons[chest_cell] = {
+		"id": "deploy_probe_chest", "cell": chest_cell,
+		"health": 2, "max_health": 2, "opened": false, "loot": {},
+	}
+	battle.beacons[node_cell] = {
+		"id": "deploy_probe_ward", "cell": node_cell,
+		"health": 700, "max_health": 700, "kind": "ward_node",
+		"blocks_sight": false, "enemy_objective": false, "loot": {},
+	}
+	_check(not battle.request_deploy(chest_cell), "an intact relic chest reserves its cell")
+	_check(not battle.request_deploy(node_cell), "a living ward node reserves its cell")
+
+	battle.damage_beacon_at(chest_cell, 2, "sevrin", "deploy_probe")
+	battle.damage_beacon_at(chest_cell, 2, "sevrin", "deploy_probe")
+	_check(not battle.get_occupied_cells().has(chest_cell), "destroying a chest removes it from the occupancy map")
+	_check(battle.request_deploy(chest_cell), "destroying a chest releases its cell")
+
+	battle.damage_beacon_at(node_cell, 700, "sevrin", "deploy_probe")
+	_check(not battle.get_occupied_cells().has(node_cell), "destroying a ward node removes it from the occupancy map")
+	_check(battle.request_deploy(node_cell), "destroying a ward node releases its cell")
 	battle.queue_free()
 
 

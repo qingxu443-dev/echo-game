@@ -24,7 +24,6 @@ const InventoryViewScript = preload("res://scripts/ui/inventory_view.gd")
 const SpringBattleBridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
-const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
 ## Number keys 1–5 mirror the visible order, and nothing is selected by default.
@@ -39,20 +38,12 @@ var current_level: int = 0
 var status_message: String = "点击格子移动；点右侧技能后选择目标。"
 var selected_skill: int = -1
 
-## Procedural animation & visual feedback state passed into BoardView.draw().
-var fx_time: float = 0.0
+## Procedural animation & visual feedback state (P1: owned by BattleFxState).
+var fx: BattleFxState = BattleFxState.new()
 var hover_cell: Vector2i = Vector2i(-1, -1)
 var hovered_skill: int = -1
 var inventory_open: bool = false
 var inventory_page: int = 0
-var actor_visual_pos: Dictionary = {}
-var actor_hop_state: Dictionary = {}
-var actor_hit_flash: Dictionary = {}
-var actor_lunge: Dictionary = {}
-var floating_popups: Array = []
-var impact_flashes: Array = []
-var enemy_step_timer: float = 0.0
-var enemy_phase_finishing: bool = false
 ## True when this scene was opened by the 春之境 map for a single fight. The
 ## campaign path (three lessons in a row) is untouched and stays the default.
 var spring_mode: bool = false
@@ -166,96 +157,17 @@ func _start_level(index: int) -> void:
 
 
 func _reset_fx_for_encounter() -> void:
-	actor_visual_pos.clear()
-	actor_hop_state.clear()
-	actor_hit_flash.clear()
-	actor_lunge.clear()
-	floating_popups.clear()
-	impact_flashes.clear()
-	enemy_step_timer = 0.0
-	enemy_phase_finishing = false
-	for actor_id in controller.actors:
-		var actor = controller.actors[actor_id]
-		actor_visual_pos[String(actor_id)] = Palette.cell_center(actor.cell)
+	fx.reset_for_encounter(controller)
 
 
 func _process(delta: float) -> void:
-	fx_time += delta
-
-	# Smooth hop-interpolated movement for every living/downed actor
-	for actor_id in controller.actors:
-		var key := String(actor_id)
-		var actor = controller.actors[actor_id]
-		var target_pos: Vector2 = Palette.cell_center(actor.cell)
-		if not actor_visual_pos.has(key):
-			actor_visual_pos[key] = target_pos
-		if actor_hop_state.has(key):
-			var hop: Dictionary = actor_hop_state[key]
-			hop["age"] = float(hop["age"]) + delta
-			var u: float = clampf(float(hop["age"]) / maxf(0.05, float(hop["duration"])), 0.0, 1.0)
-			var ease_u: float = 1.0 - pow(1.0 - u, 3.0)
-			var base: Vector2 = Vector2(hop["from"]).lerp(target_pos, ease_u)
-			var arc_y: float = -sin(u * PI) * 14.0
-			actor_visual_pos[key] = base + Vector2(0.0, arc_y)
-			if u >= 1.0:
-				actor_visual_pos[key] = target_pos
-				actor_hop_state.erase(key)
-		else:
-			var cur: Vector2 = actor_visual_pos[key]
-			if cur.distance_to(target_pos) > 1.0:
-				actor_visual_pos[key] = cur.lerp(target_pos, minf(1.0, delta * 18.0))
-			else:
-				actor_visual_pos[key] = target_pos
-
-	# Decay hit flashes
-	for key in actor_hit_flash.keys():
-		var left: float = float(actor_hit_flash[key]) - delta * 3.8
-		if left <= 0.0:
-			actor_hit_flash.erase(key)
-		else:
-			actor_hit_flash[key] = left
-
-	# Decay attack lunges
-	for key in actor_lunge.keys():
-		var vec: Vector2 = actor_lunge[key]
-		vec = vec.lerp(Vector2.ZERO, minf(1.0, delta * 14.0))
-		if vec.length() < 0.4:
-			actor_lunge.erase(key)
-		else:
-			actor_lunge[key] = vec
-
-	# Advance floating damage/shield popups
-	var alive_popups: Array = []
-	for item in floating_popups:
-		item["age"] = float(item["age"]) + delta
-		if float(item["age"]) < float(item["duration"]):
-			alive_popups.append(item)
-	floating_popups = alive_popups
-
-	# Advance impact flash rings
-	var alive_impacts: Array = []
-	for item in impact_flashes:
-		item["age"] = float(item["age"]) + delta
-		if float(item["age"]) < float(item["duration"]):
-			alive_impacts.append(item)
-	impact_flashes = alive_impacts
+	fx.advance(delta, controller)
 
 	# Stepped enemy turn playback so the player clearly sees each enemy attack
 	if controller.phase == ControllerScript.BattlePhase.ENEMY:
-		enemy_step_timer -= delta
-		if enemy_step_timer <= 0.0:
-			if enemy_phase_finishing:
-				enemy_phase_finishing = false
-				controller.finish_enemy_phase_stepped()
-				if controller.phase == ControllerScript.BattlePhase.PLAYER:
-					status_message = "敌方攻势结束，轮到你的回合！"
-			else:
-				var ran: bool = controller.resolve_next_enemy_intent()
-				if ran:
-					enemy_step_timer = 0.42
-				else:
-					enemy_phase_finishing = true
-					enemy_step_timer = 0.28
+		var msg: String = fx.step_enemy_phase(delta, controller)
+		if not msg.is_empty():
+			status_message = msg
 
 	queue_redraw()
 
@@ -275,15 +187,7 @@ func _has_next_level() -> bool:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, Palette.VIEW_SIZE), Palette.BG, true)
 	HudViewScript.draw_header(self, _current_level(), current_level, levels.size())
-	var fx_state := {
-		"time": fx_time,
-		"hover_cell": hover_cell,
-		"actor_pos": actor_visual_pos,
-		"hit_flash": actor_hit_flash,
-		"lunge": actor_lunge,
-		"popups": floating_popups,
-		"impacts": impact_flashes,
-	}
+	var fx_state := fx.snapshot(hover_cell)
 	BoardViewScript.draw(self, controller, selected_skill, skill_bar, fx_state)
 	HudViewScript.draw_status(self, controller, _effective_banner_message(), fx_state)
 	HudViewScript.draw_party(self, controller)
@@ -298,39 +202,11 @@ func _draw() -> void:
 ## placed. Read from the sheet so swapping the lead does not leave a stale name
 ## in the banner.
 func _hero_name() -> String:
-	var hero = controller.get_active_character() if controller != null else null
-	if hero != null and not hero.display_name_zh.is_empty():
-		return hero.display_name_zh
-	var sheet = CharacterCatalogScript.get_definition(String(SpringRunScript.HERO_CHARACTER_ID))
-	return sheet.display_name_zh if sheet != null else "主角"
+	return BattleBannerText.hero_name(controller)
 
 
 func _effective_banner_message() -> String:
-	var level := _current_level()
-	if controller.phase == ControllerScript.BattlePhase.DEPLOY:
-		return "【部署阶段】点击南侧高亮格放置%s，确认后开战。部署不消耗行动点，也不计入回合。" % _hero_name()
-	if level == null or controller.phase != ControllerScript.BattlePhase.PLAYER:
-		return status_message
-	var hero = controller.get_active_character()
-	if hero == null or not hero.is_alive():
-		return status_message
-
-	# Interactive step-by-step guidance for the opening turns of Lesson 1 & 2
-	if level.level_id == &"lesson_charge" and controller.turn_number == 1:
-		var in_danger: bool = _is_cell_in_active_telegraph(hero.cell)
-		if in_danger:
-			return "【引导 1/3】先锋正锁定你脚下红框蓄力！点击高亮青色格子移动 1 格即可无伤闪避。"
-		if controller.damage_dealt <= 0:
-			return "【引导 2/3】漂亮！现在点击下方 [2] 裁决印记（或 [1] 誓刃），再点击先锋展开反击！"
-		return "【引导 3/3】点击右下角「结束回合」[空格]，观察敌方蓄力落空！"
-
-	if level.level_id == &"lesson_lane" and controller.turn_number == 1:
-		var in_danger: bool = _is_cell_in_active_telegraph(hero.cell)
-		if in_danger:
-			return "【引导 1/2】神射手沿直线锁定了你！斜向移出青框，或贴近至 2 格内使其狙击哑火。"
-		return "【引导 2/2】已避开狙击锁格！趁机用技能反击，或点击「结束回合」推进。"
-
-	return status_message
+	return BattleBannerText.effective_message(controller, _current_level(), status_message)
 
 
 func _is_cell_in_active_telegraph(cell: Vector2i) -> bool:
@@ -410,10 +286,7 @@ func _input(event: InputEvent) -> void:
 func _rotate_camera(step: int) -> void:
 	Palette.board_grid_size = controller.grid_size
 	Palette.rotate_camera(step)
-	actor_hop_state.clear()
-	for actor_id in controller.actors:
-		var actor = controller.actors[actor_id]
-		actor_visual_pos[String(actor_id)] = Palette.cell_center(actor.cell)
+	fx.snap_actor_positions(controller)
 	status_message = "已切换至 %s（按 Q / E 旋转四角镜头）。" % Palette.camera_label()
 	queue_redraw()
 
@@ -423,8 +296,7 @@ func _end_player_turn() -> void:
 		return
 	selected_skill = -1
 	if controller.start_enemy_phase_stepped():
-		enemy_phase_finishing = false
-		enemy_step_timer = 0.25
+		fx.prepare_enemy_step()
 		status_message = "【敌方回合】敌方正在结算攻势…"
 	queue_redraw()
 
@@ -689,141 +561,19 @@ func _path_to_cell(goal: Vector2i) -> Array[Vector2i]:
 
 func _on_battle_event(event: Dictionary) -> void:
 	var event_type: String = str(event.get("type", ""))
+	var out_status: Array = []
+	var out_selected: Array = []
+	fx.on_event(event_type, event, controller, out_status, out_selected)
+	if not out_status.is_empty():
+		status_message = str(out_status[0])
+	if not out_selected.is_empty():
+		selected_skill = int(out_selected[0])
+
+	# 技能栏重建仍由 view 负责（需要 controller 的当前角色数据）
 	if event_type == "player_turn_started":
-		selected_skill = -1
 		skill_bar = SkillBarViewScript.build_entries(controller)
-	elif event_type == "actor_moved":
-		var mover_id: String = str(event.get("actor_id", ""))
-		var mover = controller.get_actor(mover_id)
-		if not mover_id.is_empty() and mover != null:
-			var from_pos: Vector2 = actor_visual_pos.get(mover_id, Palette.cell_center(mover.cell))
-			actor_hop_state[mover_id] = {"from": from_pos, "age": 0.0, "duration": 0.18}
-	elif event_type == "damage_applied":
-		_trigger_damage_fx(event)
-	elif event_type == "beacon_damaged":
-		_trigger_beacon_fx(event)
-	elif event_type == "enemy_action_missed":
-		_trigger_miss_fx(event)
-	elif event_type == "chest_stolen_by_enemy":
-		var thief_id: String = str(event.get("actor_id", ""))
-		var thief = controller.get_actor(thief_id)
-		if thief != null:
-			floating_popups.append({
-				"pos": Palette.cell_center(thief.cell) + Vector2(-46.0, -78.0),
-				"text": str(event.get("detail", "夺宝强化!")),
-				"color": Palette.GOLD_LIGHT,
-				"age": 0.0,
-				"duration": 1.35,
-			})
-	elif event_type == "loot_dropped":
-		var dead_id: String = str(event.get("actor_id", ""))
-		var dead = controller.get_actor(dead_id)
-		if dead != null:
-			floating_popups.append({
-				"pos": Palette.cell_center(dead.cell) + Vector2(-36.0, -56.0),
-				"text": str(event.get("detail", "掉落装备!")),
-				"color": Palette.GOLD_PALE,
-				"age": 0.0,
-				"duration": 1.35,
-			})
-	elif event_type == "loot_picked_up":
-		var hero = controller.get_active_character()
-		if hero != null:
-			var nm: String = str(event.get("detail", "装备"))
-			status_message = "拾取了掉落装备「%s」（按 [B] 穿戴）！" % nm
-			floating_popups.append({
-				"pos": Palette.cell_center(hero.cell) + Vector2(-36.0, -78.0),
-				"text": "拾取 " + nm,
-				"color": Palette.GOLD_PALE,
-				"age": 0.0,
-				"duration": 1.25,
-			})
+
 	queue_redraw()
-
-
-func _trigger_beacon_fx(event: Dictionary) -> void:
-	var source_id: String = str(event.get("actor_id", ""))
-	var detail: String = str(event.get("detail", ""))
-	var applied: int = _extract_int_field(detail, "applied=")
-	var source = controller.get_actor(source_id)
-	for b_cell in controller.beacons:
-		if str(controller.beacons[b_cell]["id"]) == str(event.get("target_id", "")):
-			impact_flashes.append({"cell": b_cell, "color": Palette.TELEGRAPH_CHARGE_LINE, "age": 0.0, "duration": 0.38})
-			floating_popups.append({
-				"pos": Palette.cell_center(b_cell) + Vector2(-24.0, -54.0),
-				"text": "宝箱 -%d" % applied,
-				"color": Palette.WARN,
-				"age": 0.0,
-				"duration": 0.95,
-			})
-			if source != null:
-				var dir: Vector2 = (Palette.cell_center(b_cell) - Palette.cell_center(source.cell)).normalized()
-				actor_lunge[source_id] = dir * 18.0
-			break
-
-
-func _trigger_miss_fx(event: Dictionary) -> void:
-	var source_id: String = str(event.get("actor_id", ""))
-	var source = controller.get_actor(source_id)
-	if source != null:
-		for intent in controller.intents:
-			if intent.source_actor_id == source_id:
-				impact_flashes.append({"cell": intent.target_cell, "color": Palette.GOLD_LIGHT, "age": 0.0, "duration": 0.30})
-				floating_popups.append({
-					"pos": Palette.cell_center(intent.target_cell) + Vector2(-14.0, -24.0),
-					"text": "落空",
-					"color": Palette.TEXT_DIM,
-					"age": 0.0,
-					"duration": 0.75,
-				})
-				var dir: Vector2 = (Palette.cell_center(intent.target_cell) - Palette.cell_center(source.cell)).normalized()
-				actor_lunge[source_id] = dir * 16.0
-				break
-
-
-func _trigger_damage_fx(event: Dictionary) -> void:
-	var source_id: String = str(event.get("actor_id", ""))
-	var target_id: String = str(event.get("target_id", ""))
-	var detail: String = str(event.get("detail", ""))
-	var applied: int = _extract_int_field(detail, "applied=")
-	var absorbed: int = _extract_int_field(detail, "absorbed=")
-
-	var target = controller.get_actor(target_id)
-	var source = controller.get_actor(source_id)
-	if target != null:
-		actor_hit_flash[target_id] = 1.0
-		var pos: Vector2 = actor_visual_pos.get(target_id, Palette.cell_center(target.cell)) + Vector2(-14.0, -56.0)
-		if applied > 0:
-			floating_popups.append({
-				"pos": pos,
-				"text": "-%d" % applied,
-				"color": Palette.WARN if target.team == "player" else Palette.GOLD_PALE,
-				"age": 0.0,
-				"duration": 0.85,
-			})
-		elif absorbed > 0:
-			floating_popups.append({
-				"pos": pos,
-				"text": "格挡 %d" % absorbed,
-				"color": Palette.CYAN,
-				"age": 0.0,
-				"duration": 0.85,
-			})
-	if source != null and target != null and source_id != target_id:
-		var src_pos: Vector2 = Palette.cell_center(source.cell)
-		var dst_pos: Vector2 = Palette.cell_center(target.cell)
-		var dir: Vector2 = (dst_pos - src_pos).normalized()
-		actor_lunge[source_id] = dir * 16.0
-
-
-static func _extract_int_field(detail: String, prefix: String) -> int:
-	var idx: int = detail.find(prefix)
-	if idx < 0:
-		return 0
-	var start: int = idx + prefix.length()
-	var end: int = detail.find(" ", start)
-	var raw: String = detail.substr(start) if end < 0 else detail.substr(start, end - start)
-	return int(raw) if raw.is_valid_int() else 0
 
 
 func _on_battle_finished(result: String) -> void:

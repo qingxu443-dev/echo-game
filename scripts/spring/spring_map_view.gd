@@ -75,7 +75,7 @@ func start_new_run(seed_value: int, hard_mode: bool = false) -> void:
 	run = SpringRun.begin(seed_value, hard_mode)
 	selected_cell = Vector2i(-1, -1)
 	if hard_mode:
-		status_message = "【困难·定轨】点击地图节点绘制路线（尾部必须是「王」），锁定后须强制按线推进！"
+		status_message = "【困难·一笔画】长按棋盘拖动连接任意数量节点，结尾必须落于「王」！"
 	else:
 		status_message = "抵达 %s。点击地点查看路程与体力消耗。" % _place_label(run.template.start_cell)
 	confirm_end = false
@@ -365,6 +365,10 @@ func _place_label(cell: Vector2i) -> String:
 # --- input -------------------------------------------------------------------
 
 func _gui_input(event: InputEvent) -> void:
+	if RouteOverlayScript.handle_gui_event(self, run, event):
+		queue_redraw()
+		accept_event()
+		return
 	if not (event is InputEventMouseButton):
 		return
 	var mouse := event as InputEventMouseButton
@@ -415,10 +419,6 @@ func _gui_input(event: InputEvent) -> void:
 
 	if END_BTN.has_point(point):
 		confirm_end = true
-		queue_redraw()
-		accept_event()
-		return
-	if RouteOverlayScript.handle_tap(self, run, point):
 		queue_redraw()
 		accept_event()
 		return

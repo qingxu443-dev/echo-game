@@ -173,56 +173,58 @@ func _test_moving_is_refused_after_the_window_closes() -> void:
 func _test_hard_mode_route_planning_and_forced_execution() -> void:
 	var run := SpringRun.begin(2, true)
 	var plan: SpringRoutePlan = run.route_plan
-	_check(plan != null and plan.hard_mode and plan.is_planning(), "hard mode starts in route-planning phase")
-	_check(not plan.can_lock(run.template, run.exploration.stamina), "an empty route cannot be locked")
+	_check(plan != null and plan.hard_mode and plan.is_planning(), "hard mode starts in pattern-lock planning phase")
+	_check(not plan.can_lock(run.template), "an empty route cannot be locked")
 	_check(not plan.is_allowed_destination(run.template.boss_cell), "free movement is blocked before the route is locked")
 
-	# Adding start cell is refused.
-	var start_res: Dictionary = plan.toggle_waypoint(run.template.start_cell, run.template, run.exploration.stamina)
-	_check(not bool(start_res["ok"]), "the fixed start cell cannot be added as a waypoint")
-
-	# Pick a mid-route cell between start and boss so start -> mid -> boss fits in 10 stamina.
-	var mid_cell := Vector2i(-1, -1)
+	# Collect many non-start, non-boss cells to verify unlimited waypoint linking.
+	var stops: Array[Vector2i] = []
 	for place in run.template.places:
-		if place.cell == run.template.start_cell or place.cell == run.template.boss_cell:
-			continue
-		var d: int = SpringRoutePlan.manhattan(run.template.start_cell, place.cell) + SpringRoutePlan.manhattan(place.cell, run.template.boss_cell)
-		if d <= run.exploration.stamina:
-			mid_cell = place.cell
-			break
-	_check(mid_cell != Vector2i(-1, -1), "template has an intermediate stop on the way to the boss within stamina")
+		if place.cell != run.template.start_cell and place.cell != run.template.boss_cell:
+			stops.append(place.cell)
+	_check(stops.size() >= 6, "template provides plenty of nodes for long pattern-lock routes")
 
-	var push_mid: Dictionary = plan.toggle_waypoint(mid_cell, run.template, run.exploration.stamina)
-	_check(bool(push_mid["ok"]) and plan.waypoints.size() == 1, "an intermediate waypoint is added")
-	_check(not plan.can_lock(run.template, run.exploration.stamina), "a route that does not end on the boss cell cannot be locked")
-	var bad_lock: Dictionary = plan.lock_plan(run.template, run.exploration.stamina)
-	_check(not bool(bad_lock["ok"]), "locking a non-boss tail is rejected")
+	# Pattern-lock drag starting from start_cell and releasing OFF the boss clears & warns.
+	var start_drag := plan.begin_drag(run.template.start_cell, Vector2.ZERO, run.template)
+	_check(bool(start_drag["ok"]) and plan.dragging, "pressing on the board begins pattern-lock dragging")
+	for i in range(6):
+		var step := plan.drag_over_cell(stops[i], run.template)
+		_check(bool(step["ok"]) and bool(step["changed"]), "unlimited drag links stop %d without stamina cap" % (i + 1))
+	_check(plan.waypoints.size() == 6, "all six stops are connected in one drag")
 
-	# Duplicate waypoint is refused; tapping the tail pops it.
-	var pop_mid: Dictionary = plan.toggle_waypoint(mid_cell, run.template, run.exploration.stamina)
-	_check(bool(pop_mid["ok"]) and str(pop_mid["action"]) == "pop" and plan.waypoints.is_empty(), "tapping the current tail cell undoes the last step")
+	# Dragging back onto the previous node smoothly backtracks one step.
+	var back := plan.drag_over_cell(stops[4], run.template)
+	_check(bool(back["ok"]) and plan.waypoints.size() == 5, "dragging back to the prior node undoes the tail step")
 
-	# Rebuild mid -> boss route and verify over-budget refusal & post-boss lock.
-	plan.toggle_waypoint(mid_cell, run.template, run.exploration.stamina)
-	var push_boss: Dictionary = plan.toggle_waypoint(run.template.boss_cell, run.template, run.exploration.stamina)
-	_check(bool(push_boss["ok"]) and plan.ends_at_boss(run.template), "connecting the boss cell completes the tail requirement")
-	var after_boss: Dictionary = plan.toggle_waypoint(Vector2i(2, 2), run.template, run.exploration.stamina)
-	_check(not bool(after_boss["ok"]), "no further waypoints may be appended after the boss tail")
-	_check(plan.can_lock(run.template, run.exploration.stamina), "a valid route ending on the boss can be locked")
+	# Releasing when tail != boss clears the whole route and emits a warning.
+	var bad_release := plan.finish_drag(run.template)
+	_check(not bool(bad_release["ok"]) and bool(bad_release["cleared"]), "releasing off the boss fails and flags cleared")
+	_check(plan.waypoints.is_empty() and not plan.locked, "failed release clears the route and stays unlocked")
+	_check(plan.fail_flash_timer > 0.0 and not plan.fail_flash_message.is_empty(), "failed release displays an error alert")
 
-	var locked: Dictionary = plan.lock_plan(run.template, run.exploration.stamina)
-	_check(bool(locked["ok"]) and plan.is_locked_active(), "locking switches hard mode into forced execution")
+	# Re-drag across multiple stops and end on the Boss -> locks immediately & arms auto-march.
+	plan.begin_drag(run.template.start_cell, Vector2.ZERO, run.template)
+	plan.drag_over_cell(stops[0], run.template)
+	plan.drag_over_cell(stops[1], run.template)
+	var hit_boss := plan.drag_over_cell(run.template.boss_cell, run.template)
+	_check(bool(hit_boss["ok"]) and plan.ends_at_boss(run.template), "dragging into the boss completes the tail requirement")
+	var after_boss := plan.drag_over_cell(stops[2], run.template)
+	_check(not bool(after_boss["ok"]), "no further nodes may be appended after reaching the boss")
+
+	var good_release := plan.finish_drag(run.template)
+	_check(bool(good_release["ok"]) and bool(good_release["locked"]) and plan.is_locked_active(), "releasing on the boss immediately locks the route")
 	_check(plan.auto_step_timer > 0.0, "locking arms automatic marching along the route")
-	_check(plan.is_allowed_destination(mid_cell), "the first planned waypoint is the only allowed next move")
-	_check(not plan.is_allowed_destination(run.template.boss_cell), "skipping ahead to the boss is refused while an earlier stop is pending")
+	_check(plan.is_allowed_destination(stops[0]), "the first planned stop is the only allowed next move")
+	_check(not plan.is_allowed_destination(run.template.boss_cell), "skipping ahead to the boss is refused")
 
-	# Auto-march pauses while an overlay is open and resumes once clear.
+	# Auto-march pauses while an overlay is open, then steps automatically once clear.
 	var mock_view := _MockMapView.new()
 	mock_view.event_open = true
 	_check(not SpringRouteOverlay.tick_auto_march(mock_view, run, 1.0), "auto-march pauses while an overlay is open")
 	mock_view.event_open = false
 	SpringRouteOverlay.tick_auto_march(mock_view, run, 0.01)
-	_check(SpringRouteOverlay.tick_auto_march(mock_view, run, 1.0) and run.exploration.position == mid_cell, "auto-march automatically steps to the first planned stop")
+	_check(SpringRouteOverlay.tick_auto_march(mock_view, run, 1.0) and run.exploration.position == stops[0], "auto-march automatically steps to stop 1")
+	_check(not run.exploration.finished, "mid-route stop never prematurely exhausts the run")
 
 	# Save / load roundtrip preserves hard mode, locked route, and cursor.
 	var snapshot: Dictionary = run.to_dict()
@@ -230,19 +232,14 @@ func _test_hard_mode_route_planning_and_forced_execution() -> void:
 	_check(restored != null and restored.route_plan.hard_mode and restored.route_plan.locked, "save roundtrip preserves hard-mode locked state")
 	_check(restored.route_plan.waypoints == plan.waypoints and restored.route_plan.cursor == 1, "save roundtrip preserves waypoints and cursor")
 
-	# Advancing past the first stop unlocks and reaches the boss.
-	_check(plan.next_stop() == run.template.boss_cell, "auto-march advanced cursor so boss is now the next stop")
-	_check(plan.is_allowed_destination(run.template.boss_cell), "boss stop is now allowed")
-	_check(run.exploration.move_to(run.template.boss_cell), "moving to the boss stop succeeds within stamina")
-	plan.advance_cursor()
-	_check(not plan.has_next_stop(), "cursor reaches end of route after arriving at the boss")
-
-	# Every template guarantees at least a direct route to the boss within 10 stamina.
+	# Every template allows a direct boss-tail drag lock.
 	for tid in [1, 2, 3]:
 		var tmpl := FactoryScript.build(tid)
 		var direct := SpringRoutePlan.create(true)
-		var res := direct.toggle_waypoint(tmpl.boss_cell, tmpl, ExplorationState.STAMINA_MAX)
-		_check(bool(res["ok"]) and direct.can_lock(tmpl, ExplorationState.STAMINA_MAX), "template %d supports a valid boss-tail route within stamina" % tid)
+		direct.begin_drag(tmpl.start_cell, Vector2.ZERO, tmpl)
+		direct.drag_over_cell(tmpl.boss_cell, tmpl)
+		var res := direct.finish_drag(tmpl)
+		_check(bool(res["ok"]) and direct.is_locked_active(), "template %d locks immediately when pattern ends on boss" % tid)
 
 
 class _MockMapView:

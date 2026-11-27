@@ -20,6 +20,8 @@
 | 6 | [`engineering/BASELINE.md`](engineering/BASELINE.md) | 改完怎么验证、断言基线是多少 |
 | 7 | [`engineering/DECISIONS_AND_OPEN_QUESTIONS.md`](engineering/DECISIONS_AND_OPEN_QUESTIONS.md) | 哪些已定、哪些**不许擅自决定** |
 
+完整后续任务与阶段目标见 [工程任务清单](engineering/TASK_PLAN.md)。
+
 ## 维护约定
 
 - **数字只写一遍。** 套件数与断言数只维护在 [`engineering/BASELINE.md`](engineering/BASELINE.md)，其他文档引用它，不复制。

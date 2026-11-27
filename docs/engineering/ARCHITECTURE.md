@@ -162,13 +162,13 @@ wc -l scripts/**/*.gd
 | `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
 | `main_menu.gd` | 188 | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；两个选项（进入大厅 / 退出） |
 | `lobby_view.gd` | 598 | 黄昏营地大厅：看板立绘互动、未尽之春断点状态展示，以及右下角「工坊整备」「选择地图」按钮与全屏连线章节选择 |
-| `atelier_prep_overlay.gd` | 133 | 黄昏工坊炼金战备台浮层：工坊残晶展示、3 格出征行囊装卸、6 种破局炼金配方解锁 |
+| `atelier_prep_overlay.gd` | 271 | 黄昏工坊炼金战备台浮层：工坊残晶展示、3 格出征行囊装卸、6 种破局炼金配方解锁 |
 
 ### 局外工坊（`scripts/meta/`）
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `atelier_stash.gd` | 173 | 局外工坊残晶、6 种炼金战术道具配方解锁与最多 3 格出征行囊持久存档（`user://atelier_stash.json`） | 出征时经 `SpringBattleBridge` 注入局内背包，与宝箱 13 件战利品池解耦 |
+| `atelier_stash.gd` | 194 | 局外工坊残晶、6 种炼金战术道具配方解锁与最多 3 格出征行囊持久存档（`user://atelier_stash.json`） | 出征时经 `SpringBattleBridge` 注入局内背包，与宝箱 13 件战利品池解耦 |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 

@@ -1,46 +1,63 @@
 class_name AtelierStash
 extends RefCounted
 
-## Meta-progression Atelier supply stash & unlimited shard-funded loadout.
+## Dusk Supply Shop (黄昏补给商行) meta-progression stash & unlimited loadout.
 ##
-## Players earn Atelier Shards (工坊残晶) from every battle (win or defeat) and
-## may brew and pack ANY number of tactical consumables as long as they have
-## enough shards. Removing an item before departure refunds its full shard cost.
-## Packing items into an expedition consumes them from the staging bag on depart.
+## Players earn Atelier Shards (工坊残晶) from every battle and may purchase any
+## number of tactical supplies before departing. Refunding an item in the shop
+## restores its full shard cost; departing carries the packed bag into battle.
 
 const SAVE_PATH: String = "user://atelier_stash.json"
 const STARTING_SHARDS: int = 120
 
 const RECIPES: Array[Dictionary] = [
 	{
-		"id": "item_dusk_potion", "name": "黄昏疗伤药", "cost": 15, "tag": "续航",
-		"accent": "#6cb878", "desc": "立刻回复 1000 生命，稳住高压战线。",
-		"payload": {"id": &"item_dusk_potion", "kind": "consumable", "kind_zh": "道具", "name": "黄昏疗伤药", "desc": "使用：立刻回复 1000 生命。", "heal": 1000},
+		"id": "item_dusk_potion", "name": "黄昏疗伤药", "cost": 15, "tag": "回复", "icon": "potion",
+		"accent": "#6cb878",
+		"brief": "恢复 1000 生命",
+		"flavor": "以暮色药草慢火调制的秘药，入口微甘。",
+		"desc": "恢复 1000 点生命值。",
+		"payload": {"id": &"item_dusk_potion", "kind": "consumable", "kind_zh": "道具", "name": "黄昏疗伤药", "desc": "使用：恢复 1000 点生命值。", "heal": 1000},
 	},
 	{
-		"id": "item_echo_hourglass", "name": "回声沙漏", "cost": 20, "tag": "节奏",
-		"accent": "#8fc7dc", "desc": "本回合 +1 AP（不给敌方充能），衔接连招。",
-		"payload": {"id": &"item_echo_hourglass", "kind": "consumable", "kind_zh": "道具", "name": "回声沙漏", "desc": "使用：本回合立刻获得 +1 行动点（不给敌方充能）。", "ap_gain": 1},
+		"id": "item_echo_hourglass", "name": "回声沙漏", "cost": 20, "tag": "战术", "icon": "hourglass",
+		"accent": "#8fc7dc",
+		"brief": "额外 +1 行动点",
+		"flavor": "封存片刻流光的琉璃沙漏，可逆转刹那先机。",
+		"desc": "本回合额外获得 1 点行动点，且不触发敌方充能。",
+		"payload": {"id": &"item_echo_hourglass", "kind": "consumable", "kind_zh": "道具", "name": "回声沙漏", "desc": "使用：本回合额外获得 1 点行动点，且不触发敌方充能。", "ap_gain": 1},
 	},
 	{
-		"id": "item_vow_talisman", "name": "誓约护符", "cost": 20, "tag": "防护",
-		"accent": "#d4b77b", "desc": "获得 650 护盾与 +1 能量，硬吃 Boss 重击。",
-		"payload": {"id": &"item_vow_talisman", "kind": "consumable", "kind_zh": "道具", "name": "誓约护符", "desc": "使用：获得 650 护盾并 +1 终极能量。", "shield_gain": 650, "energy_gain": 1},
+		"id": "item_vow_talisman", "name": "誓约护符", "cost": 20, "tag": "防护", "icon": "talisman",
+		"accent": "#d4b77b",
+		"brief": "+650 护盾 · +1 能量",
+		"flavor": "刻有古老守誓纹路的黄铜符牌，可凝结护壁。",
+		"desc": "获得 650 点护盾与 1 点终极能量。",
+		"payload": {"id": &"item_vow_talisman", "kind": "consumable", "kind_zh": "道具", "name": "誓约护符", "desc": "使用：获得 650 点护盾与 1 点终极能量。", "shield_gain": 650, "energy_gain": 1},
 	},
 	{
-		"id": "item_armor_bomb", "name": "破甲爆弹", "cost": 25, "tag": "破甲",
-		"accent": "#e07a5f", "desc": "全场敌方重甲 -1 层并造成 350 真伤（不涨容忍）。",
-		"payload": {"id": &"item_armor_bomb", "kind": "consumable", "kind_zh": "道具", "name": "破甲爆弹", "desc": "使用：震碎全场敌方 1 层重甲并造成 350 真伤。", "armor_break": 1, "aoe_true_damage": 350},
+		"id": "item_armor_bomb", "name": "破甲爆弹", "cost": 25, "tag": "破甲", "icon": "bomb",
+		"accent": "#e07a5f",
+		"brief": "全敌 -1 重甲 · 350 真伤",
+		"flavor": "装填晶粉的炼金投掷瓶，专克重甲与结界。",
+		"desc": "削减全场敌人 1 层重甲，并造成 350 点真实伤害。",
+		"payload": {"id": &"item_armor_bomb", "kind": "consumable", "kind_zh": "道具", "name": "破甲爆弹", "desc": "使用：削减全场敌人 1 层重甲，并造成 350 点真实伤害。", "armor_break": 1, "aoe_true_damage": 350},
 	},
 	{
-		"id": "item_calm_sachet", "name": "镇定香囊", "cost": 25, "tag": "破反击",
-		"accent": "#74ebd5", "desc": "清空全场敌方近战容忍条，且敌方技能充能 -1。",
-		"payload": {"id": &"item_calm_sachet", "kind": "consumable", "kind_zh": "道具", "name": "镇定香囊", "desc": "使用：清空全场敌方近战容忍条且敌方充能 -1。", "clear_tolerance": true, "drain_charge": 1},
+		"id": "item_calm_sachet", "name": "镇定香囊", "cost": 25, "tag": "控场", "icon": "sachet",
+		"accent": "#74ebd5",
+		"brief": "清空容忍 · 降 1 格充能",
+		"flavor": "散发静谧幽香的草木香囊，能平息强敌躁意。",
+		"desc": "清空全场敌人的近战容忍度，并降低 1 格技能充能。",
+		"payload": {"id": &"item_calm_sachet", "kind": "consumable", "kind_zh": "道具", "name": "镇定香囊", "desc": "使用：清空全场敌人的近战容忍度，并降低 1 格技能充能。", "clear_tolerance": true, "drain_charge": 1},
 	},
 	{
-		"id": "item_sakura_charm", "name": "瞬影樱符", "cost": 30, "tag": "爆发",
-		"accent": "#e89ab0", "desc": "+2 剑意（无剑意则 +2 能量）与 450 护盾。",
-		"payload": {"id": &"item_sakura_charm", "kind": "consumable", "kind_zh": "道具", "name": "瞬影樱符", "desc": "使用：获得 +2 剑意/能量与 450 护盾。", "resource_gain": 2, "shield_gain": 450},
+		"id": "item_sakura_charm", "name": "瞬影樱符", "cost": 30, "tag": "增益", "icon": "charm",
+		"accent": "#e89ab0",
+		"brief": "+2 剑意/能量 · +450 护盾",
+		"flavor": "浸染春樱灵气的御守符札，出鞘之际锋芒尽显。",
+		"desc": "获得 2 点剑意（或 2 点终极能量）与 450 点护盾。",
+		"payload": {"id": &"item_sakura_charm", "kind": "consumable", "kind_zh": "道具", "name": "瞬影樱符", "desc": "使用：获得 2 点剑意（或 2 点终极能量）与 450 点护盾。", "resource_gain": 2, "shield_gain": 450},
 	},
 ]
 
@@ -73,6 +90,8 @@ static func load_state(path: String = SAVE_PATH) -> Dictionary:
 
 
 static func save_state(state: Dictionary, path: String = SAVE_PATH) -> bool:
+	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
+		return true
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return false
@@ -95,7 +114,6 @@ static func count_in_loadout(state: Dictionary, item_id: String) -> int:
 	return n
 
 
-## Returns ordered unique groups [{"id", "count", "recipe"}] for compact UI display.
 static func grouped_loadout(state: Dictionary) -> Array[Dictionary]:
 	var groups: Array[Dictionary] = []
 	for r in RECIPES:
@@ -106,24 +124,24 @@ static func grouped_loadout(state: Dictionary) -> Array[Dictionary]:
 	return groups
 
 
-## Brews one consumable using Atelier Shards and packs it into the unlimited loadout.
-static func buy_and_pack(state: Dictionary, item_id: String, path: String = SAVE_PATH) -> Dictionary:
+static func buy_and_pack(state: Dictionary, item_id: String, path: String = SAVE_PATH, quantity: int = 1) -> Dictionary:
 	var r := recipe_by_id(item_id)
 	if r.is_empty():
-		return {"ok": false, "message": "未知配方。"}
-	var cost: int = int(r.get("cost", 0))
+		return {"ok": false, "message": "未找到该商品。"}
+	var qty: int = maxi(1, quantity)
+	var cost: int = int(r.get("cost", 0)) * qty
 	var shards: int = int(state.get("shards", 0))
 	if shards < cost:
-		return {"ok": false, "message": "工坊残晶不足（需要 %d，现有 %d）。" % [cost, shards]}
+		return {"ok": false, "message": "残晶不足，需要 %d 残晶。" % cost}
 	state["shards"] = shards - cost
 	var loadout: Array = state.get("loadout", [])
-	loadout.append(item_id)
+	for _i in range(qty):
+		loadout.append(item_id)
 	state["loadout"] = loadout
 	save_state(state, path)
-	return {"ok": true, "message": "消耗 %d 残晶，调配「%s」装入行囊（现有 ×%d）。" % [cost, str(r["name"]), count_in_loadout(state, item_id)]}
+	return {"ok": true, "message": "已购入「%s」×%d。" % [str(r["name"]), qty]}
 
 
-## Removes one copy of `item_id` from the staging loadout and refunds its full cost.
 static func unpack_and_refund(state: Dictionary, item_id: String, path: String = SAVE_PATH) -> Dictionary:
 	var loadout: Array = state.get("loadout", [])
 	var found_idx := -1
@@ -139,11 +157,14 @@ static func unpack_and_refund(state: Dictionary, item_id: String, path: String =
 	state["loadout"] = loadout
 	state["shards"] = int(state.get("shards", 0)) + refund
 	save_state(state, path)
-	return {"ok": true, "message": "已退回 1 个「%s」，全额返还 %d 工坊残晶。" % [str(r.get("name", item_id)), refund]}
+	return {"ok": true, "message": "已退回「%s」×1，返还 %d 残晶。" % [str(r.get("name", item_id)), refund]}
 
 
 static func award_shards(amount: int, path: String = SAVE_PATH) -> int:
 	if amount <= 0:
+		return 0
+	# Do not pollute the player's real meta stash during headless test runs.
+	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
 		return 0
 	var state := load_state(path)
 	state["shards"] = int(state.get("shards", 0)) + amount
@@ -151,9 +172,9 @@ static func award_shards(amount: int, path: String = SAVE_PATH) -> int:
 	return int(state["shards"])
 
 
-## Extracts all packed consumables for the departing expedition and clears the
-## staging bag so consumed supplies must be brewed again with earned shards.
 static func take_loadout_items(path: String = SAVE_PATH) -> Array[Dictionary]:
+	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
+		return []
 	var state := load_state(path)
 	var items: Array[Dictionary] = []
 	for lid in state.get("loadout", []):

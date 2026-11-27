@@ -35,25 +35,14 @@ static var pending: Dictionary = {}
 static var last_result: Dictionary = {}
 ## Optional mode handoff from the Lobby ("normal" / "hard" / "" for resume).
 static var requested_mode: String = ""
-## Starting consumables packed at the Atelier hub for the upcoming expedition.
-static var starting_loadout: Array[Dictionary] = []
+## Tutorial entry may claim supplies after its first encounter is ready.
+static var tutorial_loadout_requested: bool = false
 
 
-static func stage_starting_loadout(items: Array[Dictionary]) -> void:
-	starting_loadout.clear()
-	for item in items:
-		starting_loadout.append(item.duplicate(true))
-
-
-static func apply_starting_loadout_to_run_state(run_state) -> int:
-	if run_state == null or starting_loadout.is_empty():
-		return 0
-	var count := 0
-	for item in starting_loadout:
-		run_state.add_to_backpack(item)
-		count += 1
-	starting_loadout.clear()
-	return count
+static func consume_tutorial_loadout_request() -> bool:
+	var requested := tutorial_loadout_requested
+	tutorial_loadout_requested = false
+	return requested
 
 
 static func consume_requested_mode() -> String:

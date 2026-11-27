@@ -1,12 +1,6 @@
 extends Node2D
 
 ## Battle screen orchestrator.
-##
-## Owns the encounter lifecycle, the skill bar and the player's intent; forwards
-## rendering to the views and raw input to the router. It draws nothing itself
-## beyond the backdrop: everything visible lives in board_view / hud_view /
-## skill_bar_view / settlement_view, and every colour and coordinate lives in
-## theme_palette.
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
@@ -30,6 +24,7 @@ const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
 ## Rebuilt from the active character's sheet whenever the command switches.
 var skill_bar: Array = []
 
+var atelier_save_path := AtelierStash.SAVE_PATH
 var controller: BattleController
 var run_state: RunStateScript
 var pending_rewards: Array[Dictionary] = []
@@ -50,6 +45,7 @@ var spring_mode: bool = false
 
 
 func _ready() -> void:
+	var claim_requested := SpringBattleBridgeScript.consume_tutorial_loadout_request()
 	if SpringBattleBridgeScript.has_pending():
 		_begin_spring_fight()
 		return
@@ -62,12 +58,14 @@ func _ready() -> void:
 	controller.battle_finished.connect(_on_battle_finished)
 	skill_bar = SkillBarViewScript.build_entries(controller)
 	_begin_fresh_run()
+	if claim_requested and controller.phase == controller.BattlePhase.PLAYER:
+		var claim := AtelierStash.claim_loadout(atelier_save_path)
+		if not claim["ok"]:
+			status_message = "工坊补给未领取，原打包栏已保留。"
+		for item in claim.get("items", []):
+			run_state.add_to_backpack(item)
 
 
-## A fresh run gets a fresh drop sequence: reseed the loot RNG and remember the
-## seed on the run state so a drop complaint can be reproduced from it later.
-## Seeding lives here in the UI layer on purpose - headless tests never start a
-## run through this path, so their rolls stay on the fixed default seed.
 ## One fight, injected from the map. Everything the run needs arrives in the
 ## bridge payload; nothing is read from the save here, so a fight is always
 ## against exactly the run the map handed over.

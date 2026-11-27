@@ -230,7 +230,7 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 		else:
 			SpringBattleBridge.requested_mode = ""
 	else:
-		SpringBattleBridge.stage_starting_loadout(AtelierStashScript.take_loadout_items())
+		SpringBattleBridge.tutorial_loadout_requested = true
 	return true
 
 

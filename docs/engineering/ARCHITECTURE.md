@@ -68,7 +68,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `spring_shop_view.gd` | 220 | 商店浮层：买入 / 出售 / 服务三页、翻页与刷新 | 只报告点击，不扣钱；行矩形与命中判定共用同一函数 |
 | `spring_relic_catalog.gd` | 66 | 四件遗物（§5.5 来源，文档未点名具体遗物）与战斗属性加成 | 只做扁平属性加成：条件触发型需要尚不存在的 hook 系统，故不定义 |
 | `spring_collectible_catalog.gd` | 115 | 六件藏品与稀有度、可用池（普通 / 精英 / Boss） | 效果限于本局能兑现的资源与属性；精英池排除史诗（§14） |
-| `spring_battle_bridge.gd` | 279 | 地图 ↔ 战斗的场景间握手与战后结算（§11.2 / §11.3 / §14 / §15.4 / §16.1） | 静态字段跨场景传递；结算规则在此，不在界面层 |
+| `spring_battle_bridge.gd` | 268 | 地图 ↔ 战斗的场景间握手与战后结算（§11.2 / §11.3 / §14 / §15.4 / §16.1） | 静态字段跨场景传递；结算规则在此，不在界面层 |
 
 ### 战斗规则（`scripts/battle/`）
 
@@ -77,7 +77,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
 | `battle_controller.gd` | 628 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
-| `battle_flow.gd` | 477 | 回合边界、遭遇构建、终止判定 | — |
+| `battle_flow.gd` | 475 | 回合边界、遭遇构建、终止判定 | — |
 | `intent_planner.gd` | 453 | 敌方意图生成（通用招式 + 分派） | 专属技转到 `elite_skills.gd` |
 | `intent_resolver.gd` | 570 | 敌方意图执行 | 按锁定类型与动作规则复验；支持状态驱动的重定向 |
 | `battle_threat_preview.gd` | 51 | 固定站位下按意图顺序推演承伤 | 使用独立防守者快照，棋盘与 HUD 共享伤害明细 |
@@ -144,7 +144,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 |---|---|---|
 | `battle_fx_state.gd` | 332 | 瞬态 FX 状态：角色视觉位置/跳跃插值/受击闪烁/突进、飘字与冲击环老化、敌方分步演出计时；`snapshot()` 生成下游 board/hud 视图只读消费的字典 |
 | `battle_banner_text.gd` | 49 | 状态栏文案单一来源：部署提示、教学关分步引导与回落逻辑；只读不改状态 |
-| `battle_view.gd` | 598 | 编排：关卡流程、点击分发、`Q/E` 旋转视角与 `B` 键背包切换、FX/文案组件委托；另有春之境单场模式，由 `spring_battle_bridge` 注入一场遭遇，结账后回地图 |
+| `battle_view.gd` | 596 | 编排：关卡流程、点击分发、`Q/E` 旋转视角与 `B` 键背包切换、FX/文案组件委托；另有春之境单场模式，由 `spring_battle_bridge` 注入一场遭遇，结账后回地图 |
 | `board_view.gd` | 260 | 编排层：等距石板棋盘与侧棱、移动/悬停/目标提示、目标谓词 `can_target()` / `can_target_ally()`；其余绘制转发给威胁层与实体层 |
 | `board_threat_view.gd` | 561 | 威胁层：敌方攻击预告（警戒斜条纹）、落点伤害标签、打击闪爆、飘字、受威压呼吸红晕，以及全家族共用的 `is_cell_in_danger()` 查询 |
 | `board_objects_view.gd` | 519 | 实体层：按等距深度排序的废墟立柱、遗迹宝箱、4 向动态立绘与受击动画、地面掉落光柱、血条/充能条与头顶徽标；持有精灵纹理缓存 |
@@ -162,7 +162,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `atelier_stash.gd` | 213 | 工坊残晶、六种配方、购买退款、出征打包和局外存档 | 独立于春之境行商和战斗战利品 |
+| `atelier_stash.gd` | 215 | 工坊残晶、六种配方、购买退款、出征打包和局外存档 | 独立于春之境行商和战斗战利品 |
 
 ### 共享存储与历史入口
 
@@ -191,7 +191,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 ### 后续优化
 
 1. **把流程从绘制脚本移到场景自己的协调层**。先从 `spring_map_view.gd` 的场景切换、自动存档和弹窗编排入手，通过信号和场景注入传递交互。继续让控制器持有战斗权威状态，渲染消费状态和事件。 [Godot 场景组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/scene_organization.html)
-2. **给跨文件的记账增加可恢复的事务记录**。春之境出征和战后残晶已有可重放的双存档日志。出征会保留无法识别的旧档并提示错误。教学出征的确认边界待补齐。 [Godot 本地文件 API](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html)
+2. **给跨文件的记账增加可恢复的事务记录**。春之境出征和战后残晶已有可重放的双存档日志。出征会保留无法识别的旧档并提示错误。教学首场遭遇成功初始化后再领取补给。 [Godot 本地文件 API](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html)
 3. **把相互依赖的内容按功能收拢**。从小场景与其私有脚本开始，保留共享的角色、敌人和装备 Resource 目录。素材工具的依赖锁定、资源路径与 Windows 打包冒烟可独立验证；当前没有 Android 导出配置及真机结果。 [Godot 项目组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/project_organization.html)
 
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。

@@ -130,20 +130,39 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 	# 2. Into-the-Breach enemy cadence: if out of attack position after turn 1,
 	#    reposition first (up to 2 tiles) and IMMEDIATELY telegraph an attack
 	#    from the new tile instead of wasting a whole turn just walking.
+	#
+	#    The move is recorded on the intent (move_path) and applied by
+	#    IntentResolver during the enemy phase. Planning must not touch the
+	#    board: the old version wrote enemy.cell here and emitted actor_moved,
+	#    so calling plan() twice moved the enemy twice and the telegraph could
+	#    disagree with what actually happened.
 	if actions.has(&"pursuit") and battle.turn_number > 1:
 		var move_path: Array[Vector2i] = _compute_move_path(battle, enemy, target)
 		if not move_path.is_empty():
 			var dest: Vector2i = move_path[move_path.size() - 1]
-			occupied.erase(enemy.cell)
-			enemy.cell = dest
+			var origin: Vector2i = enemy.cell
+			# Evaluate the follow-up from the destination, then restore the board
+			# exactly as it was. No event, no lasting mutation.
+			occupied.erase(origin)
 			occupied[dest] = enemy.actor_id
-			battle._emit_event("actor_moved", enemy.actor_id, "", "reposition dest=%s" % str(dest))
+			enemy.cell = dest
+			var follow_intent = null
 			for action_id in actions:
 				if action_id == &"pursuit":
 					continue
-				var follow_intent = _build_intent(battle, enemy, target, occupied, action_id, claimed_cells)
+				follow_intent = _build_intent(battle, enemy, target, occupied, action_id, claimed_cells)
 				if follow_intent != null:
-					return follow_intent
+					break
+			enemy.cell = origin
+			occupied.erase(dest)
+			occupied[origin] = enemy.actor_id
+			if follow_intent != null:
+				follow_intent.move_path = move_path
+				return follow_intent
+			# Cannot attack even after stepping: walk instead of the old
+			# teleport-then-wait, so the movement is a real intent the resolver
+			# animates in the enemy phase.
+			return _pursuit(battle, enemy, target)
 
 	# 3. Still too far after moving (or turn 1 setup): fall back to pursuit / wait.
 	if actions.has(&"pursuit") and battle.turn_number == 1:

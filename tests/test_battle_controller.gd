@@ -11,6 +11,7 @@ const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 func _run() -> void:
 	_test_normal_attack_pays_ultimate_energy()
 	_test_relic_chest_enemy_steal_and_equipment_drop()
+	_test_planning_does_not_move_enemies()
 
 	var charge_battle = ControllerScript.new()
 	root.add_child(charge_battle)
@@ -265,18 +266,47 @@ func _run() -> void:
 	_report()
 
 
+func _test_planning_does_not_move_enemies() -> void:
+	# Regression for A-01: the planner used to write enemy.cell during plan(),
+	# so calling plan() twice walked the enemy twice and the telegraph could
+	# disagree with the resolution. Planning must be side-effect free; the move
+	# belongs to the enemy phase.
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 1)]), "reposition encounter starts")
+	battle.beacons.clear()
+	battle.turn_number = 2  # the Into-the-Breach cadence only repositions after turn 1
+	var enemy = battle.get_actor("vanguard_00")
+	var origin: Vector2i = enemy.cell
+	var first = IntentPlannerScript.plan(battle)
+	_check(enemy.cell == origin, "planning leaves the enemy where it stands")
+	var second = IntentPlannerScript.plan(battle)
+	_check(enemy.cell == origin, "planning twice still leaves the enemy where it stands")
+	_check(first[0].move_path.size() > 0, "the reposition is recorded as a move path on the intent")
+	_check(second[0].move_path == first[0].move_path, "re-planning yields the same move path")
+	# Now let the enemy phase apply it.
+	battle.intents = first
+	_check(battle.end_player_turn(), "enemy phase resolves the recorded reposition")
+	_check(enemy.cell != origin, "the enemy actually moves during the enemy phase, not during planning")
+	battle.queue_free()
+
+
 func _test_normal_attack_pays_ultimate_energy() -> void:
 	var battle = ControllerScript.new()
 	root.add_child(battle)
-	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)])
+	# Two adjacent enemies on purpose: the first oathblade knocks its target from
+	# (2,1) to (3,1), so a second swing at the SAME id would fail the range check
+	# and the per-turn-cap assertion would never run. A second adjacent target
+	# lets the second action actually resolve.
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1), Vector2i(1, 2)])
 	battle.beacons.clear()
 	var sevrin = battle.get_actor("sevrin")
 	var before: int = sevrin.ultimate_energy
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "the normal attack resolves")
 	_check(sevrin.ultimate_energy == before + 1, "a normal attack pays one ultimate energy")
 	var after_attack: int = sevrin.ultimate_energy
-	if battle.request_skill(&"oathblade", "vanguard_00"):
-		_check(sevrin.ultimate_energy == after_attack, "the per-turn cap still pays only one point")
+	_check(battle.request_skill(&"oathblade", "vanguard_01"), "a second attack on another adjacent target resolves")
+	_check(sevrin.ultimate_energy == after_attack, "the per-turn cap still pays only one point")
 	battle.queue_free()
 
 

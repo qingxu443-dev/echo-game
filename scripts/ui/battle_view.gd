@@ -13,6 +13,7 @@ const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const LevelCatalogScript = preload("res://scripts/battle/level_catalog.gd")
 const Palette = preload("res://scripts/ui/theme_palette.gd")
 const BoardViewScript = preload("res://scripts/ui/board_view.gd")
+const BoardThreatViewScript = preload("res://scripts/ui/board_threat_view.gd")
 const HudViewScript = preload("res://scripts/ui/hud_view.gd")
 const SkillBarViewScript = preload("res://scripts/ui/skill_bar_view.gd")
 const SettlementViewScript = preload("res://scripts/ui/settlement_view.gd")
@@ -39,6 +40,7 @@ var fx_time: float = 0.0
 var hover_cell: Vector2i = Vector2i(-1, -1)
 var hovered_skill: int = -1
 var inventory_open: bool = false
+var inventory_page: int = 0
 var actor_visual_pos: Dictionary = {}
 var actor_hop_state: Dictionary = {}
 var actor_hit_flash: Dictionary = {}
@@ -216,7 +218,7 @@ func _draw() -> void:
 	HudViewScript.draw_party(self, controller)
 	SkillBarViewScript.draw(self, controller, skill_bar, selected_skill, hovered_skill)
 	if inventory_open:
-		InventoryViewScript.draw(self, run_state, controller.get_active_character())
+		InventoryViewScript.draw(self, run_state, controller.get_active_character(), inventory_page)
 	elif controller.phase == ControllerScript.BattlePhase.FINISHED:
 		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level(), pending_rewards)
 
@@ -248,13 +250,11 @@ func _effective_banner_message() -> String:
 
 
 func _is_cell_in_active_telegraph(cell: Vector2i) -> bool:
-	for intent in controller.intents:
-		if intent.state != 0: # ACTIVE
-			continue
-		if intent.action_id in ["charged_strike", "aimed_shot", "ground_pulse"]:
-			if intent.target_cell == cell or intent.affected_cells.has(cell):
-				return true
-	return false
+	# Delegate to the threat layer's predicate instead of re-listing the action
+	# ids here: the two lists drifted once already (this copy missed light_shot,
+	# echo_bolt and basic_melee), so the teaching prompt could call a red cell
+	# "safe". One source of truth keeps the hint and the red outline agreeing.
+	return BoardThreatViewScript.is_cell_in_danger(controller, cell)
 
 
 ## Kept on the view because the integration suite asks it directly; the rule
@@ -318,6 +318,8 @@ func _input(event: InputEvent) -> void:
 		InputRouterScript.ACTION_TOGGLE_BAG:
 			if controller.phase == ControllerScript.BattlePhase.PLAYER or (controller.phase == ControllerScript.BattlePhase.FINISHED and controller.battle_result == "victory"):
 				inventory_open = not inventory_open
+				if inventory_open:
+					inventory_page = 0
 				queue_redraw()
 
 
@@ -459,10 +461,19 @@ func _handle_tap(position: Vector2) -> void:
 
 
 func _handle_inventory_tap(position: Vector2) -> void:
-	var action: String = InventoryViewScript.hit(position, run_state.backpack.size())
+	var action: String = InventoryViewScript.hit(position, run_state.backpack.size(), inventory_page)
 	var hero = controller.get_active_character()
 	if action == InventoryViewScript.ACTION_CLOSE:
 		inventory_open = false
+		queue_redraw()
+		return
+	if action == InventoryViewScript.ACTION_PAGE_PREV:
+		inventory_page = maxi(0, inventory_page - 1)
+		queue_redraw()
+		return
+	if action == InventoryViewScript.ACTION_PAGE_NEXT:
+		var pages: int = maxi(1, int(ceil(float(run_state.backpack.size()) / float(InventoryViewScript.PAGE_SIZE))))
+		inventory_page = mini(pages - 1, inventory_page + 1)
 		queue_redraw()
 		return
 	if action == InventoryViewScript.ACTION_UNEQUIP_WEAPON:
@@ -482,6 +493,10 @@ func _handle_inventory_tap(position: Vector2) -> void:
 		var msg: String = run_state.use_backpack_item(idx, controller, hero)
 		if not msg.is_empty():
 			status_message = msg
+		# Using/equipping an item shrinks the bag, which can leave the page past
+		# the last one. Clamp so the panel never shows an empty page.
+		var pages: int = maxi(1, int(ceil(float(run_state.backpack.size()) / float(InventoryViewScript.PAGE_SIZE))))
+		inventory_page = clampi(inventory_page, 0, pages - 1)
 		queue_redraw()
 
 

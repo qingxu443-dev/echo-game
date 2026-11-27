@@ -125,6 +125,10 @@ func _check_invalid_targets() -> void:
 	_check(not battle.can_summon("nobody"), "the summon rejects an unknown target")
 	_check(not battle.request_hunter_summon("sevrin"), "requesting the summon on a friendly actor fails")
 	_check(not battle.request_hunter_summon("nobody"), "requesting the summon on an unknown actor fails")
+	# can_summon("") is true (the bar lights the button up before a target is
+	# picked), so an empty id can reach request(). It must refuse, not dereference
+	# a null actor and crash.
+	_check(not battle.request_hunter_summon(""), "requesting the summon with no target fails safely")
 	_check(battle.summon_cooldown_remaining() == 0, "invalid requests do not start the cooldown")
 	battle.queue_free()
 

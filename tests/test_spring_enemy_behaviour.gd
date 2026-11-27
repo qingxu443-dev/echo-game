@@ -15,6 +15,8 @@ extends "res://tests/framework/test_case.gd"
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const PlannerScript = preload("res://scripts/battle/intent_planner.gd")
+const ResolverScript = preload("res://scripts/battle/intent_resolver.gd")
+const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
@@ -50,6 +52,9 @@ func _run() -> void:
 	_test_ward_stance_shield_scales_with_nodes()
 	_test_ward_stance_shield_expires()
 	_test_planning_is_idempotent()
+	_test_single_target_attacks_choose_players_not_chests()
+	_test_area_attacks_can_splash_chests()
+	_test_boss_encounters_scale_all_enemy_core_stats()
 	_test_move_steps_must_be_positive()
 
 
@@ -313,7 +318,8 @@ func _begin_boss_fight(encounter_id: StringName):
 	battle.start_encounter(
 		definition.player_cell, definition.enemy_cells, definition.obstacles,
 		definition.enemy_archetypes, definition.character_ids,
-		definition.ally_cells, definition.chest_items, definition.ward_nodes
+		definition.ally_cells, definition.chest_items, definition.ward_nodes,
+		[], false, definition.enemy_stat_multiplier
 	)
 	return battle
 
@@ -336,7 +342,7 @@ func _test_thousand_boughs_spawns_two_ward_nodes() -> void:
 	for node in nodes:
 		_check(int(node["max_health"]) == 700, "each node has 700 health (§15.2)")
 	var boss = battle.get_actor("boss_thousand_boughs_00")
-	_check(boss.defense == 385 + 160, "two standing nodes lend the boss 160 defense", "defense=%d" % boss.defense)
+	_check(boss.defense == 462 + 160, "two standing nodes lend the boss 160 defense after the 20% encounter increase", "defense=%d" % boss.defense)
 	battle.queue_free()
 
 
@@ -363,7 +369,11 @@ func _test_ward_nodes_are_not_boss_objectives() -> void:
 		if node_cells.has(intent.target_cell):
 			targeted_node = true
 	_check(not targeted_node, "no enemy intent is aimed at a ward node")
-	_check(battle.intents.size() == 1, "the boss still produces an intent without the chests")
+	var boss_intent_found := false
+	for intent in battle.intents:
+		if intent.source_actor_id == "boss_thousand_boughs_00":
+			boss_intent_found = true
+	_check(boss_intent_found, "the boss still produces its own intent without the chests")
 	battle.queue_free()
 
 
@@ -376,17 +386,17 @@ func _test_breaking_ward_nodes_costs_defense() -> void:
 	var first: Vector2i = nodes[0]["cell"]
 	var second: Vector2i = nodes[1]["cell"]
 	battle.damage_beacon_at(first, 700, "sevrin", "probe")
-	_check(boss.defense == 385 + 80, "one node destroyed leaves 80 defense", "defense=%d" % boss.defense)
+	_check(boss.defense == 462 + 80, "one node destroyed leaves 80 defense after the 20% increase", "defense=%d" % boss.defense)
 	_check(not battle.get_occupied_cells().has(first), "a destroyed node no longer holds its cell")
 	battle.damage_beacon_at(second, 700, "sevrin", "probe")
-	_check(boss.defense == 385, "both nodes gone returns the sheet's defense", "defense=%d" % boss.defense)
+	_check(boss.defense == 462, "both nodes gone returns the scaled sheet defense", "defense=%d" % boss.defense)
 	battle.damage_beacon_at(second, 700, "sevrin", "probe")
-	_check(boss.defense == 385, "hitting an already-broken node cannot subtract twice", "defense=%d" % boss.defense)
+	_check(boss.defense == 462, "hitting an already-broken node cannot subtract twice", "defense=%d" % boss.defense)
 	battle.queue_free()
 
 
 ## §15.2 结界守护: 6% max health + 2% per standing node, on a full charge bar.
-## 5040 HP gives 302 alone, 403 with one node, 504 with both.
+## The boss encounter's 6048 HP gives 363 alone, 484 with one node, 605 with both.
 ## §15.2: "节点占格阻挡移动但不阻挡视线". Before this split the node lived in the
 ## same occupancy table as everything else, so it walled off archery lanes the
 ## document says it must leave open - a wall the player could not reason about.
@@ -456,17 +466,24 @@ func _test_ward_stance_shield_scales_with_nodes() -> void:
 	var battle = _begin_boss_fight(&"boss_thousand_boughs")
 	var boss = battle.get_actor("boss_thousand_boughs_00")
 	battle.intents = PlannerScript.plan(battle)
-	var opening = battle.intents[0]
+	var opening = _planned_intent(battle, "boss_thousand_boughs_00")
+	_check(opening != null, "the boss creates its stance intent")
+	if opening == null:
+		battle.queue_free()
+		return
 	_check(opening.action_id == "ward_stance", "the boss opens with its stance", "action=%s" % opening.action_id)
-	_check(opening.damage == 504, "two nodes give 6% + 2x2% of 5040 = 504", "damage=%d" % opening.damage)
+	_check(opening.damage == 605, "two nodes give 6% + 2x2% of 6048 = 605", "damage=%d" % opening.damage)
 	battle.end_player_turn()
-	_check(boss.shield == 504, "the stance raises the shield", "shield=%d" % boss.shield)
+	_check(boss.shield == 605, "the stance raises the shield", "shield=%d" % boss.shield)
 
 	var nodes: Array[Dictionary] = _ward_node_list(battle)
 	battle.damage_beacon_at(nodes[0]["cell"], 700, "sevrin", "probe")
 	boss.skill_charge = boss.skill_charge_max
 	battle.intents = PlannerScript.plan(battle)
-	_check(battle.intents[0].damage == 403, "one node left means 6% + 2% of 5040 = 403", "damage=%d" % battle.intents[0].damage)
+	var one_node_intent = _planned_intent(battle, "boss_thousand_boughs_00")
+	_check(one_node_intent != null, "the boss replans its stance with one node left")
+	if one_node_intent != null:
+		_check(one_node_intent.damage == 484, "one node left means 6% + 2% of 6048 = 484", "damage=%d" % one_node_intent.damage)
 	battle.queue_free()
 
 	var bare = _begin_boss_fight(&"boss_thousand_boughs")
@@ -475,12 +492,22 @@ func _test_ward_stance_shield_scales_with_nodes() -> void:
 	var bare_boss = bare.get_actor("boss_thousand_boughs_00")
 	bare_boss.skill_charge = bare_boss.skill_charge_max
 	bare.intents = PlannerScript.plan(bare)
-	_check(bare.intents[0].damage == 302, "no nodes left means the 6% base only", "damage=%d" % bare.intents[0].damage)
+	var no_node_intent = _planned_intent(bare, "boss_thousand_boughs_00")
+	_check(no_node_intent != null, "the boss replans its stance after losing both nodes")
+	if no_node_intent != null:
+		_check(no_node_intent.damage == 363, "no nodes left means the 6% base only", "damage=%d" % no_node_intent.damage)
 	bare.queue_free()
 
 
 ## "持续 2 回合" - the shield must be gone by the third player turn, or a boss
 ## that never stops shielding becomes unkillable.
+func _planned_intent(battle, actor_id: String):
+	for intent in battle.intents:
+		if intent.source_actor_id == actor_id:
+			return intent
+	return null
+
+
 func _test_ward_stance_shield_expires() -> void:
 	var battle = _begin_boss_fight(&"boss_thousand_boughs")
 	var boss = battle.get_actor("boss_thousand_boughs_00")
@@ -493,6 +520,69 @@ func _test_ward_stance_shield_expires() -> void:
 		battle.end_player_turn()
 	_check(boss.shield == 0, "the shield lapses on the third player turn", "shield=%d" % boss.shield)
 	battle.queue_free()
+
+
+func _test_single_target_attacks_choose_players_not_chests() -> void:
+	var battle = _spawn("petal_warrior", Vector2i(1, 2), Vector2i(2, 2))
+	var chest_cell := Vector2i(3, 2)
+	battle.beacons[chest_cell] = {
+		"id": "single_target_chest", "cell": chest_cell,
+		"health": 500, "max_health": 500, "opened": false, "loot": {},
+	}
+	battle.intents = PlannerScript.plan(battle)
+	_check(not battle.intents.is_empty(), "the melee enemy creates an intent")
+	if battle.intents.is_empty():
+		battle.queue_free()
+		return
+	var intent = battle.intents[0]
+	_check(intent.action_id == "basic_melee", "the adjacent warrior uses its single-target melee")
+	_check(intent.target_cell == Vector2i(1, 2), "the single-target attack locks the player tile, not the closer chest")
+	var hero = battle.get_defender()
+	var health_before: int = hero.health
+	battle.end_player_turn()
+	_check(int(battle.beacons[chest_cell]["health"]) == 500, "a single-target attack leaves the chest untouched")
+	_check(hero.health < health_before, "the single-target attack damages the player character")
+	battle.queue_free()
+
+
+func _test_area_attacks_can_splash_chests() -> void:
+	var battle = _spawn("boss_spring_echo", Vector2i(3, 4), Vector2i(3, 3))
+	var chest_cell := Vector2i(4, 4)
+	battle.beacons[chest_cell] = {
+		"id": "area_splash_chest", "cell": chest_cell,
+		"health": 500, "max_health": 500, "opened": false, "loot": {},
+	}
+	var intent = BattleIntentScript.new(
+		"area_splash_probe", "boss_spring_echo_00", "spring_bloom",
+		BattleIntentScript.TargetMode.AREA_LOCKED, "", Vector2i(3, 4),
+		[Vector2i(3, 4), chest_cell], 100, 0, "magical"
+	)
+	ResolverScript._area_attack(battle, intent)
+	_check(int(battle.beacons[chest_cell]["health"]) == 400, "an area attack damages a chest inside its footprint")
+	_check(intent.state == BattleIntentScript.IntentState.RESOLVED, "the area attack resolves after hitting the player and chest")
+	battle.queue_free()
+
+
+func _test_boss_encounters_scale_all_enemy_core_stats() -> void:
+	for boss_id in ["boss_petalfall", "boss_thousand_boughs", "boss_spring_echo"]:
+		var battle = _begin_boss_fight(StringName(boss_id))
+		var roster: Array[String] = SpringEncounterCatalogScript.roster_of(StringName(boss_id))
+		for index in range(roster.size()):
+			var archetype: String = roster[index]
+			var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
+			var enemy = battle.get_actor("%s_%02d" % [archetype, index])
+			_check(enemy != null, "%s spawns %s" % [boss_id, archetype])
+			if enemy == null or profile == null:
+				continue
+			_check(enemy.max_health == roundi(float(profile.health) * 1.2), "%s scales %s health by 20 percent" % [boss_id, archetype])
+			_check(enemy.attack == roundi(float(profile.attack) * 1.2), "%s scales %s attack by 20 percent" % [boss_id, archetype])
+			var expected_defense: int = roundi(float(profile.defense) * 1.2)
+			if boss_id == "boss_thousand_boughs" and archetype == boss_id:
+				expected_defense += 160
+			_check(enemy.defense == expected_defense, "%s scales %s physical defense by 20 percent" % [boss_id, archetype])
+			_check(enemy.magic_resistance == roundi(float(profile.magic_resistance) * 1.2), "%s scales %s magic resistance by 20 percent" % [boss_id, archetype])
+			_check(enemy.skill_damage == profile.skill_damage, "%s preserves %s signature skill damage" % [boss_id, archetype])
+		battle.queue_free()
 
 
 func _test_move_steps_must_be_positive() -> void:

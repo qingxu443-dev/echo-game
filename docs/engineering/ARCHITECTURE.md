@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**三十五个测试套件 2469 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**三十五个测试套件 2603 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -54,7 +54,7 @@ wc -l scripts/**/*.gd
 | `spring_route_overlay.gd` | 312 | 春之境困难模式地图路线绘制（连线/箭头/站序/王格提示）与战前绘线/定轨推进底栏交互 | 独立表现辅助层，保证 `spring_map_view.gd` 不突破存量行数上限 |
 | `scripts/spring/spring_ending.gd` | 80 | 春之境留白式结局文案数据（可测试），表现层只绘制 | 暂不锁定结局，玩家陪伴樱决定 |
 | `scripts/spring/spring_memory_thread.gd` | 90 | 归乡记忆线：从 event_log 只读拼合碎片、生成留白回响（§10.4 记忆拼合），表现层只绘制 | 不锁结局、不解锁区域、无数值收益 |
-| `spring_encounter_catalog.gd` | 240 | 18 套遭遇的编成（§13 十二场普通战、§14 五场精英、§15 三名 Boss）与战场几何 | 编成是文档数据；战场坐标由「主角在南、远程在后排」一条规则推出，同 id 每次一致 |
+| `spring_encounter_catalog.gd` | 258 | 18 套遭遇的编成（§13 十二场普通战、§14 五场精英、§15 三名 Boss）与战场几何 | 编成是文档数据；战场坐标由「主角在南、远程在后排」一条规则推出，同 id 每次一致 |
 | `spring_event_catalog.gd` | 579 | 十个事件（§10.2）+ 隐秘之地：选项、条件、效果、风险判定与结算 | 数值是草案集中一处；风险掷骰以（种子, 事件, 选项）定种，重放同一选择结果不变 |
 | `spring_event_view.gd` | 109 | 事件浮层：标题、风险标签、正文、选项与结果 | 只报告点了哪个选项，不结算；可负担性由 catalog 判定 |
 | `spring_shop.gd` | 378 | 春日行商：六栏库存、购买 / 出售 / 服务 / 刷新、价格修正、存档 | 交易原子；买过的商品刷新后不再上架；价格效果只作用于进入的那家店 |
@@ -70,8 +70,8 @@ wc -l scripts/**/*.gd
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
 | `battle_controller.gd` | 628 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
-| `battle_flow.gd` | 452 | 回合边界、遭遇构建、终止判定 | — |
-| `intent_planner.gd` | 333 | 敌方意图生成（通用招式 + 分派） | 专属技转到 `elite_skills.gd` |
+| `battle_flow.gd` | 459 | 回合边界、遭遇构建、终止判定 | — |
+| `intent_planner.gd` | 307 | 敌方意图生成（通用招式 + 分派） | 专属技转到 `elite_skills.gd` |
 | `intent_resolver.gd` | 506 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
 | `skill_executor.gd` | 281 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |
 | `damage_pipeline.gd` | 93 | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
@@ -92,12 +92,12 @@ wc -l scripts/**/*.gd
 | `oathkeeper_v2_skill_catalog.gd` | 54 | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
 | `sakura_skill_catalog.gd` | 103 | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | **当前版本不参战**，数据与框架保留待后续接入；测试仍覆盖 |
 | `enemy_definition.gd` / `enemy_catalog.gd` | — | 敌人属性档案（Resource）与目录（M1，现有 17 份：原型 3 + 春之境 14） | 数值外置于 `data/enemies/*.tres`；`actions` 列表决定该原型按优先级尝试哪些行动 |
-| `intent_planner.gd` | 333 | 按 `actions` 顺序挑行动；多怪目标分流（`claimed_cells` 防抢同一格）、远程风筝取位；通用招式（蓄力斩/近战/追击/远程）的几何 | 只读不写状态；专属技一律走 `EliteSkills.executors()` 查表，本文件不认识它们 |
+| `intent_planner.gd` | 307 | 按 `actions` 顺序挑行动；多怪目标分流（`claimed_cells` 防抢同一格）、远程风筝取位；通用招式（蓄力斩/近战/追击/远程）的几何 | 只读不写状态；专属技一律走 `EliteSkills.executors()` 查表，本文件不认识它们 |
 | `elite_skills.gd` | 274 | 九条精英与 Boss 专属技的几何：给友军上盾、留地格、两段式锁命、带路径突袭、降防 | 与规划器同签名 `(battle, enemy, target)`；加一条专属技只改本文件与数据表 |
 | `enemy_skill_catalog.gd` | 101 | 16 条敌人招式的数值表：倍率、射程、伤害类型、充能门槛、地格比例 | **所有敌人技能数字的唯一来源**；未注册的 action 会报错而不是退化成近战 |
 | `enemy_skill_definition.gd` | 68 | 单条敌人招式的数据结构（Resource），与玩家侧 `SkillDefinition` 对称 | 带 `is_valid()`；`damage_multiplier == 0` 表示「用档案里的 skill_damage」 |
 | `intent_support.gd` | 251 | 规划器与专属技共用的几何工具：三格带、路径搜索、风筝取位、意图 id | 无状态；不产生意图，只算格子 |
-| `encounter_definition.gd` | 77 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
+| `encounter_definition.gd` | 82 | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 29 | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
 | `run_state.gd` | 320 | 单局 Roguelite 状态：跨关血量、武器/护甲装备槽、背包、技能铭文强化与 `reset()` 清空 | 仅存活于单局内存，通关开新局或战败重开时全部清空 |
 | `loot_catalog.gd` | 91 | 遗迹宝箱战利品名册：显式引用 13 张 `data/loot/*.tres`，`to_dict()` 维持字典契约；掉落 RNG 可播种（默认种子 0 供无头可复现，新局按时间播种并记入 `run_state.loot_seed`） | 玩家与敌人共享同一份物品属性结构，保证对称抢宝规则 |

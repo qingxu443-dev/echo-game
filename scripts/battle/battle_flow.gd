@@ -31,9 +31,10 @@ static func start_encounter(
 	chest_items: Array[StringName] = [],
 	ward_nodes: int = 0,
 	deploy_zone_cells: Array[Vector2i] = [],
-	defer_start: bool = false
+	defer_start: bool = false,
+	enemy_stat_multiplier: float = 1.0
 ) -> bool:
-	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
+	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0 or enemy_stat_multiplier <= 0.0:
 		return false
 	if not GridRulesScript.is_inside_bounds(player_cell, battle.grid_size):
 		return false
@@ -137,7 +138,14 @@ static func start_encounter(
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
 		var enemy_id := "%s_%02d" % [archetype, index]
 		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
-		var enemy_unit = BattleActorScript.new(enemy_id, "enemy", cell, profile.health, archetype, profile.attack, profile.defense, profile.magic_resistance)
+		var enemy_unit = BattleActorScript.new(
+			enemy_id, "enemy", cell,
+			roundi(float(profile.health) * enemy_stat_multiplier),
+			archetype,
+			roundi(float(profile.attack) * enemy_stat_multiplier),
+			roundi(float(profile.defense) * enemy_stat_multiplier),
+			roundi(float(profile.magic_resistance) * enemy_stat_multiplier)
+		)
 		enemy_unit.glyph = profile.glyph
 		enemy_unit.skill_charge_max = 3
 		enemy_unit.move_steps = profile.move_steps
@@ -314,11 +322,10 @@ static func request_begin_battle(battle) -> bool:
 
 
 static func _actor_at(battle, cell: Vector2i) -> String:
-	for actor_id in battle.actors:
-		var actor = battle.actors[actor_id]
-		if actor.blocks_cell() and actor.cell == cell:
-			return String(actor_id)
-	return ""
+	# All cell-holding objects are forbidden deployment cells, not just actors:
+	# relic chests and 春之结界 nodes live in the same occupancy table.
+	var occupied: Dictionary = battle.get_occupied_cells()
+	return String(occupied.get(cell, ""))
 
 
 static func end_player_turn(battle) -> bool:

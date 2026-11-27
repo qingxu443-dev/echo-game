@@ -54,11 +54,28 @@ const ELITES := {
 	"E-B005": {"title": "永春镇守", "roster": ["sakura_beast", "rotten_blossom_witch", "withered_guard", "wind_ranger", "petal_archer"]},
 }
 
-## §15 boss table. One boss, no escort.
+## §15 boss table. One boss, 1-2 elites and 2-3 ordinary enemies.
+## Every enemy in a boss encounter receives the same 20% core-stat increase.
 const BOSSES := {
-	"boss_petalfall": {"title": "凋樱剑主", "roster": ["boss_petalfall"], "hint": "高机动近战：相邻即斩，别让它贴上来。"},
-	"boss_thousand_boughs": {"title": "千枝神将", "roster": ["boss_thousand_boughs"], "hint": "高防御守阵：两个结界节点各加 80 防御，先拆还是硬打？", "ward_nodes": 2},
-	"boss_spring_echo": {"title": "春痕回响", "roster": ["boss_spring_echo"], "hint": "远程法术：直线与视线之外才是安全区。"},
+	"boss_petalfall": {
+		"title": "凋樱剑主",
+		"roster": ["boss_petalfall", "crimson_sword_guard", "petal_warrior", "petal_archer", "wind_ranger"],
+		"hint": "高机动近战：相邻即斩，别让它贴上来。",
+		"enemy_stat_multiplier": 1.2,
+	},
+	"boss_thousand_boughs": {
+		"title": "千枝神将",
+		"roster": ["boss_thousand_boughs", "ancient_bulwark", "rotten_blossom_witch", "withered_guard", "spring_blight"],
+		"hint": "高防御守阵：两个结界节点各加 80 防御，先拆还是硬打？",
+		"ward_nodes": 2,
+		"enemy_stat_multiplier": 1.2,
+	},
+	"boss_spring_echo": {
+		"title": "春痕回响",
+		"roster": ["boss_spring_echo", "hundred_bloom_sniper", "sakura_beast", "petal_archer", "wind_ranger", "spring_blight"],
+		"hint": "远程法术：直线与视线之外才是安全区。",
+		"enemy_stat_multiplier": 1.2,
+	},
 }
 
 ## Board geometry (§13 leaves it open; one rule serves all eighteen fights).
@@ -164,6 +181,7 @@ static func build(encounter_id: StringName, character_ids: Array[String] = []) -
 	definition.player_cell = HERO_CELL
 	definition.character_ids = character_ids.duplicate()
 	definition.ally_cells = []
+	definition.enemy_stat_multiplier = float(entry.get("enemy_stat_multiplier", 1.0))
 	definition.enemy_archetypes = roster
 	for cell in slots:
 		definition.enemy_cells.append(cell)

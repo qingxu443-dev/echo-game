@@ -71,39 +71,13 @@ static func actions_for(enemy) -> Array[StringName]:
 	return actions
 
 
-## First legal action wins; otherwise the enemy waits. This is the whole of the
-## per-archetype behaviour, expressed once instead of three times.
-## Picks either the hero or a stationary Relic Beacon so multiple enemies split
-## pressure (attacking beacons the player cannot simply walk away from) instead
-## of all stacking onto the player's single tile.
-static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
+## First legal action wins; otherwise the enemy waits. Single-target attacks and
+## movement always choose a living player character. Relic chests are never
+## selected as primary targets; only an area footprint can damage a chest.
+static func _pick_target_for_enemy(battle, _enemy, _claimed_cells: Dictionary):
 	var hero = battle.get_defender()
 	if hero == null or not hero.is_alive():
 		return null
-	var beacons: Array[Dictionary] = battle.alive_beacons()
-	if beacons.is_empty():
-		return hero
-
-	var hero_claimed: bool = claimed_cells.has(hero.cell)
-	var best_beacon: Dictionary = {}
-	var best_b_dist: int = 999
-	for b in beacons:
-		# A boss's own 结界 nodes are scenery it protects, not something it
-		# attacks. Everything else (the relic chests) stays a valid objective.
-		if not bool(b.get("enemy_objective", true)):
-			continue
-		var bc: Vector2i = b["cell"]
-		var d: int = GridRulesScript.manhattan_distance(enemy.cell, bc)
-		# Prefer unclaimed beacons first, then nearest beacon
-		var penalty: int = 4 if claimed_cells.has(bc) else 0
-		if d + penalty < best_b_dist:
-			best_b_dist = d + penalty
-			best_beacon = b
-
-	var hero_dist: int = GridRulesScript.manhattan_distance(enemy.cell, hero.cell)
-	# If another enemy already locked the hero's tile, or a beacon is closer, target the beacon!
-	if not best_beacon.is_empty() and (hero_claimed or best_b_dist <= hero_dist):
-		return {"cell": best_beacon["cell"], "actor_id": str(best_beacon["id"]), "is_beacon": true}
 	return hero
 
 

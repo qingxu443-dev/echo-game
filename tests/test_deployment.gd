@@ -36,6 +36,7 @@ func _run() -> void:
 	_test_deployment_spends_no_ap_and_fires_no_start_effects()
 	_test_only_the_zone_accepts_a_placement()
 	_test_obstacles_and_enemies_are_not_placeable()
+	_test_chests_are_not_deployable()
 	_test_placement_can_be_adjusted_before_confirming()
 	_test_confirm_requires_everyone_placed()
 	_test_confirm_starts_the_first_turn()
@@ -102,6 +103,20 @@ func _test_obstacles_and_enemies_are_not_placeable() -> void:
 
 
 ## §11.1: "确认前可调整位置".
+func _test_chests_are_not_deployable() -> void:
+	var battle = _begin_deploying()
+	var chest_cell := Vector2i(1, 5)
+	battle.beacons[chest_cell] = {
+		"id": "deploy_probe_chest", "cell": chest_cell,
+		"health": 500, "max_health": 500, "opened": false, "loot": {},
+	}
+	_check(battle.beacons.has(chest_cell), "a chest occupies a deployment-zone cell")
+	_check(battle.is_deploy_cell(chest_cell), "the chest cell is otherwise inside the deployment zone")
+	_check(not battle.request_deploy(chest_cell), "a chest cell rejects character deployment")
+	_check(battle.get_actor("sevrin").cell == HERO_CELL, "refused chest placement leaves the character in place")
+	battle.queue_free()
+
+
 func _test_placement_can_be_adjusted_before_confirming() -> void:
 	var battle = _begin_deploying()
 	var hero = battle.get_actor("sevrin")
@@ -132,7 +147,7 @@ func _test_confirm_requires_everyone_placed() -> void:
 func _test_confirm_starts_the_first_turn() -> void:
 	var battle = _begin_deploying()
 	var hero = battle.get_actor("sevrin")
-	battle.request_deploy(Vector2i(2, 6))
+	battle.request_deploy(Vector2i(6, 6))
 	var energy_before: int = hero.ultimate_energy
 
 	_check(battle.request_begin_battle(), "confirm is accepted once the roster is placed")

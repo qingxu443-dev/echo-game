@@ -18,6 +18,9 @@ extends Resource
 @export var ally_cells: Array[Vector2i] = []
 @export var enemy_cells: Array[Vector2i] = []
 @export var enemy_archetypes: Array[String] = []
+## Runtime multiplier applied to enemy health/attack/defenses for this encounter.
+## Boss fights use 1.2; all other encounters keep the neutral 1.0.
+@export var enemy_stat_multiplier: float = 1.0
 @export var obstacles: Array[Vector2i] = []
 ## Fixed chest contents, one StringName item id per beacon, in placement order.
 ## Empty means every beacon rolls a random item from the LootCatalog pool
@@ -53,6 +56,8 @@ func is_valid() -> bool:
 		if not EnemyCatalogScript.has_definition(archetype):
 			return false
 	if ward_nodes < 0 or ward_nodes > 4:
+		return false
+	if enemy_stat_multiplier <= 0.0:
 		return false
 	return true
 

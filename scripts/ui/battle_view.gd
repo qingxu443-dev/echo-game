@@ -154,7 +154,7 @@ func _start_level(index: int) -> void:
 	# §11.1 applies to the spring run: its fights start with a deployment phase.
 	# The tutorial lessons keep the old direct start, because their opening beats
 	# teach a turn action ("move one tile") rather than a placement.
-	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items, level.ward_nodes, level.deploy_cells, spring_mode):
+	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items, level.ward_nodes, level.deploy_cells, spring_mode, level.enemy_stat_multiplier):
 		status_message = "关卡「%s」数据无效，未能开始。" % str(level.display_name_zh)
 		queue_redraw()
 		return

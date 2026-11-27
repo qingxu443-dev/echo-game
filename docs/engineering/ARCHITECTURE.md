@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**三十五个测试套件 2426 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**三十五个测试套件 2437 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -157,7 +157,8 @@ wc -l scripts/**/*.gd
 | `inventory_view.gd` | 163 | `[B]` 键开关的装备与背包弹窗：展示武器槽、护甲槽、背包物品与点击穿戴/卸下/使用交互 |
 | `settlement_view.gd` | 169 | 结算面板、完好遗迹宝箱开箱战利品展示、三选一肉鸽强化与其点击区；`spring=true` 时只留「返回春之境」一个出口 |
 | `input_router.gd` | 74 | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
-| `main_menu.gd` | 194 | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；三个选项（教程 / 未尽之春 / 退出） |
+| `main_menu.gd` | 188 | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；两个选项（进入大厅 / 退出） |
+| `lobby_view.gd` | 506 | 黄昏营地大厅：看板立绘互动、未尽之春断点状态展示，以及右下角「选择地图」按钮与区域选择浮层（教学遗迹 / 未尽之春 / 筹备中） |
 
 技能栏的规则数值（AP 消耗、目标范围）由 `OathkeeperV2SkillCatalog` 生成，单一数据来源；棋盘尺寸读 `controller.grid_size`；移动上限读 `BattleController.PLAYER_MOVE_MAX_STEPS`，候选寻路委托 `GridRules.find_path`。
 

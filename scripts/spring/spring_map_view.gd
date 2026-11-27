@@ -21,7 +21,7 @@ const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
 const EndingScript = preload("res://scripts/spring/spring_ending.gd")
 
-const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
+const MENU_SCENE_PATH := "res://scenes/lobby/lobby.tscn"
 const SAVE_PATH := "user://spring_run.json"
 const VIEW: Vector2 = Vector2(1280.0, 720.0)
 

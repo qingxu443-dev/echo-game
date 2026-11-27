@@ -5,26 +5,24 @@ extends Control
 ## - Drifting golden & pale-cyan echo dust motes
 ## - Minimalist left-aligned typography & animated hover bars (no baked fake buttons)
 
+const LOBBY_SCENE_PATH := "res://scenes/lobby/lobby.tscn"
 const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
 const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
 const BACKGROUND_PATH := "res://assets/ui/main_menu_background.png"
 
-## §4 of the 2026-11-26 design summary: two play modes on one save. "开始探索"
-## stays the tutorial mode it has always been; 未尽之春 is the season run, which
-## keeps its own in-run resources.
+## Entry point flows into the Camp Lobby, where players click the bottom-right
+## expedition button to pick between Tutorial and 未尽之春.
 const OPTION_START := 0
-const OPTION_SPRING := 1
-const OPTION_EXIT := 2
+const OPTION_EXIT := 1
 const OPTIONS: Array[Dictionary] = [
-	{"label": "开始探索", "sub": "START EXPEDITION · TUTORIAL"},
-	{"label": "未尽之春", "sub": "THE SPRING THAT NEVER FINISHED"},
+	{"label": "进入大厅", "sub": "ENTER LOBBY · CAMP HUB"},
 	{"label": "退出游戏", "sub": "EXIT TO DESKTOP"},
 ]
 
 var background: Texture2D
 var selected_option: int = OPTION_START
 var elapsed: float = 0.0
-var hover_slide: Array[float] = [1.0, 0.0, 0.0]
+var hover_slide: Array[float] = [1.0, 0.0]
 var motes: Array[Dictionary] = []
 
 
@@ -183,12 +181,8 @@ func _gui_input(event: InputEvent) -> void:
 func _activate_selected() -> void:
 	match selected_option:
 		OPTION_START:
-			var error := get_tree().change_scene_to_file(BATTLE_SCENE_PATH)
+			var error := get_tree().change_scene_to_file(LOBBY_SCENE_PATH)
 			if error != OK:
-				push_error("Unable to open ECHO battle scene. Error: %s" % error)
-		OPTION_SPRING:
-			var spring_error := get_tree().change_scene_to_file(SPRING_SCENE_PATH)
-			if spring_error != OK:
-				push_error("Unable to open the 春之境 map. Error: %s" % spring_error)
+				push_error("Unable to open ECHO lobby scene. Error: %s" % error)
 		OPTION_EXIT:
 			get_tree().quit()

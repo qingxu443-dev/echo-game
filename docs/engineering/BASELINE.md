@@ -8,8 +8,8 @@
 
 | 项目 | 值 |
 |---|---|
-| 分支 | `main` |
-| 提交 | `main`（全量审计修复批） |
+| 分支 | `fix/spring-boss-progression-gate`（PR #76，整合最新 main） |
+| 提交 | PR #76 整合候选；双端 CI 待复验 |
 | 引擎 | Godot 4.7.2 Standard |
 | 平台 | Windows 10/11 x86_64 |
 | 套件数 | 37 |

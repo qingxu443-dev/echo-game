@@ -463,7 +463,7 @@ static func action_description(action_id: String) -> String:
 		"aimed_shot":
 			return "【满充能技】沿正交或对角直线穿透 3 格重狙！走出射界，或击退偏移其瞄准线。"
 		"light_shot":
-			return "沿正交或对角直线单格点射，走离青框即可躲避。"
+			return "沿正交或对角直线单格点射，走离蓝框即可躲避。"
 		"ground_pulse":
 			return "【满充能技】锁定十字 5 格紫框爆破！撤出全部紫格即可躲避。"
 		"echo_bolt":
@@ -483,7 +483,7 @@ static func action_description(action_id: String) -> String:
 		"locked_shot":
 			return "锁命箭已上弦：追踪被标记的目标，走出射程或借障碍断线才会落空。"
 		"shadow_raid":
-			return "【满充能技】沿青色路径突进最多 3 格，落点相邻后斩击；离开红色落点即可让它挥空。"
+			return "【满充能技】沿银白路径突进最多 3 格，落点相邻后斩击；离开红色落点即可让它挥空。"
 		"rot_curse":
 			return "【满充能技】剥离目标 100 防御，持续到下一敌方阶段结束；不叠加，只会刷新时长。"
 		"wait":

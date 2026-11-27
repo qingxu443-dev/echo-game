@@ -150,6 +150,7 @@ func snap_actor_positions(controller) -> void:
 ## 敌方分步回合开始：清除上一轮的收尾标记并设置首步延迟。
 func prepare_enemy_step() -> void:
 	enemy_phase_finishing = false
+	acting_enemy_id = ""
 	enemy_step_timer = 0.25
 
 

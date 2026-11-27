@@ -188,9 +188,8 @@ func _test_elite_and_boss_movement_matches_the_document() -> void:
 		)
 
 
-## The three bosses are solo fights, so a boss that cannot move is a fight that
-## cannot be lost. Six turns against a hero who never acts is the cheapest proof
-## that it reaches the player.
+## Isolate each boss to smoke-test its own movement/attack behavior; the
+## mixed escort composition is covered by the encounter catalog and runtime tests.
 func _test_bosses_are_not_statues() -> void:
 	for boss in ["boss_petalfall", "boss_thousand_boughs", "boss_spring_echo"]:
 		var battle = _spawn(boss, HERO_CELL, ENEMY_CELL)

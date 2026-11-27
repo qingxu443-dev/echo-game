@@ -56,6 +56,16 @@ static var _count_patterns: Array[RegEx] = [
 ]
 static var _module_row_re: RegEx = _compile("^\\| `([\\w./]+\\.gd)` \\| (\\d+) \\|")
 
+## 套件数也需要单一来源。BASELINE.md 的「套件数」行是权威值；正文里凡声明
+## 当前套件数的地方都要跟它一致。历史/归档行照旧由 SKIP_MARKERS 豁免。
+static var _suite_total_re: RegEx = _compile("\\| 套件数 \\| (\\d+) \\|")
+static var _suite_count_patterns: Array[RegEx] = [
+	_compile("suites=(\\d+)"),
+	_compile("(\\d+)\\s*个套件"),
+	_compile("(\\d+)\\s*套件"),
+	_compile("测试套件[：:]\\s*(\\d+)\\s*个"),
+]
+
 
 static func _compile(pattern: String) -> RegEx:
 	var re := RegEx.new()
@@ -83,6 +93,34 @@ static func expected_assertions() -> int:
 	if match == null:
 		return 0
 	return int(match.get_string(1))
+
+
+static func expected_suite_count() -> int:
+	var match := _suite_total_re.search(read_text(BASELINE_PATH))
+	if match == null:
+		return 0
+	return int(match.get_string(1))
+
+
+## 与断言数同构：正文里每一处「当前套件数」都必须等于 BASELINE 的权威值。
+## 复用同一套跳过规则，避免把历史快照和单套件引用误判为漂移。
+static func check_suite_count_copies(expected: int) -> Array[String]:
+	var problems: Array[String] = []
+	for path in TOTAL_SCAN_FILES:
+		var text := read_text(path)
+		if text.is_empty():
+			continue
+		for line in text.split("\n"):
+			if _is_skipped(line):
+				continue
+			var seen := {}
+			for re in _suite_count_patterns:
+				for match in re.search_all(line):
+					seen[int(match.get_string(1))] = true
+			for number in seen.keys():
+				if number != expected:
+					problems.append("%s says %d suites, baseline says %d" % [path, number, expected])
+	return problems
 
 
 ## Every stale copy of the total, one line per offending file and number.
@@ -248,6 +286,20 @@ static func report() -> bool:
 			print("doc-numbers: ok (%d)" % expected)
 		else:
 			print("doc-numbers: %d stale count(s); update them from %s" % [stale.size(), BASELINE_PATH])
+			ok = false
+
+	var suite_count := expected_suite_count()
+	if suite_count <= 0:
+		print("doc-suites: could not read 套件数 from ", BASELINE_PATH)
+		ok = false
+	else:
+		var stale_suites := check_suite_count_copies(suite_count)
+		for problem in stale_suites:
+			print("doc-suites: ", problem)
+		if stale_suites.is_empty():
+			print("doc-suites: ok (%d)" % suite_count)
+		else:
+			print("doc-suites: %d stale suite count(s); update them from %s" % [stale_suites.size(), BASELINE_PATH])
 			ok = false
 
 	var sizes := check_module_sizes()

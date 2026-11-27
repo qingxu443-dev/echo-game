@@ -11,6 +11,7 @@ extends RefCounted
 ## exists in exactly one place.
 
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
+const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
 const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 
@@ -18,11 +19,45 @@ const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 ## The whole threat layer, in composition order.
 static func draw(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
 	draw_hazard_tiles(canvas, controller, fx_state)
+	draw_formation_links(canvas, controller, fx_state)
 	draw_telegraphs(canvas, controller, fx_state)
 	draw_impact_flashes(canvas, fx_state)
 	draw_telegraph_labels(canvas, controller, fx_state)
 	draw_popups(canvas, fx_state)
 	draw_danger_vignette(canvas, controller, fx_state)
+
+
+## Draws subtle tactical formation links beneath living coordinated enemies so
+## the player can read the formation at a glance and see it break on a kill.
+static func draw_formation_links(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	var formation: Dictionary = IntentPlannerScript.analyze_formation(controller)
+	if formation.is_empty():
+		return
+	var t: float = float(fx_state.get("time", 0.0))
+	var pulse: float = 0.55 + 0.35 * sin(t * 2.4)
+	var form_id: String = str(formation.get("id", ""))
+	var base_col := Color(0.92, 0.72, 0.42)
+	if form_id == "pincer_lockdown":
+		base_col = Color(0.92, 0.44, 0.38)
+	elif form_id == "crossfire_net":
+		base_col = Color(0.62, 0.76, 0.98)
+	var line_col := Color(base_col.r, base_col.g, base_col.b, 0.42 * pulse)
+	var glow_col := Color(base_col.r, base_col.g, base_col.b, 0.16 * pulse)
+	for link in formation.get("links", []):
+		var a = controller.get_actor(str(link.get("from", "")))
+		var b = controller.get_actor(str(link.get("to", "")))
+		if a == null or b == null or not a.is_alive() or not b.is_alive():
+			continue
+		var p0 := P.cell_center(a.cell)
+		var p1 := P.cell_center(b.cell)
+		if form_id == "crossfire_net":
+			canvas.draw_dashed_line(p0, p1, line_col, 2.0, 6.0)
+		else:
+			canvas.draw_line(p0, p1, glow_col, 6.0, true)
+			canvas.draw_line(p0, p1, line_col, 2.0, true)
+		var mid := p0.lerp(p1, 0.5)
+		var r := 4.5
+		canvas.draw_colored_polygon(PackedVector2Array([mid + Vector2(0, -r), mid + Vector2(r, 0), mid + Vector2(0, r), mid + Vector2(-r, 0)]), Color(base_col.r, base_col.g, base_col.b, 0.72 * pulse))
 
 
 # --- ground hazards (凋零 / 残春) ---------------------------------------------

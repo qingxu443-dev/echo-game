@@ -8,6 +8,7 @@ extends RefCounted
 ## - Top-right: enemy turn order + hovered enemy skill & threat inspector.
 
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
+const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
 const P = preload("res://scripts/ui/theme_palette.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
@@ -186,6 +187,15 @@ static func _draw_enemy_order_card(canvas: CanvasItem, font: Font, controller) -
 	var rect := P.ORDER_CARD_RECT
 	_draw_card(canvas, rect, P.PANEL, P.PANEL_BORDER)
 	canvas.draw_string(font, rect.position + Vector2(14.0, 24.0), "敌方行动顺序", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.GOLD)
+	var formation: Dictionary = IntentPlannerScript.analyze_formation(controller)
+	if not formation.is_empty():
+		var f_id: String = str(formation.get("id", ""))
+		var f_col := P.GOLD_LIGHT if f_id == "shield_wall" else (P.WARN if f_id == "pincer_lockdown" else P.CYAN)
+		var f_bg := Color(f_col.r * 0.22, f_col.g * 0.20, f_col.b * 0.22, 0.92)
+		var badge := Rect2(rect.end.x - 112.0, rect.position.y + 8.0, 102.0, 22.0)
+		canvas.draw_rect(badge, f_bg, true)
+		canvas.draw_rect(badge, Color(f_col.r, f_col.g, f_col.b, 0.85), false, 1.2)
+		canvas.draw_string(font, badge.position + Vector2(0.0, 15.0), "阵·" + str(formation.get("name_zh", "")), HORIZONTAL_ALIGNMENT_CENTER, badge.size.x, 11, f_col)
 
 	var y: float = rect.position.y + 48.0
 	for index in range(mini(controller.intents.size(), 4)):

@@ -24,12 +24,75 @@ const EliteSkillsScript = preload("res://scripts/battle/elite_skills.gd")
 const IntentSupportScript = preload("res://scripts/battle/intent_support.gd")
 
 
+## Read-only tactical formation detector shared by the planner and the UI.
+## Returns {} when fewer than two living enemies remain (formation broken).
+static func analyze_formation(battle) -> Dictionary:
+	if battle == null or battle.actors == null:
+		return {}
+	var melee_ids: Array[String] = []
+	var ranged_ids: Array[String] = []
+	var melee_cells: Array[Vector2i] = []
+	var ranged_cells: Array[Vector2i] = []
+	for actor_id in battle.actors:
+		var enemy = battle.actors[actor_id]
+		if enemy == null or not enemy.is_alive() or enemy.team != "enemy":
+			continue
+		if _is_ranged_kit(actions_for(enemy)):
+			ranged_ids.append(String(actor_id))
+			ranged_cells.append(enemy.cell)
+		else:
+			melee_ids.append(String(actor_id))
+			melee_cells.append(enemy.cell)
+	var total: int = melee_ids.size() + ranged_ids.size()
+	if total < 2:
+		return {}
+	var form_id: String = "pincer_lockdown"
+	var name_zh: String = "鹤翼合围阵"
+	var desc_zh: String = "多面夹击 · 封锁退路"
+	var links: Array[Dictionary] = []
+	if not melee_ids.is_empty() and not ranged_ids.is_empty():
+		form_id = "shield_wall"
+		name_zh = "雁行护射阵"
+		desc_zh = "前排卡位 · 异轴火网"
+		for m_id in melee_ids:
+			var m_cell: Vector2i = battle.actors[m_id].cell
+			var best_r: String = ranged_ids[0]
+			var best_d: int = 999
+			for r_id in ranged_ids:
+				var d: int = GridRulesScript.manhattan_distance(m_cell, battle.actors[r_id].cell)
+				if d < best_d:
+					best_d = d
+					best_r = r_id
+			links.append({"from": m_id, "to": best_r})
+	elif ranged_ids.size() >= 2:
+		form_id = "crossfire_net"
+		name_zh = "天罗火网阵"
+		desc_zh = "异轴封格 · 压缩走位"
+		for i in range(ranged_ids.size() - 1):
+			links.append({"from": ranged_ids[i], "to": ranged_ids[i + 1]})
+	else:
+		for i in range(melee_ids.size() - 1):
+			links.append({"from": melee_ids[i], "to": melee_ids[i + 1]})
+	return {
+		"id": form_id, "name_zh": name_zh, "desc_zh": desc_zh,
+		"melee_ids": melee_ids, "ranged_ids": ranged_ids,
+		"melee_cells": melee_cells, "ranged_cells": ranged_cells,
+		"links": links,
+	}
+
+
 static func plan(battle) -> Array:
 	var actors = battle.actors
 	var generated: Array = []
 	var occupied: Dictionary = battle.get_occupied_cells()
 	var claimed_cells: Dictionary = {}
 	var reserved_cells: Dictionary = {}
+	var formation: Dictionary = analyze_formation(battle)
+	var threatened_cells: Dictionary = {}
+	var used_axes: Dictionary = {}
+	if not formation.is_empty():
+		formation["threatened_cells"] = threatened_cells
+		formation["used_axes"] = used_axes
 
 	for actor_id in actors:
 		var enemy = actors[actor_id]
@@ -38,11 +101,19 @@ static func plan(battle) -> Array:
 		var target = _pick_target_for_enemy(battle, enemy, claimed_cells)
 		if target == null:
 			continue
-		var intent = _choose_intent(battle, enemy, target, occupied, claimed_cells, reserved_cells)
+		var intent = _choose_intent(battle, enemy, target, occupied, claimed_cells, reserved_cells, formation)
 		if intent != null:
 			generated.append(intent)
-			if intent.action_id not in ["wait", "pursuit", "ward_ally"]:
+			if intent.action_id not in ["wait", "pursuit", "ward_ally", "ward_stance"]:
 				claimed_cells[intent.target_cell] = true
+				for c in intent.affected_cells:
+					threatened_cells[c] = true
+				threatened_cells[intent.target_cell] = true
+				if intent.action_id in ["aimed_shot", "light_shot", "locked_shot", "lock_on"]:
+					var fire_from: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else enemy.cell
+					var axis: int = IntentSupportScript.fire_axis_of(fire_from, intent.target_cell)
+					if axis >= 0:
+						used_axes[axis] = true
 			if not intent.move_path.is_empty():
 				reserved_cells[intent.move_path[intent.move_path.size() - 1]] = true
 			elif intent.action_id == "pursuit" and not intent.affected_cells.is_empty():
@@ -115,7 +186,7 @@ static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
 	return hero
 
 
-static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_cells: Dictionary = {}, reserved_cells: Dictionary = {}):
+static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_cells: Dictionary = {}, reserved_cells: Dictionary = {}, formation: Dictionary = {}):
 	# 百花锁命 第二段: a mark placed last enemy phase fires now. If cover broke
 	# line of sight, a mobile sniper steps around cover to take the locked shot.
 	var locked_intent = EliteSkillsScript.locked_shot(battle, enemy)
@@ -125,7 +196,7 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 	if "lock_target_id" in enemy and not String(enemy.lock_target_id).is_empty() and actions.has(&"pursuit") and battle.turn_number > 1:
 		var lock_target = battle.actors.get(String(enemy.lock_target_id))
 		if lock_target != null and lock_target.is_alive():
-			var lock_path: Array[Vector2i] = IntentSupportScript.ranged_reposition_path(battle, enemy, lock_target, 1, 6, true, _move_steps_of(enemy), true, reserved_cells)
+			var lock_path: Array[Vector2i] = IntentSupportScript.ranged_reposition_path(battle, enemy, lock_target, 1, 6, true, _move_steps_of(enemy), true, reserved_cells, formation)
 			if not lock_path.is_empty():
 				var origin_l: Vector2i = enemy.cell
 				var dest_l: Vector2i = lock_path[lock_path.size() - 1]
@@ -141,10 +212,11 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 					return moved_lock
 
 	# 1. Try any non-movement attack from the current tile first.
+	var area_mask: Dictionary = formation.get("threatened_cells", claimed_cells)
 	for action_id in actions:
 		if action_id == &"pursuit":
 			continue
-		var intent = _build_intent(battle, enemy, target, occupied, action_id, claimed_cells)
+		var intent = _build_intent(battle, enemy, target, occupied, action_id, area_mask)
 		if intent != null:
 			return intent
 
@@ -152,7 +224,7 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 	#    reposition first and IMMEDIATELY telegraph an attack from the new tile
 	#    instead of wasting a whole turn just walking.
 	if actions.has(&"pursuit") and battle.turn_number > 1:
-		var move_path: Array[Vector2i] = _compute_move_path(battle, enemy, target, reserved_cells)
+		var move_path: Array[Vector2i] = _compute_move_path(battle, enemy, target, reserved_cells, formation)
 		if not move_path.is_empty():
 			var dest: Vector2i = move_path[move_path.size() - 1]
 			var origin: Vector2i = enemy.cell
@@ -163,7 +235,7 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 			for action_id in actions:
 				if action_id == &"pursuit" or action_id == &"shadow_raid":
 					continue
-				follow_intent = _build_intent(battle, enemy, target, occupied, action_id, claimed_cells)
+				follow_intent = _build_intent(battle, enemy, target, occupied, action_id, area_mask)
 				if follow_intent != null:
 					break
 			enemy.cell = origin
@@ -172,11 +244,11 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 			if follow_intent != null:
 				follow_intent.move_path = move_path
 				return follow_intent
-			return _pursuit(battle, enemy, target, reserved_cells)
+			return _pursuit(battle, enemy, target, reserved_cells, formation)
 
 	# 3. Still too far after moving (or turn 1 setup): fall back to pursuit / wait.
 	if actions.has(&"pursuit") and battle.turn_number == 1:
-		var p_intent = _pursuit(battle, enemy, target, reserved_cells)
+		var p_intent = _pursuit(battle, enemy, target, reserved_cells, formation)
 		if p_intent != null:
 			return p_intent
 	# Cornered ranged fallback: if any ranged/caster unit is pinned adjacent with
@@ -204,19 +276,19 @@ static func _has_ready_ortho_cleave(enemy, actions: Array[StringName]) -> bool:
 	return false
 
 
-static func _compute_move_path(battle, enemy, target, reserved_cells: Dictionary = {}) -> Array[Vector2i]:
+static func _compute_move_path(battle, enemy, target, reserved_cells: Dictionary = {}, formation: Dictionary = {}) -> Array[Vector2i]:
 	var steps: int = _move_steps_of(enemy)
 	var actions: Array[StringName] = actions_for(enemy)
 	if actions.has(&"aimed_shot") or actions.has(&"lock_on") or actions.has(&"light_shot"):
 		var shot = EnemySkillCatalogScript.get_skill(&"aimed_shot")
 		var keep: int = shot.reposition_min_range if shot.reposition_min_range > 0 else shot.min_range
-		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, keep, shot.max_range, true, steps, true, reserved_cells)
+		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, keep, shot.max_range, true, steps, true, reserved_cells, formation)
 	if actions.has(&"ground_pulse") or actions.has(&"echo_bolt") or actions.has(&"spring_bloom"):
 		var spec_id: StringName = &"spring_bloom" if actions.has(&"spring_bloom") else (&"ground_pulse" if actions.has(&"ground_pulse") else &"echo_bolt")
 		var pulse = EnemySkillCatalogScript.get_skill(spec_id)
 		var need_sight: bool = actions.has(&"rot_curse") or actions.has(&"spring_bloom")
-		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, pulse.min_range, pulse.max_range, false, steps, need_sight, reserved_cells)
-	return IntentSupportScript.melee_tactical_path(battle, enemy, target, steps, _has_ready_ortho_cleave(enemy, actions), reserved_cells)
+		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, pulse.min_range, pulse.max_range, false, steps, need_sight, reserved_cells, formation)
+	return IntentSupportScript.melee_tactical_path(battle, enemy, target, steps, _has_ready_ortho_cleave(enemy, actions), reserved_cells, formation)
 
 
 ## Reposition budget for this actor. Two is the prototype baseline; a profile
@@ -292,8 +364,8 @@ static func _basic_melee(battle, enemy, target):
 	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], IntentSupportScript.plain_attack_damage(enemy, spec.damage_multiplier), spec.execution_priority)
 
 
-static func _pursuit(battle, enemy, target, reserved_cells: Dictionary = {}):
-	var pursuit_path: Array[Vector2i] = _compute_move_path(battle, enemy, target, reserved_cells)
+static func _pursuit(battle, enemy, target, reserved_cells: Dictionary = {}, formation: Dictionary = {}):
+	var pursuit_path: Array[Vector2i] = _compute_move_path(battle, enemy, target, reserved_cells, formation)
 	if pursuit_path.is_empty():
 		return null
 	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "pursuit", BattleIntentScript.TargetMode.NONE, "", pursuit_path[pursuit_path.size() - 1], pursuit_path, 0, 2)
@@ -344,7 +416,7 @@ static func _ground_pulse(battle, enemy, target, claimed_cells: Dictionary = {})
 	var spec = EnemySkillCatalogScript.get_skill(&"ground_pulse")
 	if not IntentSupportScript.charge_ready(enemy, spec):
 		return null
-	var aim_cell: Vector2i = IntentSupportScript.pick_uncrowded_aim(battle, enemy.cell, target.cell, spec.min_range, spec.max_range, claimed_cells)
+	var aim_cell: Vector2i = IntentSupportScript.pick_uncrowded_aim(battle, enemy.cell, target.cell, spec.min_range, spec.max_range, claimed_cells, true)
 	if aim_cell == Vector2i(-1, -1):
 		return null
 	var affected: Array[Vector2i] = []

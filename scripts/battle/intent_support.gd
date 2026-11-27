@@ -177,20 +177,74 @@ static func pursuit_path(
 
 
 ## Tactical melee movement:
+## Returns 0 (horizontal), 1 (vertical), 2 (diag \), 3 (diag /), or -1 if unaligned.
+static func fire_axis_of(from_cell: Vector2i, to_cell: Vector2i) -> int:
+	var dx: int = to_cell.x - from_cell.x
+	var dy: int = to_cell.y - from_cell.y
+	if dx == 0 and dy == 0:
+		return -1
+	if dy == 0:
+		return 0
+	if dx == 0:
+		return 1
+	if absi(dx) == absi(dy):
+		return 2 if (dx * dy > 0) else 3
+	return -1
+
+
+## Counts how many open escape cells adjacent to target_cell would be newly
+## covered by a forward orthogonal sweep from cand, excluding already-threatened tiles.
+static func _uncovered_escape_count(battle, cand: Vector2i, target_cell: Vector2i, threatened: Dictionary) -> int:
+	var forward := Vector2i(signi(target_cell.x - cand.x), signi(target_cell.y - cand.y))
+	var perp := Vector2i(-forward.y, forward.x)
+	var sweep: Dictionary = {}
+	for depth in [1, 2]:
+		var rc: Vector2i = cand + forward * depth
+		for side in [-1, 0, 1]:
+			sweep[rc + perp * side] = true
+	var hits: int = 0
+	for off in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+		var esc: Vector2i = target_cell + off
+		if not GridRulesScript.is_inside_bounds(esc, battle.grid_size) or battle.blocked_cells.has(esc):
+			continue
+		if sweep.has(esc) and not threatened.has(esc):
+			hits += 1
+	return hits
+
+
+## True when cand lies on the protective screen between target_cell and any ally
+## backline ranged cell (closer to both than their full separation).
+static func _screens_ranged_ally(cand: Vector2i, target_cell: Vector2i, ranged_cells: Array) -> bool:
+	for raw_rc in ranged_cells:
+		var rc: Vector2i = raw_rc
+		var d_tr: int = GridRulesScript.manhattan_distance(target_cell, rc)
+		if d_tr < 2:
+			continue
+		var d_tc: int = GridRulesScript.manhattan_distance(target_cell, cand)
+		var d_cr: int = GridRulesScript.manhattan_distance(cand, rc)
+		if d_tc + d_cr <= d_tr + 1 and d_cr < d_tr:
+			return true
+	return false
+
+
+## Tactical melee movement with formation awareness:
 ## 1) If a 2-tile orthogonal cleave/signature is ready, step into an unreserved
-##    orthogonal launch cell within max_steps so the unit can unleash it now.
-## 2) Otherwise prefer unreserved adjacent cells that flank the target away from
-##    other allies instead of colliding on the same tile.
-## 3) If out of immediate reach, close in cleanly via pursuit_path.
+##    orthogonal launch cell that seals uncovered escape tiles.
+## 2) In Shield-Wall formation, screen between the hero and allied backline.
+## 3) In Pincer formation, prefer opposite/flanking sides of the hero.
 static func melee_tactical_path(
 	battle,
 	enemy,
 	target,
 	max_steps: int,
 	prefer_ortho_range2: bool,
-	reserved_cells: Dictionary = {}
+	reserved_cells: Dictionary = {},
+	formation: Dictionary = {}
 ) -> Array[Vector2i]:
 	var occupied: Dictionary = battle.get_occupied_cells(enemy.actor_id)
+	var form_id: String = str(formation.get("id", ""))
+	var ranged_cells: Array = formation.get("ranged_cells", [])
+	var threatened: Dictionary = formation.get("threatened_cells", {})
 	var best_score: int = -999999
 	var best_path: Array[Vector2i] = []
 	for dy in range(-max_steps, max_steps + 1):
@@ -216,14 +270,20 @@ static func melee_tactical_path(
 			var score: int = 0
 			if ortho_cleave_ok:
 				score += 1200 + (80 if d == 2 else 0)
+				score += _uncovered_escape_count(battle, cand, target.cell, threatened) * 100
 			if d == 1:
 				score += 900
-				# Flanking bonus: reward taking the opposite side of an already
-				# occupied/reserved adjacent tile so allies pincer the target.
 				var opposite: Vector2i = target.cell * 2 - cand
 				if occupied.has(opposite) or reserved_cells.has(opposite):
-					score += 160
-			# Prefer fewer steps when equally effective so movement feels crisp.
+					score += 260 if form_id == "pincer_lockdown" else 160
+				elif form_id == "pincer_lockdown":
+					# Reward opening a perpendicular flank when one side is held.
+					for perp in [Vector2i(cand.y - target.cell.y, target.cell.x - cand.x), Vector2i(target.cell.y - cand.y, cand.x - target.cell.x)]:
+						if occupied.has(target.cell + perp) or reserved_cells.has(target.cell + perp):
+							score += 130
+							break
+			if form_id == "shield_wall" and _screens_ranged_ally(cand, target.cell, ranged_cells):
+				score += 260
 			score -= path.size() * 20
 			if score > best_score:
 				best_score = score
@@ -233,10 +293,10 @@ static func melee_tactical_path(
 	return pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, max_steps, reserved_cells)
 
 
-## Smart ranged/caster kiting & line-of-fire positioning:
+## Smart ranged/caster kiting & formation crossfire positioning:
 ## Picks an unreserved reachable cell within max_steps that establishes a valid
-## firing lane or line-of-sight (or retreats out of dead-zone range) instead of
-## walking into melee range or colliding with allies.
+## firing lane or line-of-sight, prefers cross-axis fire distinct from ranged
+## allies, and stays behind allied front-liners in Shield-Wall formation.
 static func ranged_reposition_path(
 	battle,
 	enemy,
@@ -246,11 +306,18 @@ static func ranged_reposition_path(
 	require_line: bool,
 	max_steps: int,
 	need_sight: bool = false,
-	reserved_cells: Dictionary = {}
+	reserved_cells: Dictionary = {},
+	formation: Dictionary = {}
 ) -> Array[Vector2i]:
 	var occupied: Dictionary = battle.get_occupied_cells(enemy.actor_id)
 	var sight_blockers: Dictionary = battle.get_sight_blockers(enemy.actor_id)
 	var ideal_dist: int = clampi(min_range + 1, min_range, max_range)
+	var form_id: String = str(formation.get("id", ""))
+	var used_axes: Dictionary = formation.get("used_axes", {})
+	var melee_cells: Array = formation.get("melee_cells", [])
+	var nearest_melee_dist: int = 999
+	for raw_mc in melee_cells:
+		nearest_melee_dist = mini(nearest_melee_dist, GridRulesScript.manhattan_distance(target.cell, raw_mc))
 
 	var best_score: int = -999999
 	var best_path: Array[Vector2i] = []
@@ -284,6 +351,9 @@ static func ranged_reposition_path(
 			if require_line:
 				if clear_line:
 					score += 1000
+					var axis: int = fire_axis_of(cand, target.cell)
+					if axis >= 0 and not used_axes.is_empty() and not used_axes.has(axis):
+						score += 320 if form_id == "crossfire_net" else 260
 				elif aligned:
 					score += 120
 			else:
@@ -294,15 +364,14 @@ static func ranged_reposition_path(
 
 			if in_range:
 				score += 320
+				if form_id == "shield_wall" and nearest_melee_dist < 999 and GridRulesScript.manhattan_distance(cand, target.cell) > nearest_melee_dist:
+					score += 120
 			elif dist < eff_min:
-				# Retreat urgently out of melee dead-zone
 				score -= (eff_min - dist) * 450
 			else:
-				# Close distance gently toward firing band
 				score -= (dist - max_range) * 80
 
 			score -= absi(dist - ideal_dist) * 15
-			# Prefer stepping onto or closer to any 8-way firing line (orthogonal or 45° diagonal)
 			if require_line and not aligned:
 				var adx: int = absi(cand.x - target.cell.x)
 				var ady: int = absi(cand.y - target.cell.y)
@@ -316,21 +385,48 @@ static func ranged_reposition_path(
 	return best_path
 
 
-## If target_cell is already locked by another enemy, try locking an adjacent
-## escape tile around the target so enemies create a real crossfire net.
-static func pick_uncrowded_aim(battle, source_cell: Vector2i, target_cell: Vector2i, min_r: int, max_r: int, claimed_cells: Dictionary) -> Vector2i:
+## Picks an aim cell that maximizes lockdown across the target and its open
+## escape tiles when target_cell is already threatened by an earlier ally.
+static func pick_uncrowded_aim(
+	battle,
+	source_cell: Vector2i,
+	target_cell: Vector2i,
+	min_r: int,
+	max_r: int,
+	claimed_cells: Dictionary,
+	is_cross_area: bool = false
+) -> Vector2i:
 	var base_dist: int = GridRulesScript.manhattan_distance(source_cell, target_cell)
 	if not claimed_cells.has(target_cell) and base_dist >= min_r and base_dist <= max_r:
 		return target_cell
+	var best_aim := Vector2i(-1, -1)
+	var best_score: int = -9999
 	for offset in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
 		var adj: Vector2i = target_cell + offset
 		if not GridRulesScript.is_inside_bounds(adj, battle.grid_size) or battle.blocked_cells.has(adj):
 			continue
-		if claimed_cells.has(adj):
-			continue
 		var d: int = GridRulesScript.manhattan_distance(source_cell, adj)
-		if d >= min_r and d <= max_r:
+		if d < min_r or d > max_r:
+			continue
+		var score: int = 0
+		if not claimed_cells.has(adj):
+			score += 100
+		if is_cross_area:
+			# Cross blast centered on adj covers adj + target_cell + 3 other tiles;
+			# count how many uncovered open cells around target_cell it seals.
+			for off2 in [Vector2i.ZERO, Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+				var c: Vector2i = adj + off2
+				if not GridRulesScript.is_inside_bounds(c, battle.grid_size) or battle.blocked_cells.has(c):
+					continue
+				if GridRulesScript.manhattan_distance(c, target_cell) <= 1 and not claimed_cells.has(c):
+					score += 80
+		elif not claimed_cells.has(adj):
 			return adj
+		if score > best_score:
+			best_score = score
+			best_aim = adj
+	if best_aim != Vector2i(-1, -1) and best_score > 0:
+		return best_aim
 	if base_dist >= min_r and base_dist <= max_r:
 		return target_cell
 	return Vector2i(-1, -1)

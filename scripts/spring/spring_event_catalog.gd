@@ -1,6 +1,8 @@
 class_name SpringEventCatalog
 extends RefCounted
 
+const MemoryThreadScript = preload("res://scripts/spring/spring_memory_thread.gd")
+
 ## The ten 春之境 events (设计汇总 2026-11-26 §10.2) and their resolution.
 ##
 ## The document fixes each event's options and the *direction* of their effects
@@ -476,6 +478,13 @@ static func resolve(run, event_id: StringName, index: int) -> Dictionary:
 	# "Do nothing" is still an answer: an empty panel reads as a broken event.
 	if log.is_empty():
 		log.append("你什么也没做。")
+	# 归乡记忆线（§10.4 记忆拼合 / 三级剧情延续但不阻断主线）：本次选择若拼上
+	# 一片记忆、且此前已有别的可呼应，追加一句留白回响。回响只读 event_log，
+	# 此前的选择还没写进去（由地图层在 resolve 之后写入），所以 echo_for 看到的
+	# 正是「本次之前」的记忆。回响不写进任何存档字段，纯展示。
+	var echo: String = MemoryThreadScript.echo_for(event_id, index, run.event_log)
+	if not echo.is_empty():
+		log.append(echo)
 	result["ok"] = true
 	result["log"] = log
 	result["battle"] = ctx["battle"]

@@ -301,7 +301,7 @@ func _draw_finished() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
 	# 留白式结局：文案来自 SpringEnding（可测试），这里只负责绘制。平定一局有多行
 	# 收束文字，其余结束较短；面板按行数伸缩，按钮用常量定位、始终贴在面板下方。
-	var ending: Dictionary = EndingScript.ending_for(run.exploration.finish_reason)
+	var ending: Dictionary = EndingScript.ending_for(run.exploration.finish_reason, run.event_log)
 	var lines: Array = ending.get("lines", [])
 	var panel_h: float = 148.0 + 24.0 * float(lines.size())
 	var panel := Rect2(390.0, 250.0, 500.0, panel_h)

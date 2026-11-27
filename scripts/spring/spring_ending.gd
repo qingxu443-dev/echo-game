@@ -10,6 +10,8 @@ extends RefCounted
 ## 文案与表现分离：本脚本只持有可测试的数据，spring_map_view 仅负责绘制。
 ## 不新增场景、不引入素材、不改动任何结局规则或后续区域解锁状态。
 
+const MemoryThreadScript = preload("res://scripts/spring/spring_memory_thread.gd")
+
 ## finish_reason → 收束文案。三种结束各有不同语气：平定是成就、失守是失败、
 ## 体力耗尽是软性止步；主动结束由调用方用通用文案。
 const ENDINGS := {
@@ -57,9 +59,18 @@ static func has_ending(reason: String) -> bool:
 
 
 ## 未知 finish_reason 一律回落到通用文案，不让面板空白。
-static func ending_for(reason: String) -> Dictionary:
+##
+## `event_log` 可选：平定一局时，若玩家拼到过归乡记忆碎片（§10.4 记忆拼合），
+## 追加一句留白回顾，让串起来的事件在收束处呼应。没有碎片就不加——「没遇到
+## 后续事件不应受惩罚」；这句也不解锁任何内容、不指向任何候选结局。
+static func ending_for(reason: String, event_log: Dictionary = {}) -> Dictionary:
 	var key: String = reason if ENDINGS.has(reason) else DEFAULT_REASON
-	return ENDINGS[key].duplicate(true)
+	var ending: Dictionary = ENDINGS[key].duplicate(true)
+	if reason == "cleared":
+		var echo: String = MemoryThreadScript.reflection_for(event_log)
+		if not echo.is_empty():
+			ending["lines"].append(echo)
+	return ending
 
 
 ## 三个候选结局方向都没有被选定——这是「暂不锁定结局」最直接的可测断言。

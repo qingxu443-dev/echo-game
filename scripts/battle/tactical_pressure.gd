@@ -16,7 +16,6 @@ const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const IntentSupportScript = preload("res://scripts/battle/intent_support.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
-const BattleActorScript = preload("res://scripts/actors/battle_actor.gd")
 
 const ARMOR_REDUCTION_MULT: float = 0.65
 const ARMOR_BREAK_VULN_MULT: float = 1.25
@@ -193,10 +192,7 @@ static func _trigger_boss_enrage(battle, boss) -> void:
 			continue
 		var uid: String = "escort_%s_%d_%d" % [arch, battle.turn_number, idx]
 		idx += 1
-		var unit = BattleActorScript.new(uid, "enemy", spawn_cell, hp_cap, arch, profile.attack, profile.defense, profile.magic_resistance)
-		unit.glyph = profile.glyph
-		unit.move_steps = profile.move_steps
-		unit.skill_charge_max = 3
+		var unit = EnemyActorFactory.create(profile, uid, spawn_cell, hp_cap)
 		unit.skill_charge = 2
 		init_enemy_pressure(unit)
 		battle.actors[uid] = unit
@@ -209,37 +205,70 @@ static func _trigger_boss_enrage(battle, boss) -> void:
 ## 1) If a living player is STILL adjacent (distance 1), pivot and strike them.
 ## 2) If this enemy is an Elite/Boss and a living player is within 2 tiles,
 ##    step 1 tile adjacent and strike instead of swinging at empty air.
-static func try_reactive_melee_target(battle, source, intent) -> String:
-	if intent.action_id != "basic_melee" or source == null or not source.is_alive():
-		return ""
-	var best_adj := ""
-	var best_two := ""
-	var best_two_step := Vector2i(-1, -1)
+static func reactive_step_for_cell(battle, source, origin: Vector2i, cell: Vector2i) -> Vector2i:
+	var invalid := Vector2i(-1, -1)
+	if source == null or not source.is_alive() or not GridRulesScript.is_inside_bounds(cell, battle.grid_size) or battle.blocked_cells.has(cell):
+		return invalid
+	var distance := GridRulesScript.manhattan_distance(origin, cell)
+	if distance == 1:
+		return origin
+	if distance != 2 or source.tier < 1:
+		return invalid
 	var occupied: Dictionary = battle.get_occupied_cells(source.actor_id)
+	for dir in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+		var step: Vector2i = origin + dir
+		if GridRulesScript.manhattan_distance(step, cell) == 1 and GridRulesScript.is_inside_bounds(step, battle.grid_size) and not battle.blocked_cells.has(step) and not occupied.has(step):
+			return step
+	return invalid
+
+
+static func is_reactive_cell(battle, intent, cell: Vector2i) -> bool:
+	if intent.state != BattleIntentScript.IntentState.ACTIVE or intent.action_id != "basic_melee" or not intent.target_actor_id.is_empty() or cell == intent.target_cell:
+		return false
+	var source = battle.get_actor(intent.source_actor_id)
+	if source == null or not source.is_alive():
+		return false
+	var origin: Vector2i = intent.move_path.back() if not intent.move_path.is_empty() else source.cell
+	return reactive_step_for_cell(battle, source, origin, cell) != Vector2i(-1, -1)
+
+
+static func reactive_cells(battle, intent) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	if intent.state != BattleIntentScript.IntentState.ACTIVE or intent.action_id != "basic_melee" or not intent.target_actor_id.is_empty():
+		return cells
+	var source = battle.get_actor(intent.source_actor_id)
+	if source == null or not source.is_alive():
+		return cells
+	var origin: Vector2i = intent.move_path.back() if not intent.move_path.is_empty() else source.cell
+	for dy in range(-2, 3):
+		for dx in range(-2, 3):
+			var cell := origin + Vector2i(dx, dy)
+			if cell != intent.target_cell and reactive_step_for_cell(battle, source, origin, cell) != Vector2i(-1, -1):
+				cells.append(cell)
+	return cells
+
+
+static func try_reactive_melee_target(battle, source, intent) -> String:
+	if intent.action_id != "basic_melee" or not intent.target_actor_id.is_empty() or source == null or not source.is_alive():
+		return ""
+	var chase_id := ""
+	var chase_step := Vector2i(-1, -1)
 	for actor_id in battle.actors:
-		var cand = battle.actors[actor_id]
-		if cand.team != "player" or not cand.is_alive():
+		var candidate = battle.actors[actor_id]
+		if candidate.team != "player" or not candidate.is_alive():
 			continue
-		var d: int = GridRulesScript.manhattan_distance(source.cell, cand.cell)
-		if d == 1:
-			best_adj = String(actor_id)
-			break
-		if d == 2 and int(source.tier) >= 1 and best_two.is_empty():
-			for dir in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-				var step: Vector2i = source.cell + dir
-				if GridRulesScript.manhattan_distance(step, cand.cell) == 1 and GridRulesScript.is_inside_bounds(step, battle.grid_size) and not battle.blocked_cells.has(step) and not occupied.has(step):
-					best_two = String(actor_id)
-					best_two_step = step
-					break
-	if not best_adj.is_empty():
-		intent.target_cell = battle.actors[best_adj].cell
-		return best_adj
-	if not best_two.is_empty() and best_two_step != Vector2i(-1, -1):
-		source.cell = best_two_step
-		intent.target_cell = battle.actors[best_two].cell
-		battle._emit_event("actor_moved", source.actor_id, "", "reactive_step dest=%s" % str(best_two_step))
-		return best_two
-	return ""
+		var step := reactive_step_for_cell(battle, source, source.cell, candidate.cell)
+		if step == source.cell:
+			intent.target_cell = candidate.cell
+			return String(actor_id)
+		if step != Vector2i(-1, -1) and chase_id.is_empty():
+			chase_id = String(actor_id)
+			chase_step = step
+	if not chase_id.is_empty():
+		source.cell = chase_step
+		intent.target_cell = battle.actors[chase_id].cell
+		battle._emit_event("actor_moved", source.actor_id, "", "reactive_step dest=%s" % str(chase_step))
+	return chase_id
 
 
 ## Boss dual-action follow-up intent (from turn 2+, or immediately in Phase 2):

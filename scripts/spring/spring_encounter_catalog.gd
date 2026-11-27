@@ -1,7 +1,7 @@
 class_name SpringEncounterCatalog
 extends RefCounted
 
-## The eighteen 春之境 fights (设计汇总 2026-11-26 §13, §14, §15) and the
+## The twenty 春之境 fights (设计汇总 2026-11-26 §13, §14, §15) and the
 ## turnkey conversion from "a place on the map" to a battle the existing
 ## controller can start.
 ##
@@ -61,7 +61,7 @@ const BOSSES := {
 	"boss_spring_echo": {"title": "春痕回响", "roster": ["boss_spring_echo"], "hint": "远程法术：直线与视线之外才是安全区。"},
 }
 
-## Board geometry (§13 leaves it open; one rule serves all eighteen fights).
+## Board geometry (§13 leaves it open; one rule serves all twenty fights).
 const BOARD_SIZE: Vector2i = Vector2i(8, 8)
 const HERO_CELL: Vector2i = Vector2i(3, 6)
 ## Back rank first: ranged archetypes take these before any melee does.

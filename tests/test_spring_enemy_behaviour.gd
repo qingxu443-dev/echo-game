@@ -108,6 +108,12 @@ func _planned_action(battle, actor_id: String) -> String:
 			return String(intent.action_id)
 	return ""
 
+func _intent_for_actor(battle, actor_id: String):
+	for intent in battle.intents:
+		if intent.source_actor_id == actor_id:
+			return intent
+	return null
+
 
 func _test_every_enemy_advances_or_strikes() -> void:
 	var checked := 0
@@ -365,7 +371,8 @@ func _test_ward_nodes_are_not_boss_objectives() -> void:
 		if node_cells.has(intent.target_cell):
 			targeted_node = true
 	_check(not targeted_node, "no enemy intent is aimed at a ward node")
-	_check(battle.intents.size() == 1, "the boss still produces an intent without the chests")
+	var boss_intent = _intent_for_actor(battle, "boss_thousand_boughs_00")
+	_check(boss_intent != null, "the boss still produces an intent without the chests")
 	battle.queue_free()
 
 
@@ -458,9 +465,11 @@ func _test_ward_stance_shield_scales_with_nodes() -> void:
 	var battle = _begin_boss_fight(&"boss_thousand_boughs")
 	var boss = battle.get_actor("boss_thousand_boughs_00")
 	battle.intents = PlannerScript.plan(battle)
-	var opening = battle.intents[0]
-	_check(opening.action_id == "ward_stance", "the boss opens with its stance", "action=%s" % opening.action_id)
-	_check(opening.damage == 504, "two nodes give 6% + 2x2% of 5040 = 504", "damage=%d" % opening.damage)
+	var opening = _intent_for_actor(battle, "boss_thousand_boughs_00")
+	_check(opening != null, "the boss produces its opening intent")
+	if opening != null:
+		_check(opening.action_id == "ward_stance", "the boss opens with its stance", "action=%s" % opening.action_id)
+		_check(opening.damage == 504, "two nodes give 6% + 2x2% of 5040 = 504", "damage=%d" % opening.damage)
 	battle.end_player_turn()
 	_check(boss.shield == 504, "the stance raises the shield", "shield=%d" % boss.shield)
 
@@ -468,7 +477,10 @@ func _test_ward_stance_shield_scales_with_nodes() -> void:
 	battle.damage_beacon_at(nodes[0]["cell"], 700, "sevrin", "probe")
 	boss.skill_charge = boss.skill_charge_max
 	battle.intents = PlannerScript.plan(battle)
-	_check(battle.intents[0].damage == 403, "one node left means 6% + 2% of 5040 = 403", "damage=%d" % battle.intents[0].damage)
+	var one_node_stance = _intent_for_actor(battle, "boss_thousand_boughs_00")
+	_check(one_node_stance != null, "the boss still plans its stance with one node")
+	if one_node_stance != null:
+		_check(one_node_stance.damage == 403, "one node left means 6% + 2% of 5040 = 403", "damage=%d" % one_node_stance.damage)
 	battle.queue_free()
 
 	var bare = _begin_boss_fight(&"boss_thousand_boughs")
@@ -477,7 +489,10 @@ func _test_ward_stance_shield_scales_with_nodes() -> void:
 	var bare_boss = bare.get_actor("boss_thousand_boughs_00")
 	bare_boss.skill_charge = bare_boss.skill_charge_max
 	bare.intents = PlannerScript.plan(bare)
-	_check(bare.intents[0].damage == 302, "no nodes left means the 6% base only", "damage=%d" % bare.intents[0].damage)
+	var bare_stance = _intent_for_actor(bare, "boss_thousand_boughs_00")
+	_check(bare_stance != null, "the boss still plans its stance after both nodes break")
+	if bare_stance != null:
+		_check(bare_stance.damage == 302, "no nodes left means the 6% base only", "damage=%d" % bare_stance.damage)
 	bare.queue_free()
 
 

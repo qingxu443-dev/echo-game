@@ -268,7 +268,7 @@ func _test_oathblade_knockback_unit_collision_and_chest_break() -> void:
 	chest.queue_free()
 
 
-## Into-the-Breach core promise: displacing an enemy moves its active telegraph
+## Core displacement promise: displacing an enemy moves its active telegraph
 ## by the same vector, so the sweep lands relative to where the enemy now stands.
 func _test_knockback_shifts_active_telegraphs() -> void:
 	var sweep = ControllerScript.new()

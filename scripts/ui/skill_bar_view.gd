@@ -1,7 +1,7 @@
 class_name SkillBarView
 extends RefCounted
 
-## Into-the-Breach style horizontal bottom skill dock + End Turn button.
+## Horizontal bottom skill dock + End Turn button.
 ## Owns skill_rect(), so hit testing and drawing share one geometry.
 
 const P = preload("res://scripts/ui/theme_palette.gd")

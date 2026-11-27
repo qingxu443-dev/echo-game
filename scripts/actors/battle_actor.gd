@@ -88,7 +88,7 @@ var stolen_equipment: Array[Dictionary] = []
 var melee_tolerance: int = 0
 var melee_tolerance_max: int = 2
 var last_melee_hit_seq: int = -1
-## Armor layers & Break state (Hundred-Line inspired Armor/Break cadence).
+## Armor layers & Break state (multi-layer boss armor / break cadence).
 var armor_layers: int = 0
 var armor_max: int = 0
 var armor_chip_hits: int = 0

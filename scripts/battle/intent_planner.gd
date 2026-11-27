@@ -228,7 +228,7 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 		if intent != null:
 			return intent
 
-	# 2. Into-the-Breach enemy cadence: if out of attack position after turn 1,
+	# 2. Tactical enemy cadence: if out of attack position after turn 1,
 	#    reposition first and IMMEDIATELY telegraph an attack from the new tile
 	#    instead of wasting a whole turn just walking.
 	if actions.has(&"pursuit") and battle.turn_number > 1:

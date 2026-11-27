@@ -1,7 +1,7 @@
 class_name TacticalPressure
 extends RefCounted
 
-## Hundred-Line inspired tactical pressure & counterplay rules:
+## Tactical pressure & counterplay rules:
 ##   1) Reactive melee tracking: enemies do not swing at empty air while the
 ##      hero is still right beside them (and elites/bosses step 1 tile to chase).
 ##   2) Melee tolerance gauge: 2 consecutive melee hits in one player turn on
@@ -145,7 +145,7 @@ static func on_ward_node_destroyed(battle, owner_id: String) -> void:
 
 
 ## Kill-refund (+1 AP, max 2/turn) while the battle is still ongoing so killing
-## boss escorts or frontline adds fuels Hundred-Line style tactical combos.
+## boss escorts or frontline adds fuels chained tactical combos.
 static func on_enemy_defeated(battle, target) -> void:
 	if battle.phase != battle.BattlePhase.PLAYER or target == null or target.team != "enemy":
 		return

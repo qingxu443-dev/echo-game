@@ -1,7 +1,7 @@
 class_name HudView
 extends RefCounted
 
-## Into-the-Breach inspired clean battle HUD:
+## Clean battle HUD layout:
 ## - Top-left: compact stage title, turn counter, and visual AP pips.
 ## - Top-center: single-line interactive tutorial / status banner.
 ## - Bottom-left: hero portrait with HP & shield bar directly underneath.
@@ -118,7 +118,7 @@ static func _draw_guide_banner(canvas: CanvasItem, font: Font, message: String) 
 	_draw_wrapped(canvas, font, message, rect.position + Vector2(16.0, 22.0), rect.size.x - 28.0, 14, P.TEXT, 2)
 
 
-# --- bottom-left: hero portrait + bottom HP bar (Into the Breach style) -----
+# --- bottom-left: hero portrait + bottom HP bar -----------------------------
 
 static func _draw_portrait_card(canvas: CanvasItem, font: Font, controller) -> void:
 	var rect := P.PORTRAIT_CARD_RECT

@@ -98,7 +98,7 @@ static func _basic_attack(battle, skill, target_actor_id: String) -> bool:
 		return false
 
 	var kills: int = _apply_segments(battle, caster, skill, [target], String(skill.skill_id))
-	# Into-the-Breach style tactical knockback on Sevrin's Oathblade:
+	# Tactical knockback on Sevrin's Oathblade:
 	# pushes the struck enemy 1 tile away; colliding with a wall, board edge or
 	# another unit deals bonus collision damage to the colliding actor(s).
 	if skill.skill_id == &"oathblade" and target.is_alive():
@@ -175,7 +175,7 @@ static func _apply_knockback(battle, caster, target, direction: Vector2i, collis
 	return kills
 
 
-## Into-the-Breach core rule: displacing an enemy shifts its locked attack tiles
+## Core displacement rule: displacing an enemy shifts its locked attack tiles
 ## by the same vector and rebuilds full area shapes cleanly from the new origin
 ## so edge-clipped cells recover and never overlap the enemy's own tile.
 static func shift_actor_intents(battle, actor_id: String, delta: Vector2i) -> void:

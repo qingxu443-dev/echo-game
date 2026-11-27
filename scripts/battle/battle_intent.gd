@@ -18,7 +18,7 @@ var damage_type: String = "physical"
 var execution_priority: int
 var state: IntentState = IntentState.ACTIVE
 var cancel_reason: String = ""
-## Cells the source must step through BEFORE this action resolves (Into-the-Breach
+## Cells the source must step through BEFORE this action resolves (pre-attack
 ## reposition). The planner fills it instead of moving the enemy itself, so
 ## planning stays free of side effects; IntentResolver walks it during the enemy
 ## phase. Empty for intents that act from where the enemy already stands.

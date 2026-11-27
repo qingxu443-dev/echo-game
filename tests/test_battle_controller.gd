@@ -275,7 +275,7 @@ func _test_planning_does_not_move_enemies() -> void:
 	root.add_child(battle)
 	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 1)]), "reposition encounter starts")
 	battle.beacons.clear()
-	battle.turn_number = 2  # the Into-the-Breach cadence only repositions after turn 1
+	battle.turn_number = 2  # enemy reposition cadence only runs after turn 1
 	var enemy = battle.get_actor("vanguard_00")
 	var origin: Vector2i = enemy.cell
 	var first = IntentPlannerScript.plan(battle)

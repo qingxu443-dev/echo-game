@@ -159,7 +159,7 @@ static func start_encounter(
 	if battle.run_state != null and not SpringBattleBridge.has_pending():
 		SpringBattleBridge.apply_starting_loadout_to_run_state(battle.run_state)
 
-	# Spawn 2 Relic Beacons as stationary defense objectives (Into-the-Breach style)
+	# Spawn 2 Relic Beacons as stationary defense objectives on the board
 	_spawn_default_beacons(battle, spawn_cells, enemy_cells, candidate_blockers, chest_items)
 	# After the chests, so a node never lands on one and the fight still has the
 	# loot the player expects.

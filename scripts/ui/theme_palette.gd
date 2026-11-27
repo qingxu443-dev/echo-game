@@ -127,7 +127,7 @@ const CELL_SIZE: float = 64.0
 const BOARD_ORIGIN := Vector2(384.0, 72.0)
 
 ## 2.5D Isometric projection geometry (larger 8x8 diamond centered above the
-## Into-the-Breach style bottom portrait & horizontal skill bar).
+## bottom portrait card & horizontal skill bar).
 const ISO_TILE_W: float = 80.0
 const ISO_TILE_H: float = 44.0
 const ISO_TILE_DEPTH: float = 16.0
@@ -144,7 +144,7 @@ const SKILL_BTN_H: float = 84.0
 const SKILL_BTN_GAP: float = 12.0
 const END_TURN_RECT := Rect2(1072.0, 608.0, 184.0, 84.0)
 
-## Bottom-left portrait card (Into the Breach style: portrait + HP bar underneath)
+## Bottom-left portrait card (portrait + HP bar underneath)
 const PORTRAIT_CARD_RECT := Rect2(24.0, 540.0, 284.0, 152.0)
 const TOP_LEFT_RECT := Rect2(24.0, 20.0, 284.0, 102.0)
 const CAM_LEFT_BTN := Rect2(24.0, 130.0, 138.0, 32.0)

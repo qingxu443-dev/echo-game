@@ -11,6 +11,7 @@ func _run() -> void:
 	await _test_spring_entry_loads()
 	_test_expedition_write_failure_recovers()
 	await _test_battle_reward_replay()
+	await _test_tutorial_loadout_requires_ready_encounter()
 	await _test_spring_event_response_resumes()
 
 
@@ -178,6 +179,12 @@ func _test_expedition_write_failure_recovers() -> void:
 	var stash_path := "user://spring_checkpoint_stash_%d.json" % OS.get_process_id()
 	var wallet := {"shards": 105, "loadout": ["item_dusk_potion"]}
 	_check(AtelierStash.save_state(wallet, stash_path), "seed the expedition wallet")
+	var journal := SpringSaveTransaction.journal_path(stash_path)
+	_check(DirAccess.make_dir_absolute(journal) == OK, "block the write-ahead record")
+	_check(SpringRunStorage.start(3, true, run_path, stash_path) == null, "an expedition cannot start without its recovery record")
+	_check(not FileAccess.file_exists(run_path) and AtelierStash.load_state(stash_path) == wallet,
+		"neither destination changes if recording the transfer fails")
+	DirAccess.remove_absolute(journal)
 	_check(DirAccess.make_dir_absolute(run_path) == OK, "block the checkpoint destination")
 	_check(SpringRunStorage.start(3, true, run_path, stash_path) == null, "a failed checkpoint prevents play")
 	_check(SpringSaveTransaction.is_pending(stash_path), "the transfer remains recoverable")
@@ -229,3 +236,33 @@ func _test_battle_reward_replay() -> void:
 	resumed.queue_free()
 	DirAccess.remove_absolute(run_path)
 	DirAccess.remove_absolute(stash_path)
+
+
+func _test_tutorial_loadout_requires_ready_encounter() -> void:
+	var path := "user://atelier_tutorial_pack_%d.json" % OS.get_process_id()
+	_check(AtelierStash.save_state({"shards": 105, "loadout": ["item_dusk_potion"]}, path), "seed tutorial supplies")
+	var packed: PackedScene = load(LobbyScript.BATTLE_SCENE_PATH)
+	var level: EncounterDefinition = LevelCatalog.create_prototype_levels()[0]
+	var valid_position := level.player_cell
+	level.player_cell = Vector2i(-1, -1)
+	SpringBattleBridge.tutorial_loadout_requested = true
+	var rejected = packed.instantiate()
+	rejected.atelier_save_path = path
+	root.add_child(rejected)
+	level.player_cell = valid_position
+	_check(rejected.controller.phase == BattleController.BattlePhase.FINISHED, "invalid tutorial encounter never becomes playable")
+	_check(AtelierStash.load_state(path)["loadout"] == ["item_dusk_potion"], "rejected encounter preserves the pack")
+	rejected.queue_free()
+	await process_frame
+
+	SpringBattleBridge.tutorial_loadout_requested = true
+	var tutorial = packed.instantiate()
+	tutorial.atelier_save_path = path
+	root.add_child(tutorial)
+	_check(tutorial.controller.phase == BattleController.BattlePhase.PLAYER, "valid tutorial opens for play")
+	_check(tutorial.run_state.backpack.size() == 1, "the playable tutorial receives its pack")
+	_check(AtelierStash.load_state(path)["loadout"].is_empty(), "the pack is claimed once")
+	tutorial._begin_fresh_run()
+	_check(tutorial.run_state.backpack.is_empty(), "tutorial retries do not reclaim the pack")
+	tutorial.queue_free()
+	DirAccess.remove_absolute(path)

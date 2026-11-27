@@ -185,16 +185,18 @@ static func award_shards(amount: int, path: String = SAVE_PATH) -> int:
 	return int(state["shards"]) if save_state(state, path) else 0
 
 
-static func take_loadout_items(path: String = SAVE_PATH) -> Array[Dictionary]:
+static func claim_loadout(path: String = SAVE_PATH) -> Dictionary:
 	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
-		return []
+		return {"ok": true, "items": []}
 	var state := read_state(path)
+	if state.is_empty():
+		return {"ok": false}
 	var items := packed_items(state)
 	if not items.is_empty():
 		state["loadout"] = []
 		if not save_state(state, path):
-			return []
-	return items
+			return {"ok": false}
+	return {"ok": true, "items": items}
 
 
 static func packed_items(state: Dictionary) -> Array[Dictionary]:

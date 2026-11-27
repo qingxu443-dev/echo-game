@@ -24,6 +24,7 @@ const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const SkillDefinitionScript = preload("res://scripts/battle/skill_definition.gd")
+const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
 
 
 ## Single entry point. Callers press a skill id; whether it is legal, what it
@@ -53,6 +54,7 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 		if caster != null:
 			target_actor_id = caster.actor_id
 
+	TacticalPressureScript.begin_player_action(battle)
 	return _dispatch(battle, skill, target_actor_id)
 
 

@@ -14,6 +14,7 @@ const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const IntentSupportScript = preload("res://scripts/battle/intent_support.gd")
+const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
 
 const ABSOLUTE_GUARD_MARKED_MULTIPLIER: float = 0.7
 const ABSOLUTE_GUARD_PLAIN_MULTIPLIER: float = 0.5
@@ -237,6 +238,13 @@ static func _tile_locked_attack(battle, intent) -> void:
 		if candidate.is_alive() and candidate.team == "player" and candidate.cell == intent.target_cell:
 			target_id = actor_id
 			break
+	# Reactive melee tracking: if the hero sidestepped around the enemy while
+	# staying adjacent (or within 2 cells of an Elite/Boss), pivot/step and strike
+	# instead of passively swinging at empty air.
+	if target_id.is_empty() and intent.action_id == "basic_melee" and intent.target_actor_id.is_empty():
+		var reactive_id: String = TacticalPressureScript.try_reactive_melee_target(battle, source, intent)
+		if not reactive_id.is_empty():
+			target_id = reactive_id
 	if not target_id.is_empty():
 		battle._apply_damage(target_id, intent.damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
 		intent.mark_resolved()

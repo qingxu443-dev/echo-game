@@ -641,6 +641,10 @@ func _test_absolute_guard_follows_the_status() -> void:
 func _test_active_skills_grant_ultimate_energy() -> void:
 	var battle = _sakura_battle()
 	var sakura = battle.get_actor("sakura")
+	# Keep Sakura alive across the enemy's melee tolerance counter + charged cleave
+	# so this test stays focused on per-turn ultimate energy bookkeeping.
+	sakura.max_health = 5000
+	sakura.health = 5000
 	_check(sakura.ultimate_energy == 1, "Sakura starts with the turn-start energy")
 
 	_check(battle.request_skill(&"sakura_flowing_wind", "vanguard_00"), "Flowing Wind resolves")

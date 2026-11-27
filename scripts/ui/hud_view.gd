@@ -251,13 +251,21 @@ static func _draw_enemy_inspector_card(canvas: CanvasItem, font: Font, controlle
 	canvas.draw_rect(p_rect, P.ENEMY_OUTLINE, false, 1.5)
 
 	var ix: float = p_rect.end.x + 10.0
-	canvas.draw_string(font, Vector2(ix, rect.position.y + 26.0), actor_name(controller, target_enemy.actor_id), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.TEXT)
+	var title_extra: String = ""
+	if target_enemy.boss_phase >= 2:
+		title_extra += " · 狂暴Ⅱ"
+	if target_enemy.armor_layers > 0:
+		title_extra += " [甲×%d]" % target_enemy.armor_layers
+	elif target_enemy.armor_max > 0 and target_enemy.armor_broken_until_turn >= controller.turn_number:
+		title_extra += " [破甲!]"
+	canvas.draw_string(font, Vector2(ix, rect.position.y + 26.0), actor_name(controller, target_enemy.actor_id) + title_extra, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - (ix - rect.position.x) - 10.0, 14, P.TEXT)
 	canvas.draw_string(font, Vector2(ix, rect.position.y + 46.0), "生命 %d/%d" % [target_enemy.health, target_enemy.max_health], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.WARN)
 	canvas.draw_string(font, Vector2(ix, rect.position.y + 64.0), "攻%d 防%d 抗%d" % [target_enemy.attack, target_enemy.defense, target_enemy.magic_resistance], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.TEXT_MUTED)
 	if target_enemy.skill_charge_max > 0:
 		var full_c: bool = target_enemy.skill_charge >= target_enemy.skill_charge_max
-		var c_str: String = "技能充能 %d / %d%s" % [target_enemy.skill_charge, target_enemy.skill_charge_max, " (已满!)" if full_c else " (随你耗AP充能)"]
-		canvas.draw_string(font, rect.position + Vector2(14.0, 84.0), c_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.TELEGRAPH_CHARGE_LINE if full_c else P.GOLD_LIGHT)
+		var c_str: String = "充能 %d/%d%s  近战容忍 %d/%d" % [target_enemy.skill_charge, target_enemy.skill_charge_max, "!" if full_c else "", target_enemy.melee_tolerance, target_enemy.melee_tolerance_max]
+		var c_col := Color("#ffb347") if target_enemy.melee_tolerance > 0 else (P.TELEGRAPH_CHARGE_LINE if full_c else P.GOLD_LIGHT)
+		canvas.draw_string(font, rect.position + Vector2(14.0, 84.0), c_str, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 24.0, 11, c_col)
 	if not target_enemy.stolen_equipment.is_empty():
 		var eq_names: Array[String] = []
 		for eq in target_enemy.stolen_equipment:

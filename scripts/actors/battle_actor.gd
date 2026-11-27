@@ -83,6 +83,18 @@ var defense_penalty: int = 0
 var defense_penalty_expiry_turn: int = -1
 ## Weapons/armors stolen from destroyed Relic Chests; dropped onto the ground on death.
 var stolen_equipment: Array[Dictionary] = []
+## Melee retaliation tolerance (2 consecutive melee hits in one turn -> counter;
+## ranged hits never advance it; cleared at end of player turn).
+var melee_tolerance: int = 0
+var melee_tolerance_max: int = 2
+var last_melee_hit_seq: int = -1
+## Armor layers & Break state (Hundred-Line inspired Armor/Break cadence).
+var armor_layers: int = 0
+var armor_max: int = 0
+var armor_chip_hits: int = 0
+var armor_broken_until_turn: int = -1
+## Boss phase tracker (1 = normal, 2 = enraged at <= 50% HP with escort summon).
+var boss_phase: int = 1
 
 
 func _init(

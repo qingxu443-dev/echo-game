@@ -13,6 +13,7 @@ extends RefCounted
 ## can be read without the other thirty functions around it.
 
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
+const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
 
 
 static func apply(
@@ -43,6 +44,7 @@ static func apply(
 		statuses.remove_status(target_actor_id, &"oathkeeper_mark")
 		battle._emit_event("status_consumed", source_actor_id, target_actor_id, "status=oathkeeper_mark mult=%.2f" % vuln_mult)
 
+	effective_amount = TacticalPressureScript.adjust_incoming_damage(battle, target, effective_amount, action_id)
 	var damage_result: Dictionary = target.apply_damage_with_result(effective_amount, damage_type)
 	var applied: int = int(damage_result.get("health_damage", 0))
 	var was_hit: bool = bool(damage_result.get("hit", false))
@@ -91,3 +93,7 @@ static func apply(
 			if intent.source_actor_id == target_actor_id and intent.intent_id != resolving_intent_id:
 				intent.cancel("source_defeated")
 		battle._emit_event("actor_defeated", target_actor_id, "", "enemy")
+		TacticalPressureScript.on_enemy_defeated(battle, target)
+	elif was_hit and target.team == "enemy" and target.is_alive():
+		var attacker = actors.get(source_actor_id)
+		TacticalPressureScript.on_enemy_hit(battle, attacker, target, action_id)

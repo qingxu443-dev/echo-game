@@ -228,6 +228,7 @@ func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, acti
 			var owner = get_actor(owner_id)
 			if owner != null:
 				owner.defense = maxi(0, owner.defense - ward_defense)
+				preload("res://scripts/battle/tactical_pressure.gd").on_ward_node_destroyed(self, owner_id)
 				_emit_event("ward_defense_lost", owner_id, str(b["id"]), "defense=%d" % owner.defense)
 		var breaker = get_actor(source_actor_id)
 		if breaker != null and breaker.team == "player":

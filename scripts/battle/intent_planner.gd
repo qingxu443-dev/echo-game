@@ -22,6 +22,7 @@ const EnemySkillCatalogScript = preload("res://scripts/battle/enemy_skill_catalo
 const EnemySkillDefinitionScript = preload("res://scripts/battle/enemy_skill_definition.gd")
 const EliteSkillsScript = preload("res://scripts/battle/elite_skills.gd")
 const IntentSupportScript = preload("res://scripts/battle/intent_support.gd")
+const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
 
 
 ## Read-only tactical formation detector shared by the planner and the UI.
@@ -118,6 +119,12 @@ static func plan(battle) -> Array:
 				reserved_cells[intent.move_path[intent.move_path.size() - 1]] = true
 			elif intent.action_id == "pursuit" and not intent.affected_cells.is_empty():
 				reserved_cells[intent.affected_cells[intent.affected_cells.size() - 1]] = true
+			if int(enemy.tier) >= 2 and not (target is Dictionary):
+				var combo = TacticalPressureScript.build_boss_combo_intent(battle, enemy, intent, target, threatened_cells)
+				if combo != null:
+					generated.append(combo)
+					for cc in combo.affected_cells:
+						threatened_cells[cc] = true
 
 	generated.sort_custom(func(a, b):
 		if a.execution_priority != b.execution_priority:

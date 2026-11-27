@@ -16,6 +16,7 @@ const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
+const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
 
 
 ## Validates the whole setup before touching live state: a rejected call must
@@ -96,6 +97,7 @@ static func start_encounter(
 	battle.oath_vow_triggered_intents.clear()
 	battle.absolute_guard_hit_intents.clear()
 	battle.absolute_guard_countered_enemies.clear()
+	TacticalPressureScript.reset_turn_tolerance(battle)
 	battle.blocked_cells = candidate_blockers
 	battle.intents.clear()
 	battle.event_sequence = 0
@@ -151,7 +153,9 @@ static func start_encounter(
 		enemy_unit.curse_defense_down = profile.curse_defense_down
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
+		TacticalPressureScript.init_enemy_pressure(enemy_unit)
 		battle.actors[enemy_id] = enemy_unit
+	TacticalPressureScript.reset_battle(battle)
 
 	# Spawn 2 Relic Beacons as stationary defense objectives (Into-the-Breach style)
 	_spawn_default_beacons(battle, spawn_cells, enemy_cells, candidate_blockers, chest_items)
@@ -235,6 +239,7 @@ static func start_enemy_phase_stepped(battle) -> bool:
 	if expired_statuses > 0:
 		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_end count=%d" % expired_statuses)
 	battle.ap.clear()
+	TacticalPressureScript.reset_turn_tolerance(battle)
 	battle.phase = battle.BattlePhase.ENEMY
 	battle._emit_event("turn_ended", battle.active_character_id, "", "turn=%d" % battle.turn_number)
 	return true
@@ -332,6 +337,7 @@ static func end_player_turn(battle) -> bool:
 	if expired_statuses > 0:
 		battle._emit_event("statuses_expired", "", "", "boundary=player_phase_end count=%d" % expired_statuses)
 	battle.ap.clear()
+	TacticalPressureScript.reset_turn_tolerance(battle)
 	battle.phase = battle.BattlePhase.ENEMY
 	battle._emit_event("turn_ended", battle.active_character_id, "", "turn=%d" % battle.turn_number)
 	IntentResolverScript.resolve_phase(battle)
@@ -384,6 +390,7 @@ static func begin_player_turn(battle) -> void:
 		if battle.phase == battle.BattlePhase.FINISHED:
 			return
 	battle.absolute_guard_countered_enemies.clear()
+	TacticalPressureScript.reset_turn_tolerance(battle)
 	for actor_id in battle.actors.keys():
 		var player_actor = battle.actors[actor_id]
 		if player_actor.team != "player" or not player_actor.is_alive():

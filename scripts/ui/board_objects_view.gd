@@ -339,6 +339,16 @@ static func _draw_overhead_badges(canvas: CanvasItem, controller, actor_id: Stri
 		tags.append({"text": "印", "color": P.MARK_LABEL})
 	if controller.statuses.has_status(actor_id, &"sakura_petal_mark"):
 		tags.append({"text": "香", "color": P.PETAL_LABEL})
+	var actor = controller.get_actor(actor_id)
+	if actor != null and actor.team == "enemy":
+		if actor.armor_layers > 0:
+			tags.append({"text": "甲%d" % actor.armor_layers, "color": P.GOLD_PALE})
+		elif actor.armor_max > 0 and actor.armor_broken_until_turn >= controller.turn_number:
+			tags.append({"text": "破", "color": P.TELEGRAPH_CHARGE_LINE})
+		if actor.boss_phase >= 2:
+			tags.append({"text": "狂", "color": Color("#ff6b7a")})
+		if actor.melee_tolerance > 0:
+			tags.append({"text": "怒%d" % actor.melee_tolerance, "color": Color("#ffb347")})
 	if tags.is_empty():
 		return
 	var start_x := top_pos.x - float(tags.size() - 1) * 10.0
@@ -371,6 +381,17 @@ static func _draw_compact_hp_bar(canvas: CanvasItem, actor, pos: Vector2) -> voi
 		for i in range(segs):
 			var sr := Rect2(rect.position.x + float(i) * (seg_w + gap), rect.end.y + 3.0, seg_w, 3.5)
 			canvas.draw_rect(sr, lit_col if i < actor.skill_charge else Color(0.16, 0.18, 0.22, 0.9), true)
+	# Melee tolerance bar (2 pips beneath charge bar: glows amber at 1/2 to warn
+	# that one more melee hit this turn triggers an immediate counterattack).
+	if actor.team == "enemy" and actor.melee_tolerance_max > 0:
+		var t_segs: int = actor.melee_tolerance_max
+		var t_gap: float = 3.0
+		var t_w: float = (bar_w - t_gap * float(t_segs - 1)) / float(t_segs)
+		var t_y: float = rect.end.y + 8.5
+		for j in range(t_segs):
+			var tr := Rect2(rect.position.x + float(j) * (t_w + t_gap), t_y, t_w, 2.8)
+			var t_col := Color("#ff9f38") if j < actor.melee_tolerance else Color(0.22, 0.20, 0.18, 0.65)
+			canvas.draw_rect(tr, t_col, true)
 
 
 # --- 4-way facing & sprite loading helpers ---------------------------------------

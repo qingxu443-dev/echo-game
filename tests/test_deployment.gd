@@ -125,14 +125,13 @@ func _test_chests_and_ward_nodes_share_occupancy_and_release_cells() -> void:
 	_check(not battle.request_deploy(chest_cell), "an intact relic chest reserves its cell")
 	_check(not battle.request_deploy(node_cell), "a living ward node reserves its cell")
 
-	var chest: Dictionary = battle.beacons[chest_cell]
-	chest["health"] = 0
-	battle.beacons[chest_cell] = chest
+	battle.damage_beacon_at(chest_cell, 2, "sevrin", "deploy_probe")
+	battle.damage_beacon_at(chest_cell, 2, "sevrin", "deploy_probe")
+	_check(not battle.get_occupied_cells().has(chest_cell), "destroying a chest removes it from the occupancy map")
 	_check(battle.request_deploy(chest_cell), "destroying a chest releases its cell")
 
-	var node: Dictionary = battle.beacons[node_cell]
-	node["health"] = 0
-	battle.beacons[node_cell] = node
+	battle.damage_beacon_at(node_cell, 700, "sevrin", "deploy_probe")
+	_check(not battle.get_occupied_cells().has(node_cell), "destroying a ward node removes it from the occupancy map")
 	_check(battle.request_deploy(node_cell), "destroying a ward node releases its cell")
 	battle.queue_free()
 

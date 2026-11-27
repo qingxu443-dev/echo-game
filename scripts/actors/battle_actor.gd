@@ -92,6 +92,8 @@ var last_melee_hit_seq: int = -1
 var armor_layers: int = 0
 var armor_max: int = 0
 var armor_chip_hits: int = 0
+var last_armor_chip_seq: int = -1
+var last_armor_break_seq: int = -1
 var armor_broken_until_turn: int = -1
 ## Boss phase tracker (1 = normal, 2 = enraged at <= 50% HP with escort summon).
 var boss_phase: int = 1

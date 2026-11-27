@@ -35,6 +35,8 @@ static func init_enemy_pressure(enemy) -> void:
 	enemy.last_melee_hit_seq = -1
 	enemy.boss_phase = 1
 	enemy.armor_chip_hits = 0
+	enemy.last_armor_chip_seq = -1
+	enemy.last_armor_break_seq = -1
 	enemy.armor_broken_until_turn = -1
 	if int(enemy.tier) >= 2:
 		enemy.armor_max = 2
@@ -79,11 +81,18 @@ static func on_enemy_hit(battle, source, target, action_id: String) -> void:
 
 	# 1. Armor chipping on bosses (ultimates / extreme strikes / wall collisions
 	#    break 1 layer immediately; ordinary skills chip 1 layer every 2 casts).
+	var seq: int = battle.ledger.pressure_sequence
 	if target.armor_layers > 0:
 		var heavy_break: bool = action_id in ["sakura_endless_fragrance", "sakura_endless_fragrance_finisher", "absolute_guard", "oathkeeper_ultimate", "oathkeeper_heavy_strike", "sakura_extreme_follow_up", "knockback_collision"]
 		if heavy_break:
-			shatter_armor(battle, target, 1, "heavy_skill")
-		else:
+			# A wall/unit collision is a separate physical event after the cast's
+			# attack. It must still break armor even if that attack already chipped.
+			if action_id == "knockback_collision" or seq <= 0 or target.last_armor_break_seq != seq:
+				if action_id != "knockback_collision":
+					target.last_armor_break_seq = seq
+				shatter_armor(battle, target, 1, "heavy_skill")
+		elif seq <= 0 or target.last_armor_chip_seq != seq:
+			target.last_armor_chip_seq = seq
 			target.armor_chip_hits += 1
 			if target.armor_chip_hits >= 2:
 				target.armor_chip_hits = 0
@@ -98,7 +107,6 @@ static func on_enemy_hit(battle, source, target, action_id: String) -> void:
 		return
 	if GridRulesScript.manhattan_distance(source.cell, target.cell) != 1:
 		return
-	var seq: int = battle.ledger.pressure_sequence
 	if seq > 0 and target.last_melee_hit_seq == seq:
 		return
 	target.last_melee_hit_seq = seq

@@ -49,6 +49,7 @@
 | 文档 | 核心内容 |
 |---|---|
 | [`OATHKEEPER_V2_DESIGN_SPEC_v1.0`](design/characters/OATHKEEPER_V2_DESIGN_SPEC_v1.0_zh-CN.md) | 瑟弗林 V2：不屈誓约、裁决印记、誓盾庇护、绝对守护与结算原则 |
+| [`DEST_LEE_CHARACTER_COMBAT_DESIGN_v1.0`](design/characters/DEST_LEE_CHARACTER_COMBAT_DESIGN_v1.0_zh-CN.md) | 德斯特·李：角色定位、基础面板、技能效果与战斗边界（审阅稿） |
 
 ## 赛季内容（`design/content/`）
 

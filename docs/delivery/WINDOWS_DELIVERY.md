@@ -57,4 +57,4 @@ python tools/fetch_windows_template.py
 4. 旧草稿 PR #74 与主线重叠，Boss 编成/倍率/目标策略尚未合入；沿用 CURRENT_SCOPE_AND_DECISIONS 中的接续边界，避免旧分支覆盖现有修复。
 5. 通灵底层存在但无正式 UI 入口；后续区域、永久进度、条件藏品、角色成长、正式剧情及序幕分别依赖规则/立项/素材。未实现工作继续保留在 TASK_PLAN，不把测试工具或审阅稿记作玩法交付。
 
-反馈和回滚的实际操作说明随包附在 `WINDOWS_PLAYTEST_README.txt`。发现阻断/数据损坏先保留版本、原档和日志；按严重度建立具体复现问题，再做修复与原场景复测。交接包不上传 exe 到源码 Git 历史，也不自动创建正式 Release。
+反馈和回滚的实际操作说明随包附在 [`WINDOWS_PLAYTEST_README.txt`](WINDOWS_PLAYTEST_README.txt)。发现阻断/数据损坏先保留版本、原档和日志；按严重度建立具体复现问题，再做修复与原场景复测。交接包不上传 exe 到源码 Git 历史，也不自动创建正式 Release。

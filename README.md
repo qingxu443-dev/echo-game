@@ -49,7 +49,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 
 1. **分阶段验证、统一方向**：旧版规划的“五人共享 AP 队伍 + 多角色大卡池 + 类似集成战略”远超当前原型阶段开发体量，且导致已有内容严重割裂（如瑟弗林 12000 血 vs 樱 1800 血、画风横跨中世纪重甲 / 日系和风 / 萌系召唤物）。因此**仅在当前测试版本先以单角色瑟弗林**把 2.5D 战棋与肉鸽核心循环打透，底层多角色框架继续保留，后续再在统一美学与数值口径下逐步扩充新角色。
 2. **修复旧版战斗缺乏策略深度的问题**：旧版存在 1v1 关卡过易、5 AP 行动过剩、近战隔空必中、敌人单独消耗整回合寻路发呆、多怪重叠锁定同一格导致“挪一格全躲”等问题；本次按《陷阵之志》思路引入**位移击退破招、敌方分流拆箱、AP 联动充能与分步敌方回合**，让每一步都具备真实博弈压力。
-3. **关于当前 CI 测试状态说明**：35 个自动化测试套件与工程基线（`docs/engineering/BASELINE.md`）已按 2.5D 新底层、春之境内容层与敌人行为层同步，本地实跑 **2437 条断言、0 失败、0 报错**。
+3. **关于当前 CI 测试状态说明**：35 个自动化测试套件与工程基线（`docs/engineering/BASELINE.md`）已按 2.5D 新底层、春之境内容层与敌人行为层同步，本地实跑 **2464 条断言、0 失败、0 报错**。
 
 ---
 
@@ -76,7 +76,7 @@ godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_
 | **开发与验证平台** | Windows 10/11（64 位），目标分辨率 `1280 × 720`（横屏） |
 | **移动端方向** | Android 横屏（本阶段优先完成 Windows 桌面验证，暂未验证 Android 导出） |
 | **技能组版本** | **守誓者 V2**（裁决印记 / 誓盾庇护 / 绝对守护 + 被动「不屈誓约」） |
-| **自动化验证** | 2026-11-26 完成 Godot 4.7.2 导入与主场景无头运行；35 个测试套件当前 **2437 条断言，0 失败**（基线见 `docs/engineering/BASELINE.md`）；每次推送到 main 或开 PR 时由 GitHub Actions 在 Ubuntu 与 Windows 两个 runner 上复跑（`.github/workflows/suites.yml`） |
+| **自动化验证** | 2026-11-26 完成 Godot 4.7.2 导入与主场景无头运行；35 个测试套件当前 **2464 条断言，0 失败**（基线见 `docs/engineering/BASELINE.md`）；每次推送到 main 或开 PR 时由 GitHub Actions 在 Ubuntu 与 Windows 两个 runner 上复跑（`.github/workflows/suites.yml`） |
 | **待人工验证** | Windows 桌面交互与画面表现、Android 导出与真机表现 |
 
 ---
@@ -200,15 +200,15 @@ godot --headless --path . --script res://tests/test_core_rules.gd
 test_battle_controller                 144 ok
 ...
 -----
-suites=35 assertions=2437 failures=0 broken=0
-doc-numbers: ok (2437)
+suites=35 assertions=2464 failures=0 broken=0
+doc-numbers: ok (2464)
 doc-suites: ok (35)
 module-sizes: ok (60 rows)
 ```
 
 * 每个套件结束时会输出一行机器可读结果：`RESULT <名称> assertions=<n> failures=<n>`。
 * 末尾三行分别是套件汇总、文档数字校验、模块行数校验；任何一项不一致都会让退出码变成 `1`。套件汇总里的断言总数必须与 `BASELINE.md` 相等——多一条也要在同一个改动里把基线抬上去。
-* 当前基线为 **35 个套件、2437 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
+* 当前基线为 **35 个套件、2464 条断言、0 失败**，逐套件明细与当前基线提交见 `docs/engineering/BASELINE.md`。
 * 任何代码改动均应重跑测试并以零失败为合并前提；无头测试不能替代 `F5` 主场景的交互与画面人工检查。
 
 ---

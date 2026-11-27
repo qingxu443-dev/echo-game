@@ -102,6 +102,7 @@ func refresh_save_summary() -> void:
 	if restored != null and not restored.exploration.finished:
 		spring_resume_info = {
 			"active": true,
+			"hard_mode": restored.route_plan != null and restored.route_plan.hard_mode,
 			"template_id": restored.template_id,
 			"stamina": restored.exploration.stamina,
 			"stamina_max": ExplorationState.STAMINA_MAX,
@@ -193,6 +194,22 @@ func map_card_rect(index: int) -> Rect2:
 	return Rect2(start_x + float(index) * (card_w + gap), top_y, card_w, card_h)
 
 
+func spring_normal_button_rect() -> Rect2:
+	var r := map_card_rect(1)
+	var sx := _sx()
+	var sy := _sy()
+	var w := (r.size.x - 50.0 * sx) * 0.5
+	return Rect2(r.position.x + 20.0 * sx, r.end.y - 64.0 * sy, w, 44.0 * sy)
+
+
+func spring_hard_button_rect() -> Rect2:
+	var r := map_card_rect(1)
+	var sx := _sx()
+	var sy := _sy()
+	var w := (r.size.x - 50.0 * sx) * 0.5
+	return Rect2(r.position.x + 30.0 * sx + w, r.end.y - 64.0 * sy, w, 44.0 * sy)
+
+
 # --- public state helpers ----------------------------------------------------
 
 func open_map_selector() -> void:
@@ -215,7 +232,7 @@ func move_map_selection(direction: int) -> void:
 	queue_redraw()
 
 
-func activate_map(index: int) -> bool:
+func activate_map(index: int, hard_mode: bool = false) -> bool:
 	if index < 0 or index >= MAP_ENTRIES.size():
 		return false
 	selected_map_index = index
@@ -229,6 +246,13 @@ func activate_map(index: int) -> bool:
 		status_notice = "目标地图场景不可用。"
 		queue_redraw()
 		return false
+	if str(entry.get("id", "")) == "spring":
+		if hard_mode:
+			SpringBattleBridge.requested_mode = "hard"
+		elif not bool(spring_resume_info.get("active", false)):
+			SpringBattleBridge.requested_mode = "normal"
+		else:
+			SpringBattleBridge.requested_mode = ""
 	var tree := get_tree()
 	if tree == null:
 		return true
@@ -312,7 +336,10 @@ func _handle_click(pos: Vector2) -> void:
 			return
 		for i in range(MAP_ENTRIES.size()):
 			if map_card_rect(i).has_point(pos):
-				activate_map(i)
+				if i == 1 and spring_hard_button_rect().has_point(pos):
+					activate_map(1, true)
+				else:
+					activate_map(i, false)
 				return
 		return
 
@@ -490,17 +517,31 @@ func _draw_map_card(font: Font, index: int, sx: float, sy: float, alpha: float) 
 	for li in range(lines.size()):
 		draw_string(font, r.position + Vector2(20.0 * sx, (152.0 + float(li) * 28.0) * sy), str(lines[li]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 36.0 * sx, roundi(13.0 * sy), Color(0.80, 0.79, 0.76, (0.50 if locked else 0.92) * alpha))
 
-	var is_spring_resume := (str(entry["id"]) == "spring" and bool(spring_resume_info.get("active", false)))
+	var is_spring := (str(entry["id"]) == "spring")
+	var is_spring_resume := (is_spring and bool(spring_resume_info.get("active", false)))
 	if is_spring_resume:
 		var tag_r := Rect2(r.position.x + 20.0 * sx, r.end.y - 108.0 * sy, r.size.x - 40.0 * sx, 28.0 * sy)
 		draw_rect(tag_r, Color(0.13, 0.25, 0.32, 0.9 * alpha), true)
 		draw_rect(tag_r, Color(0.56, 0.78, 0.86, 0.8 * alpha), false, 1.0)
-		draw_string(font, tag_r.position + Vector2(12.0 * sx, 19.0 * sy), "检测到未完成探索 · 剩余体力 %d/%d" % [int(spring_resume_info.get("stamina", 0)), int(spring_resume_info.get("stamina_max", 10))], HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color(0.88, 0.97, 1.0, alpha))
+		var mode_tag := "困难定轨" if bool(spring_resume_info.get("hard_mode", false)) else "普通"
+		draw_string(font, tag_r.position + Vector2(12.0 * sx, 19.0 * sy), "进行中（%s）· 体力 %d/%d" % [mode_tag, int(spring_resume_info.get("stamina", 0)), int(spring_resume_info.get("stamina_max", 10))], HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color(0.88, 0.97, 1.0, alpha))
+	elif is_spring:
+		draw_string(font, Vector2(r.position.x + 20.0 * sx, r.end.y - 84.0 * sy), "困难定轨：开局绘线必达首领，锁轨推进", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 36.0 * sx, roundi(11.5 * sy), Color(0.95, 0.62, 0.56, alpha))
+
+	if is_spring:
+		var left_r := spring_normal_button_rect()
+		var right_r := spring_hard_button_rect()
+		draw_rect(left_r, Color(0.24, 0.22, 0.24, 0.92 * alpha), true)
+		draw_rect(left_r, border_col, false, 1.4)
+		draw_string(font, left_r.position + Vector2(0.0, 28.0 * sy), "继续探索" if is_spring_resume else "普通探索", HORIZONTAL_ALIGNMENT_CENTER, left_r.size.x, roundi(14.0 * sy), Color(0.98, 0.95, 0.88, alpha))
+		draw_rect(right_r, Color(0.38, 0.14, 0.15, 0.96 * alpha), true)
+		draw_rect(right_r, Color(0.90, 0.44, 0.42, 0.95 * alpha), false, 1.6)
+		draw_string(font, right_r.position + Vector2(0.0, 28.0 * sy), "困难 · 定轨", HORIZONTAL_ALIGNMENT_CENTER, right_r.size.x, roundi(14.0 * sy), Color(1.0, 0.90, 0.86, alpha))
+		return
 
 	# Bottom CTA button inside card
 	var cta_r := Rect2(r.position.x + 20.0 * sx, r.end.y - 64.0 * sy, r.size.x - 40.0 * sx, 44.0 * sy)
 	var cta_bg := Color(0.18, 0.19, 0.22, 0.75 * alpha) if locked else (Color(accent.r * 0.42, accent.g * 0.38, accent.b * 0.30, 0.95 * alpha) if selected else Color(0.18, 0.20, 0.24, 0.90 * alpha))
 	draw_rect(cta_r, cta_bg, true)
 	draw_rect(cta_r, border_col, false, 1.4)
-	var cta_label := "继续探索" if is_spring_resume else str(entry["cta"])
-	draw_string(font, cta_r.position + Vector2(0.0, 28.0 * sy), cta_label, HORIZONTAL_ALIGNMENT_CENTER, cta_r.size.x, roundi(15.0 * sy), Color(0.55, 0.56, 0.60, alpha) if locked else Color(0.98, 0.95, 0.88, alpha))
+	draw_string(font, cta_r.position + Vector2(0.0, 28.0 * sy), str(entry["cta"]), HORIZONTAL_ALIGNMENT_CENTER, cta_r.size.x, roundi(15.0 * sy), Color(0.55, 0.56, 0.60, alpha) if locked else Color(0.98, 0.95, 0.88, alpha))

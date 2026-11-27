@@ -70,6 +70,10 @@ func _test_lobby_scene_and_map_selector() -> void:
 	var card2: Rect2 = lobby.map_card_rect(2)
 	_check(not card0.intersects(card1) and not card1.intersects(card2), "map selector cards do not overlap")
 	_check(card2.end.x <= lobby.selector_panel_rect().end.x, "all map cards fit inside the selector panel")
+	var normal_btn: Rect2 = lobby.spring_normal_button_rect()
+	var hard_btn: Rect2 = lobby.spring_hard_button_rect()
+	_check(not normal_btn.intersects(hard_btn), "春之境 normal and hard buttons do not overlap")
+	_check(card1.encloses(normal_btn) and card1.encloses(hard_btn), "春之境 normal and hard buttons fit inside the card")
 
 	lobby.move_map_selection(1)
 	_check(lobby.selected_map_index == 1, "right navigation advances to 春之境")

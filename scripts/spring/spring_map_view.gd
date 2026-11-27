@@ -1,16 +1,6 @@
 extends Control
 
 ## 春之境 map screen (设计汇总 2026-11-26 §8.4).
-##
-## Deliberately minimal: a flat 5x5 grid, a resource strip, a bottom action bar.
-## No 2.5D, no camera, no fog (§8.1). Everything is drawn here rather than built
-## from scenes, which is what the rest of the UI does and what makes the screen
-## cheap to redraw at 60 fps.
-##
-## The map is the whole game loop that exists today: walk, spend stamina, reach a
-## place. What a place *contains* - battle, event, shop - is not wired yet, so
-## entering one says so instead of pretending to resolve it.
-
 const P = preload("res://scripts/ui/theme_palette.gd")
 const FactoryScript = preload("res://scripts/spring/spring_map_factory.gd")
 const EventViewScript = preload("res://scripts/spring/spring_event_view.gd")
@@ -20,6 +10,7 @@ const EncounterCatalogScript = preload("res://scripts/spring/spring_encounter_ca
 const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
 const EndingScript = preload("res://scripts/spring/spring_ending.gd")
+const RouteOverlayScript = preload("res://scripts/spring/spring_route_overlay.gd")
 
 const MENU_SCENE_PATH := "res://scenes/lobby/lobby.tscn"
 const SAVE_PATH := "user://spring_run.json"
@@ -49,8 +40,6 @@ var petals: Array[Dictionary] = []
 var _scale: float = 1.0
 var _offset: Vector2 = Vector2.ZERO
 
-## Content overlays. Only one can be open at a time; each one blocks the map so a
-## click meant for a dialogue option cannot also move the explorer.
 var event_open: bool = false
 var event_place: SpringPlace
 var event_result: Dictionary = {}
@@ -58,34 +47,37 @@ var shop_open: bool = false
 var shop_tab: int = 0
 var shop_sell_page: int = 0
 var shop_message: String = ""
-## Elite wins hand three candidates and take one (§14). Empty means no choice is
-## pending.
 var reward_choices: Array[StringName] = []
-## §11.3: shown after a lost fight, before the run ends.
 var revive_prompt: bool = false
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
+	var req_mode: String = BridgeScript.consume_requested_mode()
 	if run == null:
-		# §16.2: a run left mid-way resumes exactly where it stopped. Only when
-		# there is no save does the board get drawn fresh.
-		var restored := SpringRun.load_from_file(SAVE_PATH)
-		if restored != null and not restored.exploration.finished:
-			run = restored
-			status_message = "已恢复本局：模板 %d · 剩余体力 %d。" % [run.template_id, run.exploration.stamina]
+		if req_mode == "hard" or req_mode == "normal":
+			_clear_save()
+			start_new_run(int(Time.get_unix_time_from_system()) % 100000, req_mode == "hard")
 		else:
-			start_new_run(int(Time.get_unix_time_from_system()) % 100000)
+			var restored := SpringRun.load_from_file(SAVE_PATH)
+			if restored != null and not restored.exploration.finished:
+				run = restored
+				status_message = "已恢复本局：模板 %d · 剩余体力 %d。" % [run.template_id, run.exploration.stamina]
+			else:
+				start_new_run(int(Time.get_unix_time_from_system()) % 100000, false)
 	_apply_returned_battle()
 	_init_petals()
 	queue_redraw()
 
 
-func start_new_run(seed_value: int) -> void:
-	run = SpringRun.begin(seed_value)
+func start_new_run(seed_value: int, hard_mode: bool = false) -> void:
+	run = SpringRun.begin(seed_value, hard_mode)
 	selected_cell = Vector2i(-1, -1)
-	status_message = "抵达 %s。点击地点查看路程与体力消耗。" % _place_label(run.template.start_cell)
+	if hard_mode:
+		status_message = "【困难·定轨】点击地图节点绘制路线（尾部必须是「王」），锁定后须强制按线推进！"
+	else:
+		status_message = "抵达 %s。点击地点查看路程与体力消耗。" % _place_label(run.template.start_cell)
 	confirm_end = false
 
 
@@ -151,8 +143,11 @@ func _draw() -> void:
 	_draw_background()
 	_draw_petals()
 	_draw_top_bar()
+	RouteOverlayScript.draw_mode_badge(self, run)
 	_draw_grid()
-	_draw_selection()
+	RouteOverlayScript.draw_route_on_grid(self, self, run, elapsed)
+	if run.route_plan == null or not run.route_plan.hard_mode:
+		_draw_selection()
 	_draw_bottom_bar()
 	if confirm_end:
 		_draw_confirm()
@@ -263,8 +258,9 @@ func _draw_bottom_bar() -> void:
 
 	var here: String = _place_label(run.exploration.position)
 	draw_string(font, Vector2(36.0, 664.0), "当前位置  %s" % here, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_BODY)
-	draw_string(font, Vector2(36.0, 690.0), status_message, HORIZONTAL_ALIGNMENT_LEFT, 560.0, 12, P.TEXT_MUTED)
-
+	draw_string(font, Vector2(36.0, 690.0), status_message, HORIZONTAL_ALIGNMENT_LEFT, 510.0, 12, P.TEXT_MUTED)
+	if RouteOverlayScript.draw_bottom_controls(self, run):
+		return
 	if not run.exploration.finished:
 		_draw_button(GO_BTN, "前往所选", run.template.is_inside(selected_cell) and run.exploration.can_move_to(selected_cell))
 		_draw_button(END_BTN, "结束探索", true)
@@ -313,7 +309,7 @@ func _draw_finished() -> void:
 	for index in range(lines.size()):
 		draw_string(font, panel.position + Vector2(28.0, 76.0 + 24.0 * float(index)), str(lines[index]), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
 	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), str(ending.get("footer", "")), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
-	_draw_button(RETURN_BTN, "返回主菜单", true)
+	_draw_button(RETURN_BTN, "返回大厅", true)
 
 
 func _cell_fill(place: SpringPlace, is_here: bool) -> Color:
@@ -419,6 +415,10 @@ func _gui_input(event: InputEvent) -> void:
 
 	if END_BTN.has_point(point):
 		confirm_end = true
+		queue_redraw()
+		accept_event()
+		return
+	if RouteOverlayScript.handle_tap(self, run, point):
 		queue_redraw()
 		accept_event()
 		return

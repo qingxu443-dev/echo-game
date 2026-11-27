@@ -83,15 +83,17 @@ var event_choices: Dictionary = {}
 ## At most one hidden place per board (§9.1). Empty until revealed (§9.2).
 var hidden_cell: Vector2i = Vector2i.ZERO
 var hidden_revealed: bool = false
+var route_plan: SpringRoutePlan = SpringRoutePlan.create(false)
 
 
-static func begin(p_seed: int) -> SpringRun:
+static func begin(p_seed: int, hard_mode: bool = false) -> SpringRun:
 	var run := SpringRun.new()
 	run.seed_value = p_seed
 	run.template_id = SpringMapFactory.template_for_seed(p_seed)
 	run.template = SpringMapFactory.build(run.template_id)
 	run.exploration = ExplorationState.create(run.template)
 	run.random_event_id = run._draw_random_event()
+	run.route_plan = SpringRoutePlan.create(hard_mode)
 	return run
 
 
@@ -424,6 +426,7 @@ func to_dict() -> Dictionary:
 		# §16.2: stock, remaining counts, purchase records and used services all
 		# travel with the save.
 		"shop": {} if shop == null else shop.to_dict(),
+		"route_plan": {} if route_plan == null else route_plan.to_dict(),
 	}
 
 
@@ -546,6 +549,7 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	var shop_data: Dictionary = data.get("shop", {})
 	if not shop_data.is_empty():
 		run.shop = SpringShop.from_dict(shop_data)
+	run.route_plan = SpringRoutePlan.from_dict(data.get("route_plan", {}))
 	return run
 
 

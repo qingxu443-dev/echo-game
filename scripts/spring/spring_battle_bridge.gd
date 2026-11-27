@@ -33,6 +33,14 @@ const KIND_BOSS: String = "boss"
 static var pending: Dictionary = {}
 ## Set by the battle before it changes back; consumed by the map in _ready.
 static var last_result: Dictionary = {}
+## Optional mode handoff from the Lobby ("normal" / "hard" / "" for resume).
+static var requested_mode: String = ""
+
+
+static func consume_requested_mode() -> String:
+	var mode: String = requested_mode
+	requested_mode = ""
+	return mode
 
 
 static func has_pending() -> bool:

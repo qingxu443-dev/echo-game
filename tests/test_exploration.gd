@@ -26,6 +26,7 @@ func _run() -> void:
 	_test_player_can_end_with_stamina_left()
 	_test_path_lists_every_step()
 	_test_moving_is_refused_after_the_window_closes()
+	_test_hard_mode_route_planning_and_forced_execution()
 
 
 func _fresh() -> ExplorationState:
@@ -167,3 +168,71 @@ func _test_moving_is_refused_after_the_window_closes() -> void:
 	state.move_to(place.cell)
 	state.mark_completed(place.id)
 	_check(not state.move_to(Vector2i(2, 2)), "a finished run refuses further movement")
+
+
+func _test_hard_mode_route_planning_and_forced_execution() -> void:
+	var run := SpringRun.begin(2, true)
+	var plan: SpringRoutePlan = run.route_plan
+	_check(plan != null and plan.hard_mode and plan.is_planning(), "hard mode starts in route-planning phase")
+	_check(not plan.can_lock(run.template, run.exploration.stamina), "an empty route cannot be locked")
+	_check(not plan.is_allowed_destination(run.template.boss_cell), "free movement is blocked before the route is locked")
+
+	# Adding start cell is refused.
+	var start_res: Dictionary = plan.toggle_waypoint(run.template.start_cell, run.template, run.exploration.stamina)
+	_check(not bool(start_res["ok"]), "the fixed start cell cannot be added as a waypoint")
+
+	# Pick a mid-route cell between start and boss so start -> mid -> boss fits in 10 stamina.
+	var mid_cell := Vector2i(-1, -1)
+	for place in run.template.places:
+		if place.cell == run.template.start_cell or place.cell == run.template.boss_cell:
+			continue
+		var d: int = SpringRoutePlan.manhattan(run.template.start_cell, place.cell) + SpringRoutePlan.manhattan(place.cell, run.template.boss_cell)
+		if d <= run.exploration.stamina:
+			mid_cell = place.cell
+			break
+	_check(mid_cell != Vector2i(-1, -1), "template has an intermediate stop on the way to the boss within stamina")
+
+	var push_mid: Dictionary = plan.toggle_waypoint(mid_cell, run.template, run.exploration.stamina)
+	_check(bool(push_mid["ok"]) and plan.waypoints.size() == 1, "an intermediate waypoint is added")
+	_check(not plan.can_lock(run.template, run.exploration.stamina), "a route that does not end on the boss cell cannot be locked")
+	var bad_lock: Dictionary = plan.lock_plan(run.template, run.exploration.stamina)
+	_check(not bool(bad_lock["ok"]), "locking a non-boss tail is rejected")
+
+	# Duplicate waypoint is refused; tapping the tail pops it.
+	var pop_mid: Dictionary = plan.toggle_waypoint(mid_cell, run.template, run.exploration.stamina)
+	_check(bool(pop_mid["ok"]) and str(pop_mid["action"]) == "pop" and plan.waypoints.is_empty(), "tapping the current tail cell undoes the last step")
+
+	# Rebuild mid -> boss route and verify over-budget refusal & post-boss lock.
+	plan.toggle_waypoint(mid_cell, run.template, run.exploration.stamina)
+	var push_boss: Dictionary = plan.toggle_waypoint(run.template.boss_cell, run.template, run.exploration.stamina)
+	_check(bool(push_boss["ok"]) and plan.ends_at_boss(run.template), "connecting the boss cell completes the tail requirement")
+	var after_boss: Dictionary = plan.toggle_waypoint(Vector2i(2, 2), run.template, run.exploration.stamina)
+	_check(not bool(after_boss["ok"]), "no further waypoints may be appended after the boss tail")
+	_check(plan.can_lock(run.template, run.exploration.stamina), "a valid route ending on the boss can be locked")
+
+	var locked: Dictionary = plan.lock_plan(run.template, run.exploration.stamina)
+	_check(bool(locked["ok"]) and plan.is_locked_active(), "locking switches hard mode into forced execution")
+	_check(plan.is_allowed_destination(mid_cell), "the first planned waypoint is the only allowed next move")
+	_check(not plan.is_allowed_destination(run.template.boss_cell), "skipping ahead to the boss is refused while an earlier stop is pending")
+
+	# Save / load roundtrip preserves hard mode, locked route, and cursor.
+	var snapshot: Dictionary = run.to_dict()
+	var restored := SpringRun.from_dict(snapshot)
+	_check(restored != null and restored.route_plan.hard_mode and restored.route_plan.locked, "save roundtrip preserves hard-mode locked state")
+	_check(restored.route_plan.waypoints == plan.waypoints and restored.route_plan.cursor == 0, "save roundtrip preserves waypoints and cursor")
+
+	# Stepping strictly follows mid -> boss.
+	_check(run.exploration.move_to(mid_cell), "moving to the first planned stop succeeds")
+	plan.advance_cursor()
+	_check(plan.next_stop() == run.template.boss_cell, "advancing cursor unlocks the boss as the next stop")
+	_check(plan.is_allowed_destination(run.template.boss_cell), "boss stop is now allowed")
+	_check(run.exploration.move_to(run.template.boss_cell), "moving to the boss stop succeeds within stamina")
+	plan.advance_cursor()
+	_check(not plan.has_next_stop(), "cursor reaches end of route after arriving at the boss")
+
+	# Every template guarantees at least a direct route to the boss within 10 stamina.
+	for tid in [1, 2, 3]:
+		var tmpl := FactoryScript.build(tid)
+		var direct := SpringRoutePlan.create(true)
+		var res := direct.toggle_waypoint(tmpl.boss_cell, tmpl, ExplorationState.STAMINA_MAX)
+		_check(bool(res["ok"]) and direct.can_lock(tmpl, ExplorationState.STAMINA_MAX), "template %d supports a valid boss-tail route within stamina" % tid)

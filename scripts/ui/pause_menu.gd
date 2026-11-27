@@ -18,8 +18,8 @@ func _ready() -> void:
 	_label("E C H O   /   I N T E R M I S S I O N", Vector2(408, 103), Vector2(464, 22), 11, UiPalette.GOLD)
 	_label("让回声停留片刻，再向未尽之处前行。", Vector2(408, 177), Vector2(464, 26), 14, UiPalette.TEXT_DIM)
 	_add_button("resume", "继  续", "RETURN TO THE JOURNEY", Rect2(408, 224, 464, 62), true)
-	_add_button("save_exit", "保存并退出", "SAVE & EXIT", Rect2(408, 300, 226, 58))
-	_add_button("exit", "退出", "EXIT GAME", Rect2(646, 300, 226, 58))
+	_add_button("save_exit", "保存并退出", "SAVE & RETURN", Rect2(408, 300, 226, 58))
+	_add_button("exit", "退出", "RETURN TO TITLE", Rect2(646, 300, 226, 58))
 	_add_button("music", "音乐 · 开", "MUSIC", Rect2(408, 372, 226, 58))
 	_add_button("effects", "音效 · 开", "SOUND EFFECTS", Rect2(646, 372, 226, 58))
 	_add_button("about", "关于", "ABOUT ECHO", Rect2(408, 444, 464, 54))
@@ -45,7 +45,7 @@ func _ready() -> void:
 	box.add_child(row)
 	for id in ["back", "confirm"]:
 		var button := Button.new()
-		button.text = "返回" if id == "back" else "确认退出"
+		button.text = "返回" if id == "back" else "返回标题"
 		button.custom_minimum_size = Vector2(176, 44)
 		_skin(button)
 		button.pressed.connect(_detail_action.bind(id))
@@ -127,7 +127,7 @@ func show_about() -> void:
 func ask_exit() -> void:
 	confirm_exit = true
 	_enable_main(false)
-	detail_text.text = "离开这段旅途？\n\n退出不会保存当前暂停位置。\n已有的自动存档与此前保存的旅程会保留。\n\n若希望下次从这里继续，请返回并选择「保存并退出」。"
+	detail_text.text = "返回标题界面？\n\n返回标题不会保存当前暂停位置。\n已有的自动存档与此前保存的旅程会保留。\n\n若希望从这里继续，请返回并选择「保存并退出」。"
 	buttons.confirm.show()
 	detail.show()
 	buttons.back.grab_focus()

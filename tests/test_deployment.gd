@@ -98,6 +98,10 @@ func _test_obstacles_and_enemies_are_not_placeable() -> void:
 	var blocker = BattleActorScript.new("boss_probe_00", "enemy", occupied, 100, "petal_warrior", 10, 0, 0)
 	battle.actors[blocker.actor_id] = blocker
 	_check(not battle.request_deploy(occupied), "a cell held by an enemy rejects placement")
+
+	var chest_cell := Vector2i(1, 5)
+	battle.beacons[chest_cell] = {"id": "chest_block", "cell": chest_cell, "health": 2, "max_health": 2}
+	_check(not battle.request_deploy(chest_cell), "a cell holding an intact relic chest rejects placement")
 	battle.queue_free()
 
 
@@ -132,7 +136,7 @@ func _test_confirm_requires_everyone_placed() -> void:
 func _test_confirm_starts_the_first_turn() -> void:
 	var battle = _begin_deploying()
 	var hero = battle.get_actor("sevrin")
-	battle.request_deploy(Vector2i(2, 6))
+	battle.request_deploy(Vector2i(4, 6))
 	var energy_before: int = hero.ultimate_energy
 
 	_check(battle.request_begin_battle(), "confirm is accepted once the roster is placed")

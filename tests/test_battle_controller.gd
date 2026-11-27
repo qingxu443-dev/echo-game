@@ -331,7 +331,7 @@ func _test_relic_chest_enemy_steal_and_equipment_drop() -> void:
 	battle.damage_beacon_at(chest_cell, 600, enemy.actor_id, "charged_strike")
 	_check(int(battle.beacons[chest_cell]["health"]) == 1 and enemy.attack == atk_before, "first hit drops chest durability from 2 to 1 without breaking it")
 	battle.damage_beacon_at(chest_cell, 600, enemy.actor_id, "charged_strike")
-	_check(enemy.attack == atk_before + 200, "second hit breaks the weapon chest and enemy equips its attack bonus")
+	_check(enemy.attack == atk_before + 400, "second hit breaks the weapon chest and enemy gains 2x attack bonus")
 	_check(enemy.stolen_equipment.size() == 1, "stolen weapon is tracked on the enemy for death drop")
 	_check(battle.phase != ControllerScript.BattlePhase.FINISHED, "breaking all chests never causes instant defeat")
 
@@ -358,7 +358,7 @@ func _test_enemy_chest_buffs_follow_the_catalogue() -> void:
 
 	var dusk = LootCatalogScript.get_item(&"weapon_dusk_blade")
 	battle.call("_grant_chest_buff_to_enemy", "vanguard_00", {"id": "chest_dusk", "loot": dusk})
-	_check(enemy.attack == 1400 + 320, "the dusk blade's enemy variant adds its declared 320 attack")
+	_check(enemy.attack == 1400 + 640, "the dusk blade's enemy variant adds 2x its declared 320 attack")
 	_check(enemy.defense == 450, "the enemy variant carries no defense penalty")
 	_check(enemy.stolen_equipment.size() == 1, "an equipped weapon rides the thief until death")
 
@@ -367,14 +367,14 @@ func _test_enemy_chest_buffs_follow_the_catalogue() -> void:
 	var def_before: int = enemy.defense
 	battle.call("_grant_chest_buff_to_enemy", "vanguard_00", {"id": "chest_bulwark", "loot": bulwark})
 	_check(enemy.defense == def_before, "armor on an enemy is shield, not defense")
-	_check(enemy.shield == 650, "the bulwark's declared enemy shield lands")
+	_check(enemy.shield == 1300, "the bulwark's declared enemy shield lands at 2x")
 	_check(enemy.attack == atk_before, "the bulwark adds no attack")
 
 	var shock = LootCatalogScript.get_item(&"upg_shock_shield")
 	var atk_again: int = enemy.attack
 	battle.call("_grant_chest_buff_to_enemy", "vanguard_00", {"id": "chest_shock", "loot": shock})
 	_check(enemy.attack == atk_again, "the shock shield upgrade adds no attack")
-	_check(enemy.shield == 650 + 700, "the upgrade's declared enemy shield lands")
+	_check(enemy.shield == 1300 + 1400, "the upgrade's declared enemy shield lands at 2x")
 
 	# Weapons and armor drop back to the ground when the wearer dies.
 	battle.call("drop_enemy_equipment", enemy)

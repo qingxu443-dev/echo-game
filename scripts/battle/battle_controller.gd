@@ -316,11 +316,11 @@ func _grant_chest_buff_to_enemy(source_actor_id: String, chest: Dictionary) -> v
 	# path). The player-side stats are deliberately not reused: the enemy
 	# variants are tuned separately - armor becomes shield, the dusk blade
 	# loses its defense penalty, and each upgrade carries its own numbers.
-	recipient.attack = maxi(1, recipient.attack + int(loot.get("enemy_attack", 0)))
-	var add_shield: int = int(loot.get("enemy_shield", 0))
+	recipient.attack = maxi(1, recipient.attack + int(loot.get("enemy_attack", 0)) * 2)
+	var add_shield: int = int(loot.get("enemy_shield", 0)) * 2
 	if add_shield > 0:
 		recipient.shield = mini(recipient.max_health, recipient.shield + add_shield)
-	var add_heal: int = int(loot.get("enemy_heal", 0))
+	var add_heal: int = int(loot.get("enemy_heal", 0)) * 2
 	if add_heal > 0:
 		recipient.health = mini(recipient.max_health, recipient.health + add_heal)
 	if bool(loot.get("enemy_charge", false)) and recipient.skill_charge_max > 0:

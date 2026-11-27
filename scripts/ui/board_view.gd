@@ -100,6 +100,8 @@ static func _draw_deploy_zone(canvas: CanvasItem, controller) -> void:
 	for cell in controller.deploy_zone:
 		if controller.blocked_cells.has(cell):
 			continue
+		if controller.beacons.has(cell) and int(controller.beacons[cell].get("health", 0)) > 0:
+			continue
 		var pending_here: bool = hero != null and hero.cell == cell
 		var pts := P.cell_diamond(cell, 3.0)
 		canvas.draw_colored_polygon(pts, P.DEPLOY_ACTIVE_FILL if pending_here else P.DEPLOY_FILL)

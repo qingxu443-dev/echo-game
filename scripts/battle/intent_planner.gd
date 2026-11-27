@@ -101,9 +101,12 @@ static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
 			best_beacon = b
 
 	var hero_dist: int = GridRulesScript.manhattan_distance(enemy.cell, hero.cell)
-	# If another enemy already locked the hero's tile, or a beacon is closer, target the beacon!
-	if not best_beacon.is_empty() and (hero_claimed or best_b_dist <= hero_dist):
-		return {"cell": best_beacon["cell"], "actor_id": str(best_beacon["id"]), "is_beacon": true}
+	# Hero is always primary aggro. Only peel off to hit an unclaimed chest when
+	# the hero is already claimed and a chest is within 2 tiles, or when a chest
+	# is right next to the enemy while the hero is far away (>= 5 tiles).
+	if not best_beacon.is_empty() and not claimed_cells.has(best_beacon["cell"]):
+		if (hero_claimed and best_b_dist <= 2) or (best_b_dist == 1 and hero_dist >= 5):
+			return {"cell": best_beacon["cell"], "actor_id": str(best_beacon["id"]), "is_beacon": true}
 	return hero
 
 

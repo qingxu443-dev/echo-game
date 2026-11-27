@@ -33,6 +33,9 @@ const KIND_BOSS: String = "boss"
 
 ## Set by the map before it changes scene; read by the battle in _ready.
 static var pending: Dictionary = {}
+## Captured with a suspended fight, so resuming never depends on a newer map save.
+static var suspended_map: Dictionary = {}
+static var restore_map: bool = false
 ## Set by the battle before it changes back; consumed by the map in _ready.
 static var last_result: Dictionary = {}
 ## Optional mode handoff from the Lobby ("normal" / "hard" / "" for resume).
@@ -79,6 +82,7 @@ static func consume_result() -> Dictionary:
 static func prepare(run, encounter_id: StringName, place_id: StringName, kind: String = KIND_BATTLE) -> bool:
 	if not SpringEncounterCatalog.has_encounter(encounter_id):
 		return false
+	suspended_map = run.to_dict()
 	pending = {
 		"encounter": encounter_id,
 		"place": place_id,

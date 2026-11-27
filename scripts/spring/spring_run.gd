@@ -68,7 +68,10 @@ var shop: SpringShop
 ## An event can put a fight in the player's way (§10.2 林间的异响 / 被封存的箱子).
 ## The encounter id waits here until the map opens it.
 var pending_battle: StringName = &""
-## §11.3: one continuation per area, reset on entering the next area.
+## §11.3: one continuation per area. Spring's map is a single area today, so
+## this flag lasts the whole run. There is no area concept in the code yet -
+## nothing resets it after it is used - so a future area transition must reset
+## it here, or the "one per area" promise becomes one per run.
 var revive_used: bool = false
 ## Event id -> {"option": int, "log": [...]}. §16.2 asks for the choices.
 var event_log: Dictionary = {}

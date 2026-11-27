@@ -175,43 +175,46 @@ static func draw_telegraph_labels(canvas: CanvasItem, controller, _fx_state: Dic
 		var label := ""
 		var color := P.TEXT
 		var anchor_cell: Vector2i = intent.target_cell
+		# Quote the same mitigation the resolver bills with. A badge that says
+		# 1688 for a hit that removes 1508 trains players to ignore badges.
+		var shown: int = intent.preview_health_damage(controller)
 		match intent.action_id:
 			"ground_pulse":
-				label = "脉冲 %d" % intent.damage
+				label = "脉冲 %d" % shown
 				color = P.TELEGRAPH_PULSE_MARK
 			"echo_bolt":
-				label = "回声弹 %d" % intent.damage
+				label = "回声弹 %d" % shown
 				color = P.TELEGRAPH_PULSE_MARK
 			"aimed_shot":
-				label = "贯通狙击 %d" % intent.damage
+				label = "贯通狙击 %d" % shown
 				color = P.TELEGRAPH_SHOT_MARK
 			"light_shot":
-				label = "点射 %d" % intent.damage
+				label = "点射 %d" % shown
 				color = P.TELEGRAPH_SHOT_MARK
 			"charged_strike":
-				label = "蓄力 %d" % intent.damage
+				label = "蓄力 %d" % shown
 				color = P.TELEGRAPH_CHARGE_MARK
 			"basic_melee":
 				anchor_cell = intent.target_cell
-				label = "斩击 %d" % intent.damage
+				label = "斩击 %d" % shown
 				color = P.TELEGRAPH_CHARGE_MARK
 			"blight_field":
-				label = "樱落 %d" % intent.damage
+				label = "樱落 %d" % shown
 				color = P.HAZARD_BLIGHT_LINE
 			"spring_bloom":
-				label = "春痕 %d" % intent.damage
+				label = "春痕 %d" % shown
 				color = P.HAZARD_SPRING_LINE
 			"sakura_shock":
-				label = "震荡 %d" % intent.damage
+				label = "震荡 %d" % shown
 				color = P.TELEGRAPH_CHARGE_MARK
 			"lock_on":
 				label = "锁命"
 				color = P.TELEGRAPH_SHOT_MARK
 			"locked_shot":
-				label = "锁命箭 %d" % intent.damage
+				label = "锁命箭 %d" % shown
 				color = P.TELEGRAPH_SHOT_MARK
 			"shadow_raid":
-				label = "突袭 %d" % intent.damage
+				label = "突袭 %d" % shown
 				color = P.TELEGRAPH_CHARGE_MARK
 			"rot_curse":
 				label = "降防 %d" % intent.damage

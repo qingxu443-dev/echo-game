@@ -76,7 +76,7 @@ func _test_true_damage_ignores_mitigation_but_not_shield() -> void:
 
 	# Both reduction layers are skipped even though they would halve physical.
 	var reduced := _make_actor()
-	var through_reductions: Dictionary = reduced.apply_damage_with_result(1000, "true", 50, 0, [50] as Array[int])
+	var through_reductions: Dictionary = reduced.apply_damage_with_result(1000, "true", 50, [50] as Array[int])
 	_check(through_reductions["health_damage"] == 1000, "true damage ignores percentage reductions")
 
 	var shielded := _make_actor()
@@ -101,7 +101,7 @@ func _test_critical_is_a_hook_not_a_rule() -> void:
 
 	var crit := _make_actor()
 	# 2000 raw against 700 defense: floor(2000 * 1000 / 1700) = 1176
-	var landed: Dictionary = crit.apply_damage_with_result(1000, "physical", 0, 0, [] as Array[int], 2.0)
+	var landed: Dictionary = crit.apply_damage_with_result(1000, "physical", 0, [] as Array[int], 2.0)
 	_check(landed["was_critical"], "a multiplier above 1 is reported as critical")
 	_check(landed["health_damage"] == 1176, "the critical multiplier scales raw damage before mitigation")
 

@@ -187,13 +187,15 @@ static func _draw_enemy_order_card(canvas: CanvasItem, font: Font, controller) -
 		var dmg_str: String = ""
 		if intent.damage > 0:
 			# 结界/壁垒 payload is a shield, and 腐樱诅咒 is a defence cut - both
-			# would read as damage if printed as a bare number.
+			# would read as damage if printed as a bare number. Everything else is
+			# health damage, quoted through the resolver's own mitigation so the
+			# order list and the hit agree.
 			if _is_shield_action(intent.action_id):
 				dmg_str = " (盾 %d)" % intent.damage
 			elif intent.action_id == "rot_curse":
 				dmg_str = " (降防 %d)" % intent.damage
 			else:
-				dmg_str = " (%d)" % intent.damage
+				dmg_str = " (%d)" % intent.preview_health_damage(controller)
 		var line: String = "%d. %s · %s%s" % [index + 1, actor_name(controller, intent.source_actor_id), action_name(intent.action_id), dmg_str]
 		var text_col: Color = P.TEXT_FAINT if intent.state == IntentScript.IntentState.ACTIVE else P.TEXT_DISABLED
 		canvas.draw_string(font, Vector2(rect.position.x + 28.0, y), line, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 38.0, 13, text_col)
@@ -252,7 +254,7 @@ static func _draw_enemy_inspector_card(canvas: CanvasItem, font: Font, controlle
 				# would tell the player to expect health loss that never comes.
 				skill_title += "  ·  降防 %d" % active_intent.damage
 			else:
-				skill_title += "  ·  %d 伤害" % active_intent.damage
+				skill_title += "  ·  %d 伤害" % active_intent.preview_health_damage(controller)
 		canvas.draw_string(font, rect.position + Vector2(14.0, 132.0), skill_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, a_col)
 		_draw_wrapped(canvas, font, action_description(active_intent.action_id), rect.position + Vector2(14.0, 156.0), rect.size.x - 28.0, 13, P.TEXT_BODY, 3)
 	else:

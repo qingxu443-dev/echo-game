@@ -81,3 +81,28 @@ func mark_resolved() -> bool:
 		return false
 	state = IntentState.RESOLVED
 	return true
+
+
+## What this intent would actually cost the actor standing where it lands,
+## mitigation and current shield included. Goes through
+## BattleActor.preview_damage, which is the same expression the resolver bills
+## with, so a telegraph can no longer quote 1688 for a hit that removes 1508.
+##
+## Shield and debuff payloads (古木壁垒 / 结界守护 / 腐樱诅咒) are not health
+## damage - their `damage` field carries a shield or a defence number - so they
+## keep the raw value and callers are expected not to ask this for them.
+func preview_health_damage(battle) -> int:
+	if damage <= 0:
+		return 0
+	var victim = null
+	if not target_actor_id.is_empty() and battle.actors.has(target_actor_id):
+		victim = battle.actors[target_actor_id]
+	elif not affected_cells.is_empty():
+		for actor_id in battle.actors:
+			var unit = battle.actors[actor_id]
+			if unit.is_alive() and affected_cells.has(unit.cell):
+				victim = unit
+				break
+	if victim == null or not victim.has_method("preview_damage"):
+		return damage
+	return victim.preview_damage(damage, damage_type)

@@ -103,6 +103,9 @@ static func _knockback_one(battle, caster, target, direction: Vector2i, collisio
 				battle._apply_damage(other.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
 			return
 	target.cell = dest
+	# Forced movement is control: a swordsman shoved off his mark loses the
+	# wind-up, the same way the dash's impact does (§14 樱华蓄斩).
+	battle.interrupt_enemy_charge(target.actor_id, "knockback")
 	for intent in battle.intents:
 		if intent.source_actor_id != target.actor_id or intent.state != 0:
 			continue
@@ -253,7 +256,7 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 	var distance: int = GridRulesScript.manhattan_distance(caster.cell, target.cell)
 	if distance < skill.min_range or distance > skill.max_range:
 		return false
-	if not GridRulesScript.has_clear_line_of_sight(caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells()):
+	if not GridRulesScript.has_clear_line_of_sight(caster.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers()):
 		return false
 	if not battle.ap.can_spend(skill.ap_cost):
 		return false

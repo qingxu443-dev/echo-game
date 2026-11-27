@@ -21,7 +21,13 @@ const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skil
 
 static func draw(canvas: CanvasItem, controller, selected_skill: int, skill_bar: Array, fx_state: Dictionary = {}) -> void:
 	_draw_grid(canvas, controller)
+	_draw_deploy_zone(canvas, controller)
 	_draw_move_hints(canvas, controller, selected_skill, fx_state)
+	# Hazards paint OVER the move hints, not under them: "this tile will hurt you"
+	# outranks "this tile is reachable", and a cyan move fill is opaque enough to
+	# hide the ground entirely. The player must see the cost of the step they are
+	# about to take, not just that the step is allowed.
+	BoardThreatViewScript.draw_hazard_tiles(canvas, controller, fx_state)
 	_draw_hover_hint(canvas, controller, fx_state)
 	BoardThreatViewScript.draw_telegraphs(canvas, controller, fx_state)
 	_draw_target_hints(canvas, controller, selected_skill, skill_bar, fx_state)
@@ -84,6 +90,21 @@ static func _draw_grid(canvas: CanvasItem, controller) -> void:
 
 
 # --- movement / hover / target hints ----------------------------------------
+
+## §11.1 部署区. Same diamond vocabulary as the move hints, different hue: the
+## player is choosing a starting position, not spending this turn's movement.
+static func _draw_deploy_zone(canvas: CanvasItem, controller) -> void:
+	if controller.phase != controller.BattlePhase.DEPLOY:
+		return
+	var hero = controller.get_active_character()
+	for cell in controller.deploy_zone:
+		if controller.blocked_cells.has(cell):
+			continue
+		var pending_here: bool = hero != null and hero.cell == cell
+		var pts := P.cell_diamond(cell, 3.0)
+		canvas.draw_colored_polygon(pts, P.DEPLOY_ACTIVE_FILL if pending_here else P.DEPLOY_FILL)
+		P.draw_polyline_closed(canvas, pts, P.DEPLOY_ACTIVE_LINE if pending_here else P.DEPLOY_LINE, 2.4 if pending_here else 1.4)
+
 
 static func _draw_move_hints(canvas: CanvasItem, controller, selected_skill: int, fx_state: Dictionary) -> void:
 	if controller.phase != controller.BattlePhase.PLAYER or selected_skill >= 0:

@@ -24,7 +24,19 @@ extends Resource
 ## (the pre-2.5D behaviour). Teaching levels pin their rewards here so the
 ## lesson they promise is the lesson the player actually gets.
 @export var chest_items: Array[StringName] = []
+## 春之结界 (§15.2): destructible nodes spawned around the boss. 0 for every
+## fight that is not 千枝神将's.
+@export var ward_nodes: int = 0
+## Cells the player may place characters on before the fight starts (§11.1).
+## Empty means "the battlefield's default zone" - the southern three rows - so a
+## level only has to state this when its shape is unusual.
+@export var deploy_cells: Array[Vector2i] = []
 
+const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
+
+## Kept for readers who want the prototype trio at a glance. Validation no longer
+## uses this list: a new archetype is one .tres plus one line in EnemyCatalog, so
+## the authority for "which ids exist" has to be the catalog itself.
 const KNOWN_ARCHETYPES: Array[String] = ["vanguard", "marksman", "area_controller"]
 
 
@@ -38,8 +50,10 @@ func is_valid() -> bool:
 	if enemy_archetypes.size() != enemy_cells.size():
 		return false
 	for archetype in enemy_archetypes:
-		if not KNOWN_ARCHETYPES.has(archetype):
+		if not EnemyCatalogScript.has_definition(archetype):
 			return false
+	if ward_nodes < 0 or ward_nodes > 4:
+		return false
 	return true
 
 

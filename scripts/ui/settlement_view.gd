@@ -13,19 +13,22 @@ const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 const ACTION_RESTART: String = "restart"
 const ACTION_NEXT: String = "next"
 const ACTION_OPEN_BAG: String = "open_bag"
+## 春之境 fights are one-off map nodes: there is no "next stage" to walk into, so
+## the only way out is back to the board.
+const ACTION_RETURN_MAP: String = "return_map"
 
 const CHEST_PANEL_RECT := Rect2(220.0, 126.0, 840.0, 468.0)
 const CHEST_BAG_BTN := Rect2(370.0, 520.0, 240.0, 50.0)
 const CHEST_NEXT_BTN := Rect2(660.0, 520.0, 240.0, 50.0)
 
 
-static func draw(canvas: CanvasItem, controller, level, has_next: bool, claimed_loot: Array[Dictionary] = []) -> void:
+static func draw(canvas: CanvasItem, controller, level, has_next: bool, claimed_loot: Array[Dictionary] = [], spring: bool = false) -> void:
 	var font := ThemeDB.fallback_font
 	var won: bool = controller.battle_result == "victory"
 
 	canvas.draw_rect(Rect2(Vector2.ZERO, P.VIEW_SIZE), P.OVERLAY_SCRIM, true)
 
-	if won and has_next:
+	if won and has_next and not spring:
 		_draw_chest_settlement(canvas, font, controller, level, claimed_loot)
 		return
 
@@ -33,6 +36,8 @@ static func draw(canvas: CanvasItem, controller, level, has_next: bool, claimed_
 	canvas.draw_rect(P.SETTLEMENT_RECT, P.BUTTON_BORDER, false, 2.0)
 
 	var title := "章节通关 · 胜利！" if won else "战败 · 回声消散"
+	if spring:
+		title = "战斗胜利" if won else "失守"
 	canvas.draw_string(font, Vector2(370.0, 262.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, P.GOLD_PALE if won else P.WARN)
 
 	var level_name: String = "—" if level == null else str(level.display_name_zh)
@@ -46,9 +51,12 @@ static func draw(canvas: CanvasItem, controller, level, has_next: bool, claimed_
 	var health_label := "—" if hero == null else "%d / %d" % [hero.health, hero.max_health]
 	_row(canvas, font, 436.0, "剩余生命", health_label)
 
-	_button(canvas, font, P.RESTART_BTN, "重新开局")
-	if won:
-		_button(canvas, font, P.NEXT_BTN, "开启新一局")
+	if spring:
+		_button(canvas, font, P.RESTART_BTN, "返回春之境")
+	else:
+		_button(canvas, font, P.RESTART_BTN, "重新开局")
+		if won:
+			_button(canvas, font, P.NEXT_BTN, "开启新一局")
 
 
 static func _draw_chest_settlement(canvas: CanvasItem, font: Font, controller, level, claimed_loot: Array[Dictionary]) -> void:
@@ -109,7 +117,13 @@ static func _draw_loot_card(canvas: CanvasItem, font: Font, card: Rect2, item: D
 	_draw_wrapped(canvas, font, str(item.get("desc", "")), card.position + Vector2(18.0, 108.0), card.size.x - 36.0, 14, P.TEXT_BODY, 3)
 
 
-static func hit(position: Vector2, won: bool, has_next: bool = false) -> String:
+static func hit(position: Vector2, won: bool, has_next: bool = false, spring: bool = false) -> String:
+	if spring:
+		if P.RESTART_BTN.has_point(position):
+			return ACTION_RETURN_MAP
+		if CHEST_BAG_BTN.has_point(position):
+			return ACTION_OPEN_BAG
+		return ""
 	if won and has_next:
 		if CHEST_BAG_BTN.has_point(position):
 			return ACTION_OPEN_BAG

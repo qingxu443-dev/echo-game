@@ -25,8 +25,10 @@ const BattleFlowScript = preload("res://scripts/battle/battle_flow.gd")
 const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 const DamagePipelineScript = preload("res://scripts/battle/damage_pipeline.gd")
+const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skill_runtime.gd")
+const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
@@ -36,7 +38,9 @@ const RunStateScript = preload("res://scripts/battle/run_state.gd")
 ## constant so the movement-range rule has a single source of truth.
 const PLAYER_MOVE_MAX_STEPS: int = 2
 
-enum BattlePhase { PLAYER, ENEMY, FINISHED }
+## DEPLOY is appended rather than prepended so the three existing constants keep
+## their values: a few tests and save-ish payloads compare them by number.
+enum BattlePhase { PLAYER, ENEMY, FINISHED, DEPLOY }
 
 @export var grid_size: Vector2i = Vector2i(8, 8)
 ## Team-wide AP pool (design plan §4): five points shared by the whole party per
@@ -52,6 +56,19 @@ var blocked_cells: Dictionary = {}
 var beacons: Dictionary = {}
 ## Equipment dropped onto tiles when an enemy carrying stolen gear dies: cell -> Array[Dictionary]
 var dropped_loot: Dictionary = {}
+## Ground hazards (凋零 / 残春): cell -> {"kind", "cell", "damage", "damage_type",
+## "owner_id", "expires_turn"}. They never hold a cell - movement and line of
+## sight read `blocked_cells`, not this table - so a hazard can only ever hurt.
+var hazards: Dictionary = {}
+## Per-character ledger for "at most one hazard trigger per player turn":
+## actor_id -> turn_number of the last trigger.
+var hazard_trigger_turn: Dictionary = {}
+## 11.1 部署阶段: the cells the player may place characters on, the roster order
+## they are placed in, and how many have been placed. Empty when the encounter
+## skips deployment.
+var deploy_zone: Array[Vector2i] = []
+var deploy_order: Array[String] = []
+var deploy_index: int = 0
 var intents: Array = []
 var event_sequence: int = 0
 var turn_number: int = 0
@@ -115,16 +132,57 @@ func start_encounter(
 	enemy_archetypes: Array[String] = [],
 	character_ids: Array[String] = [],
 	ally_cells: Array[Vector2i] = [],
-	chest_items: Array[StringName] = []
+	chest_items: Array[StringName] = [],
+	ward_nodes: int = 0,
+	deploy_zone_cells: Array[Vector2i] = [],
+	defer_start: bool = false
 ) -> bool:
-	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items)
+	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes, deploy_zone_cells, defer_start)
 
 
 func end_player_turn() -> bool:
 	return BattleFlowScript.end_player_turn(self)
 
 
+# --- 11.1 deployment ---------------------------------------------------------
+
+func is_deploy_cell(cell: Vector2i) -> bool:
+	return deploy_zone.has(cell)
+
+
+func all_deployed() -> bool:
+	return not deploy_order.is_empty() and deploy_index >= deploy_order.size()
+
+
+## Places the next undeployed character on `cell`, or slides the last placed one
+## there: §11.1 allows adjusting before confirming.
+func request_deploy(cell: Vector2i) -> bool:
+	return BattleFlowScript.request_deploy(self, cell)
+
+
+## §11.1 "点击确认部署后才正式开始战斗".
+func request_begin_battle() -> bool:
+	return BattleFlowScript.request_begin_battle(self)
+
+
 # --- read-only queries -------------------------------------------------------
+
+## Cells that block line of sight. Split from `get_occupied_cells` because
+## §15.2 says the 春之结界 nodes "阻挡移动但不阻挡视线": they hold their cell, so
+## nobody can walk through, but an archer can still shoot across one. Everything
+## else that holds a cell - actors, walls, relic chests - blocks both.
+func get_sight_blockers(exclude_actor_id: String = "") -> Dictionary:
+	var blockers: Dictionary = blocked_cells.duplicate()
+	for actor_id in actors:
+		var actor = actors[actor_id]
+		if actor_id != exclude_actor_id and actor.blocks_cell():
+			blockers[actor.cell] = actor_id
+	for b_cell in beacons:
+		var b: Dictionary = beacons[b_cell]
+		if int(b.get("health", 0)) > 0 and bool(b.get("blocks_sight", true)):
+			blockers[b_cell] = str(b["id"])
+	return blockers
+
 
 func get_occupied_cells(exclude_actor_id: String = "") -> Dictionary:
 	var occupied: Dictionary = {}
@@ -161,6 +219,16 @@ func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, acti
 	_emit_event("beacon_damaged", source_actor_id, str(b["id"]), "action=%s cell=%s applied=%d health=%d" % [action_id, str(cell), dmg, int(b["health"])])
 	if int(b["health"]) <= 0:
 		_emit_event("beacon_destroyed", source_actor_id, str(b["id"]), "cell=%s" % str(cell))
+		# 春之结界 (§15.2): breaking a node permanently cancels the defense it
+		# lent its boss. The bonus is tracked on the node, not recomputed from a
+		# node count, so two destroyed nodes cannot subtract three times.
+		var ward_defense: int = int(b.get("ward_defense", 0))
+		if ward_defense > 0:
+			var owner_id := str(b.get("owner_id", ""))
+			var owner = get_actor(owner_id)
+			if owner != null:
+				owner.defense = maxi(0, owner.defense - ward_defense)
+				_emit_event("ward_defense_lost", owner_id, str(b["id"]), "defense=%d" % owner.defense)
 		var breaker = get_actor(source_actor_id)
 		if breaker != null and breaker.team == "player":
 			# Player slammed an enemy into the chest and cracked it open -> drop loot on the tile!
@@ -173,6 +241,58 @@ func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, acti
 		else:
 			_grant_chest_buff_to_enemy(source_actor_id, b)
 	return true
+
+
+## §15.2 春之结界: two destructible nodes beside the boss. Each one holds a cell
+## (so it blocks movement - the beacon table is the only cell-holding object the
+## battle layer has) and lends its boss `WARD_NODE_DEFENSE` while it stands.
+## Nodes never act, never drop loot, and are not re-spawned after destruction.
+const WARD_NODE_HEALTH: int = 700
+const WARD_NODE_DEFENSE: int = 80
+
+func spawn_ward_nodes(count: int = 2, health: int = WARD_NODE_HEALTH, defense_bonus: int = WARD_NODE_DEFENSE) -> int:
+	var boss = null
+	for actor_id in actors:
+		var candidate = actors[actor_id]
+		if candidate.team == "enemy" and candidate.is_alive() and int(candidate.tier) == 2:
+			boss = candidate
+			break
+	if boss == null:
+		return 0
+	var occupied: Dictionary = get_occupied_cells()
+	var candidates: Array[Vector2i] = [
+		boss.cell + Vector2i.UP, boss.cell + Vector2i.RIGHT,
+		boss.cell + Vector2i.DOWN, boss.cell + Vector2i.LEFT,
+		boss.cell + Vector2i(1, 1), boss.cell + Vector2i(1, -1),
+		boss.cell + Vector2i(-1, 1), boss.cell + Vector2i(-1, -1),
+	]
+	var placed: int = 0
+	for cell in candidates:
+		if placed >= count:
+			break
+		if not GridRulesScript.is_inside_bounds(cell, grid_size):
+			continue
+		if blocked_cells.has(cell) or occupied.has(cell) or beacons.has(cell):
+			continue
+		beacons[cell] = {
+			"id": "ward_node_%02d" % placed,
+			"cell": cell,
+			"health": health,
+			"max_health": health,
+			"opened": false,
+			"loot": {},
+			"kind": "ward_node",
+			# §15.2: the node blocks movement but not sight.
+			"blocks_sight": false,
+			# The boss must not treat its own nodes as objectives.
+			"enemy_objective": false,
+			"ward_defense": defense_bonus,
+			"owner_id": boss.actor_id,
+		}
+		boss.defense += defense_bonus
+		placed += 1
+		_emit_event("ward_node_spawned", boss.actor_id, "ward_node_%02d" % (placed - 1), "cell=%s defense=%d" % [str(cell), boss.defense])
+	return placed
 
 
 func _grant_chest_buff_to_enemy(source_actor_id: String, chest: Dictionary) -> void:
@@ -252,6 +372,10 @@ func collect_remaining_chests() -> Array[Dictionary]:
 	var claimed: Array[Dictionary] = []
 	for cell in beacons:
 		var b: Dictionary = beacons[cell]
+		# 结界节点 are not chests: they carry no loot and must not be reported as
+		# "saved" in the settlement summary.
+		if str(b.get("kind", "")) == "ward_node":
+			continue
 		if int(b.get("health", 0)) > 0 and not bool(b.get("opened", false)):
 			b["health"] = 0
 			b["opened"] = true
@@ -387,6 +511,10 @@ func request_player_move(path: Array[Vector2i]) -> bool:
 		free_move_used_turn = turn_number
 	mover.cell = path[path.size() - 1]
 	pickup_dropped_loot_at(mover.cell)
+	# 凋零 / 残春 punish walking onto a tile, on top of whatever the player spent
+	# to get here. `trigger_for` owns the once-per-turn rule, so a two-step move
+	# across two hazard tiles still hurts exactly once.
+	HazardFieldScript.trigger_for(self, mover)
 	SkillExecutorScript.gain_active_energy(self, mover.actor_id)
 	CharacterSkillRuntimeScript.gain_intent_from_action(self, mover)
 	_emit_event("actor_moved", mover.actor_id, "", str(mover.cell))
@@ -410,6 +538,28 @@ func request_oathkeeper_judgment_mark(target_actor_id: String) -> bool:
 ## only if it invents a new mechanic, one branch in CharacterSkillRuntime.
 func request_skill(skill_id: StringName, target_actor_id: String = "") -> bool:
 	return CharacterSkillRuntimeScript.request(self, skill_id, target_actor_id)
+
+
+## §14 樱华蓄斩: break a telegraphed charged strike that the sheet marks as
+## interruptible. Control is expressed as this call - a dash that slams into the
+## swordsman, a knockback that moves him - and the charge bar pays for it, so the
+## elite needs three more AP of pressure before it can wind up again. Returns
+## false when there was nothing to interrupt, so callers can log a plain hit.
+func interrupt_enemy_charge(actor_id: String, reason: String) -> bool:
+	if actor_id.is_empty():
+		return false
+	for intent in intents:
+		if intent.source_actor_id != actor_id or intent.state != BattleIntentScript.IntentState.ACTIVE:
+			continue
+		if not intent.interruptible:
+			continue
+		intent.cancel("interrupted")
+		var source = actors.get(actor_id)
+		if source != null and source.skill_charge_max > 0:
+			source.skill_charge = 0
+		_emit_event("enemy_skill_interrupted", actor_id, "", "action=%s reason=%s" % [intent.action_id, reason])
+		return true
+	return false
 
 
 # --- hunter summon -----------------------------------------------------------

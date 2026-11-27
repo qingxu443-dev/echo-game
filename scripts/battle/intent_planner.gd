@@ -6,35 +6,22 @@ extends RefCounted
 ## Pure planning: it reads the battlefield and returns intent snapshots, but it
 ## never mutates actors or statuses.
 ##
-## Which actions an archetype knows is data (`EnemyDefinition.actions`, in
-## priority order). Whether a given action is legal right now is code, because it
-## reads the board - distance, line of sight, reachable cells - and a data format
-## expressive enough to describe that would be a scripting language. The split
-## means a new enemy that reuses existing actions is one .tres, and a genuinely
-## new action is one branch here.
+## 三层分工：
+##   - EnemySkillCatalog 说「这一招的数值是多少」；
+##   - EliteSkills 说「这一招的几何形状长什么样」（专属技）；
+##   - 本文件说「这一招现在合不合法」，并把结果排成执行顺序。
+## 通用招式（蓄力斩/近战/追击/远程）的几何仍留在本文件，因为它们的形状由
+## 距离和视线直接决定，抽出去只会多一层跳转。
 
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
-
-## Damage multipliers per action, kept next to the decision that uses them. These
-## describe the action rather than the archetype, so they are not in the .tres.
-const CHARGED_STRIKE_MULTIPLIER: float = 1.5
-const BASIC_MELEE_MULTIPLIER: float = 0.8
-const AIMED_SHOT_MULTIPLIER: float = 1.35
-const LIGHT_SHOT_MULTIPLIER: float = 0.75
-const GROUND_PULSE_MULTIPLIER: float = 1.15
-const ECHO_BOLT_MULTIPLIER: float = 0.7
-
-## Reach and priority per action. Priority only orders the execution list; the
-## choice between actions is the order in `actions`.
-const CHARGED_STRIKE_RANGE: int = 2
-const BASIC_MELEE_RANGE: int = 1
-const AIMED_SHOT_MIN_RANGE: int = 3
-const AIMED_SHOT_MAX_RANGE: int = 6
-const GROUND_PULSE_MIN_RANGE: int = 2
-const GROUND_PULSE_MAX_RANGE: int = 4
+const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
+const EnemySkillCatalogScript = preload("res://scripts/battle/enemy_skill_catalog.gd")
+const EnemySkillDefinitionScript = preload("res://scripts/battle/enemy_skill_definition.gd")
+const EliteSkillsScript = preload("res://scripts/battle/elite_skills.gd")
+const IntentSupportScript = preload("res://scripts/battle/intent_support.gd")
 
 
 static func plan(battle) -> Array:
@@ -53,7 +40,7 @@ static func plan(battle) -> Array:
 		var intent = _choose_intent(battle, enemy, target, occupied, claimed_cells)
 		if intent != null:
 			generated.append(intent)
-			if intent.action_id != "wait" and intent.action_id != "pursuit":
+			if intent.action_id not in ["wait", "pursuit", "ward_ally"]:
 				claimed_cells[intent.target_cell] = true
 
 	generated.sort_custom(func(a, b):
@@ -101,6 +88,10 @@ static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
 	var best_beacon: Dictionary = {}
 	var best_b_dist: int = 999
 	for b in beacons:
+		# A boss's own 结界 nodes are scenery it protects, not something it
+		# attacks. Everything else (the relic chests) stays a valid objective.
+		if not bool(b.get("enemy_objective", true)):
+			continue
 		var bc: Vector2i = b["cell"]
 		var d: int = GridRulesScript.manhattan_distance(enemy.cell, bc)
 		# Prefer unclaimed beacons first, then nearest beacon
@@ -117,6 +108,13 @@ static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
 
 
 static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_cells: Dictionary = {}):
+	# 百花锁命 第二段: a mark placed last enemy phase fires now. It is checked
+	# before the action list because the shot is not one of the archer's choices -
+	# it is the delayed half of a decision already made.
+	var locked_intent = EliteSkillsScript.locked_shot(battle, enemy)
+	if locked_intent != null:
+		return locked_intent
+
 	var actions: Array[StringName] = actions_for(enemy)
 
 	# 1. Try any non-movement attack from the current tile first.
@@ -148,7 +146,9 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 			enemy.cell = dest
 			var follow_intent = null
 			for action_id in actions:
-				if action_id == &"pursuit":
+				# 逐影突袭 already carries its own path; evaluating it again from a
+				# simulated destination would stack two moves into one intent.
+				if action_id == &"pursuit" or action_id == &"shadow_raid":
 					continue
 				follow_intent = _build_intent(battle, enemy, target, occupied, action_id, claimed_cells)
 				if follow_intent != null:
@@ -173,16 +173,37 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 
 
 static func _compute_move_path(battle, enemy, target) -> Array[Vector2i]:
+	var steps: int = _move_steps_of(enemy)
 	if enemy.archetype == "marksman":
-		return _ranged_reposition_path(battle, enemy, target, AIMED_SHOT_MIN_RANGE, AIMED_SHOT_MAX_RANGE, true, 2)
+		var shot = EnemySkillCatalogScript.get_skill(&"aimed_shot")
+		var keep: int = shot.reposition_min_range if shot.reposition_min_range > 0 else shot.min_range
+		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, keep, shot.max_range, true, steps)
 	if enemy.archetype == "area_controller":
-		return _ranged_reposition_path(battle, enemy, target, GROUND_PULSE_MIN_RANGE, GROUND_PULSE_MAX_RANGE, false, 2)
-	return _pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, 2)
+		var pulse = EnemySkillCatalogScript.get_skill(&"ground_pulse")
+		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, pulse.min_range, pulse.max_range, false, steps)
+	return IntentSupportScript.pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, steps)
+
+
+## Reposition budget for this actor. Two is the prototype baseline; a profile
+## overrides it to express weight (heavy guard 1, wind runner 3). Read through a
+## guard because the planner is also driven by test doubles that only model the
+## handful of fields a scenario needs.
+static func _move_steps_of(enemy) -> int:
+	var steps: int = 2
+	if enemy != null and "move_steps" in enemy:
+		steps = int(enemy.move_steps)
+	return clampi(steps, 1, 4)
 
 
 ## Returns null when the action is not legal on this board. Each branch checks
 ## only its own preconditions, so adding an action cannot change another one.
+##
+## 专属技先走 EliteSkills 的表：那张表随技能一起放在 elite_skills.gd 里，
+## 所以加一条新专属技不需要回头改这里。只有通用招式的几何还留在这个 match。
 static func _build_intent(battle, enemy, target, occupied: Dictionary, action_id: StringName, claimed_cells: Dictionary = {}):
+	var elite: Dictionary = EliteSkillsScript.executors()
+	if elite.has(action_id):
+		return elite[action_id].call(battle, enemy, target)
 	match action_id:
 		&"charged_strike":
 			return _charged_strike(battle, enemy, target, occupied)
@@ -203,11 +224,11 @@ static func _build_intent(battle, enemy, target, occupied: Dictionary, action_id
 
 
 static func _charged_strike(battle, enemy, target, occupied: Dictionary):
-	# Signature skill: only fires when the enemy's AP-driven charge bar is full.
-	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+	var spec = EnemySkillCatalogScript.get_skill(&"charged_strike")
+	if not IntentSupportScript.charge_ready(enemy, spec):
 		return null
 	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
-	if distance < 1 or distance > CHARGED_STRIKE_RANGE:
+	if distance < spec.min_range or distance > spec.max_range:
 		return null
 	if not GridRulesScript.has_clear_orthogonal_line(enemy.cell, target.cell, battle.blocked_cells, occupied):
 		return null
@@ -221,36 +242,43 @@ static func _charged_strike(battle, enemy, target, occupied: Dictionary):
 			var cell: Vector2i = row_center + perp * side
 			if GridRulesScript.is_inside_bounds(cell, battle.grid_size) and not battle.blocked_cells.has(cell):
 				affected.append(cell)
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "charged_strike", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, CombatMathScript.calculate_raw_damage(enemy.attack, CHARGED_STRIKE_MULTIPLIER), 0)
+	var intent = BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "charged_strike", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, IntentSupportScript.signature_damage(enemy, spec.damage_multiplier), spec.execution_priority)
+	# §14 樱华蓄斩: the one charged strike the player can break. The flag rides on
+	# the intent so the interrupt itself can stay a single generic rule.
+	intent.interruptible = "interruptible_skill" in enemy and bool(enemy.interruptible_skill)
+	return intent
 
 
 static func _basic_melee(battle, enemy, target):
+	var spec = EnemySkillCatalogScript.get_skill(&"basic_melee")
 	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
-	if distance != BASIC_MELEE_RANGE:
+	if distance != spec.max_range:
 		return null
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], CombatMathScript.calculate_raw_damage(enemy.attack, BASIC_MELEE_MULTIPLIER), 1)
+	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], IntentSupportScript.plain_attack_damage(enemy, spec.damage_multiplier), spec.execution_priority)
 
 
 static func _pursuit(battle, enemy, target):
 	var pursuit_path: Array[Vector2i] = _compute_move_path(battle, enemy, target)
 	if pursuit_path.is_empty():
 		return null
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "pursuit", BattleIntentScript.TargetMode.NONE, "", pursuit_path[pursuit_path.size() - 1], pursuit_path, 0, 2)
+	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "pursuit", BattleIntentScript.TargetMode.NONE, "", pursuit_path[pursuit_path.size() - 1], pursuit_path, 0, 2)
 
 
 static func _aimed_shot(battle, enemy, target, occupied: Dictionary):
-	# Signature skill: full AP-driven charge fires a piercing 3-tile line shot (orthogonal or diagonal)
-	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+	# Signature skill: full AP-driven charge fires a piercing 3-tile line shot
+	# (orthogonal or diagonal). Reach comes from the sheet, not from here.
+	var spec = EnemySkillCatalogScript.get_skill(&"aimed_shot")
+	if not IntentSupportScript.charge_ready(enemy, spec):
 		return null
 	var dx: int = target.cell.x - enemy.cell.x
 	var dy: int = target.cell.y - enemy.cell.y
 	var chebyshev: int = maxi(absi(dx), absi(dy))
-	if chebyshev < 2 or chebyshev > AIMED_SHOT_MAX_RANGE:
+	if chebyshev < spec.min_range or chebyshev > spec.max_range:
 		return null
 	var aligned: bool = (dx == 0 or dy == 0 or absi(dx) == absi(dy))
 	if not aligned:
 		return null
-	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, occupied):
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id)):
 		return null
 	var step := Vector2i(signi(dx), signi(dy))
 	var affected: Array[Vector2i] = []
@@ -258,28 +286,30 @@ static func _aimed_shot(battle, enemy, target, occupied: Dictionary):
 		var c: Vector2i = target.cell + step * offset
 		if GridRulesScript.is_inside_bounds(c, battle.grid_size) and not battle.blocked_cells.has(c) and c != enemy.cell:
 			affected.append(c)
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "aimed_shot", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, CombatMathScript.calculate_raw_damage(enemy.attack, AIMED_SHOT_MULTIPLIER), 2)
+	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "aimed_shot", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, IntentSupportScript.signature_damage(enemy, spec.damage_multiplier), spec.execution_priority)
 
 
 static func _light_shot(battle, enemy, target, occupied: Dictionary):
+	var spec = EnemySkillCatalogScript.get_skill(&"light_shot")
 	var dx: int = target.cell.x - enemy.cell.x
 	var dy: int = target.cell.y - enemy.cell.y
 	var chebyshev: int = maxi(absi(dx), absi(dy))
-	if chebyshev < 2 or chebyshev > AIMED_SHOT_MAX_RANGE:
+	if chebyshev < spec.min_range or chebyshev > spec.max_range:
 		return null
 	var aligned: bool = (dx == 0 or dy == 0 or absi(dx) == absi(dy))
 	if not aligned:
 		return null
-	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, occupied):
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id)):
 		return null
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "light_shot", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], CombatMathScript.calculate_raw_damage(enemy.attack, LIGHT_SHOT_MULTIPLIER), 2)
+	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "light_shot", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], IntentSupportScript.plain_attack_damage(enemy, spec.damage_multiplier), spec.execution_priority)
 
 
 static func _ground_pulse(battle, enemy, target, claimed_cells: Dictionary = {}):
 	# Signature skill: full AP-driven charge fires the 5-tile cross pulse
-	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+	var spec = EnemySkillCatalogScript.get_skill(&"ground_pulse")
+	if not IntentSupportScript.charge_ready(enemy, spec):
 		return null
-	var aim_cell: Vector2i = _pick_uncrowded_aim(battle, enemy.cell, target.cell, GROUND_PULSE_MIN_RANGE, GROUND_PULSE_MAX_RANGE, claimed_cells)
+	var aim_cell: Vector2i = IntentSupportScript.pick_uncrowded_aim(battle, enemy.cell, target.cell, spec.min_range, spec.max_range, claimed_cells)
 	if aim_cell == Vector2i(-1, -1):
 		return null
 	var affected: Array[Vector2i] = []
@@ -288,151 +318,16 @@ static func _ground_pulse(battle, enemy, target, claimed_cells: Dictionary = {})
 		var cell: Vector2i = aim_cell + offset
 		if GridRulesScript.is_inside_bounds(cell, battle.grid_size):
 			affected.append(cell)
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "ground_pulse", BattleIntentScript.TargetMode.AREA_LOCKED, "", aim_cell, affected, CombatMathScript.calculate_raw_damage(enemy.attack, GROUND_PULSE_MULTIPLIER), 1, "magical")
+	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "ground_pulse", BattleIntentScript.TargetMode.AREA_LOCKED, "", aim_cell, affected, CombatMathScript.calculate_raw_damage(enemy.attack, spec.damage_multiplier), spec.execution_priority, spec.damage_type)
 
 
 static func _echo_bolt(battle, enemy, target, claimed_cells: Dictionary = {}):
-	var aim_cell: Vector2i = _pick_uncrowded_aim(battle, enemy.cell, target.cell, GROUND_PULSE_MIN_RANGE, GROUND_PULSE_MAX_RANGE, claimed_cells)
+	var spec = EnemySkillCatalogScript.get_skill(&"echo_bolt")
+	var aim_cell: Vector2i = IntentSupportScript.pick_uncrowded_aim(battle, enemy.cell, target.cell, spec.min_range, spec.max_range, claimed_cells)
 	if aim_cell == Vector2i(-1, -1):
 		return null
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "echo_bolt", BattleIntentScript.TargetMode.TILE_LOCKED, "", aim_cell, [aim_cell], CombatMathScript.calculate_raw_damage(enemy.attack, ECHO_BOLT_MULTIPLIER), 1, "magical")
-
-
-## If target_cell is already locked by another enemy, try locking an adjacent
-## escape tile around the target so enemies create a real crossfire net.
-static func _pick_uncrowded_aim(battle, source_cell: Vector2i, target_cell: Vector2i, min_r: int, max_r: int, claimed_cells: Dictionary) -> Vector2i:
-	var base_dist: int = GridRulesScript.manhattan_distance(source_cell, target_cell)
-	if not claimed_cells.has(target_cell) and base_dist >= min_r and base_dist <= max_r:
-		return target_cell
-	for offset in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-		var adj: Vector2i = target_cell + offset
-		if not GridRulesScript.is_inside_bounds(adj, battle.grid_size) or battle.blocked_cells.has(adj):
-			continue
-		if claimed_cells.has(adj):
-			continue
-		var d: int = GridRulesScript.manhattan_distance(source_cell, adj)
-		if d >= min_r and d <= max_r:
-			return adj
-	if base_dist >= min_r and base_dist <= max_r:
-		return target_cell
-	return Vector2i(-1, -1)
+	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "echo_bolt", BattleIntentScript.TargetMode.TILE_LOCKED, "", aim_cell, [aim_cell], IntentSupportScript.plain_attack_damage(enemy, spec.damage_multiplier), spec.execution_priority, spec.damage_type)
 
 
 static func _wait_intent(battle, enemy):
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "wait", BattleIntentScript.TargetMode.NONE, "", enemy.cell, [], 0, 3)
-
-
-static func _intent_id(battle, enemy) -> String:
-	return "intent_%d_%s" % [battle.turn_number, enemy.actor_id]
-
-
-## Breadth-first walk that stops on the first cell adjacent to the goal, then
-## returns the first max_steps of the path. Deterministic direction order.
-static func _pursuit_path(battle, start: Vector2i, goal: Vector2i, actor_id: String, max_steps: int) -> Array[Vector2i]:
-	var queue: Array[Vector2i] = [start]
-	var came_from := {start: start}
-	var directions: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
-	var occupied: Dictionary = battle.get_occupied_cells(actor_id)
-	var found_cell := start
-	var found := false
-	while not queue.is_empty():
-		var current: Vector2i = queue.pop_front()
-		if GridRulesScript.manhattan_distance(current, goal) == 1:
-			found_cell = current
-			found = true
-			break
-		for direction in directions:
-			var next: Vector2i = current + direction
-			if not GridRulesScript.is_inside_bounds(next, battle.grid_size):
-				continue
-			if battle.blocked_cells.has(next) or occupied.has(next) or came_from.has(next):
-				continue
-			came_from[next] = current
-			queue.append(next)
-	if not found or found_cell == start:
-		return []
-	var reversed_path: Array[Vector2i] = []
-	var cursor: Vector2i = found_cell
-	while cursor != start:
-		reversed_path.push_front(cursor)
-		cursor = came_from[cursor]
-	var result: Array[Vector2i] = []
-	for index in range(mini(max_steps, reversed_path.size())):
-		result.append(reversed_path[index])
-	return result
-
-
-## Smart ranged/caster kiting & line-of-fire positioning:
-## Picks a reachable cell within max_steps that establishes a valid firing lane
-## (or retreats out of dead-zone range) instead of walking into melee range.
-static func _ranged_reposition_path(
-	battle,
-	enemy,
-	target,
-	min_range: int,
-	max_range: int,
-	require_line: bool,
-	max_steps: int
-) -> Array[Vector2i]:
-	var occupied: Dictionary = battle.get_occupied_cells(enemy.actor_id)
-	var all_occupied: Dictionary = battle.get_occupied_cells()
-	var ideal_dist: int = clampi(min_range + 1, min_range, max_range)
-
-	var best_score: int = -999999
-	var best_path: Array[Vector2i] = []
-	for dy in range(-max_steps, max_steps + 1):
-		for dx in range(-max_steps, max_steps + 1):
-			if dx == 0 and dy == 0:
-				continue
-			if absi(dx) + absi(dy) > max_steps:
-				continue
-			var cand: Vector2i = enemy.cell + Vector2i(dx, dy)
-			if not GridRulesScript.is_inside_bounds(cand, battle.grid_size):
-				continue
-			if battle.blocked_cells.has(cand) or occupied.has(cand):
-				continue
-			var path := GridRulesScript.find_path(enemy.cell, cand, battle.grid_size, battle.blocked_cells, occupied, max_steps)
-			if path.is_empty():
-				continue
-
-			var dist: int = maxi(absi(cand.x - target.cell.x), absi(cand.y - target.cell.y)) if require_line else GridRulesScript.manhattan_distance(cand, target.cell)
-			var eff_min: int = 2 if require_line else min_range
-			var aligned: bool = (cand.x == target.cell.x or cand.y == target.cell.y or absi(cand.x - target.cell.x) == absi(cand.y - target.cell.y))
-			var in_range: bool = dist >= eff_min and dist <= max_range
-			var clear_line: bool = false
-			if require_line and aligned and in_range:
-				var sim_occ := all_occupied.duplicate()
-				sim_occ.erase(enemy.cell)
-				sim_occ[cand] = enemy.actor_id
-				clear_line = GridRulesScript.has_clear_line_of_sight(cand, target.cell, battle.blocked_cells, sim_occ)
-
-			var score: int = 0
-			if require_line:
-				if clear_line:
-					score += 1000
-				elif aligned:
-					score += 120
-			else:
-				if in_range:
-					score += 800
-
-			if in_range:
-				score += 250
-			elif dist < min_range:
-				# Retreat away from melee dead-zone
-				score -= (min_range - dist) * 300
-			else:
-				# Close distance gently toward firing band
-				score -= (dist - max_range) * 80
-
-			score -= absi(dist - ideal_dist) * 15
-			# Slight preference for moving closer to an aligned row/column for marksmen
-			if require_line and not aligned:
-				var axis_gap: int = mini(absi(cand.x - target.cell.x), absi(cand.y - target.cell.y))
-				score -= axis_gap * 40
-
-			if score > best_score:
-				best_score = score
-				best_path = path
-
-	return best_path
+	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "wait", BattleIntentScript.TargetMode.NONE, "", enemy.cell, [], 0, 3)

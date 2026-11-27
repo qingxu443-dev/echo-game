@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"boss_thousand_boughs"
+display_name_zh = "千枝神将"
+glyph = "枝"
+health = 5040
+attack = 630
+defense = 385
+magic_resistance = 280
+actions = Array[StringName]([&"ward_stance", &"basic_melee", &"pursuit"])
+move_steps = 1
+tier = 2
+ward_stance_percent = 0.06
+ward_stance_node_bonus = 0.02
+basic_attack_multiplier = 0.7

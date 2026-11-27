@@ -24,6 +24,10 @@ const SKILL_FULL_DESC := {
 	&"oathkeeper_judgment_mark": "【裁决印记 · 1 AP】对 1–4 格直线/斜线敌人造成 55% 攻击轻伤，并施加易伤（目标下次受伤 +30%）。",
 	&"oath_shield": "【誓盾庇护 · 1 AP】一键瞬发，获得 650 护盾（每层守誓额外 +100 盾），持续至下回合开始。",
 	&"absolute_guard": "【绝对裁决 · 2 AP + 4 能量】对自身周围 1 格（八方向）所有敌人造成 130% 攻击重击并击退 1 格（可撞墙）。",
+	&"sakura_pierce_blossom": "【穿花 · 1 AP】对相邻 1 格敌人造成 100% 攻击物理伤害，命中后施加残香。",
+	&"sakura_flowing_wind": "【流风 · 1 AP】朝指定方向突进至多 2 格，对一名相邻敌人造成 80% 攻击伤害并施加残香。",
+	&"sakura_falling_petals": "【落英 · 2 AP】对面前 3×2 区域内的敌人三段斩击，每段 30% 攻击，命中后施加残香。",
+	&"sakura_endless_fragrance": "【无尽芳华 · 2 AP + 5 能量】以自身为中心的十字四段斩击（20/20/20/40% 攻击），每层剑意使终结斩 +5%。",
 }
 
 
@@ -79,6 +83,10 @@ static func _entry(
 static func is_affordable(controller, skill: Dictionary) -> bool:
 	if controller.ap == null:
 		return false
+	# Nothing is castable before the battle starts: showing a lit skill bar during
+	# deployment invites a click that can only be refused.
+	if controller.phase == controller.BattlePhase.DEPLOY:
+		return false
 	if not controller.ap.can_spend(int(skill["cost"])):
 		return false
 	if str(skill.get("slot", "")) == "ultimate":
@@ -112,12 +120,17 @@ static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skil
 		canvas.draw_rect(tip_rect, P.GOLD, false, 1.2)
 		canvas.draw_string(font, tip_rect.position + Vector2(12.0, 19.0), desc, HORIZONTAL_ALIGNMENT_LEFT, tip_rect.size.x - 24.0, 13, P.TEXT)
 
-	var can_end: bool = controller.phase == controller.BattlePhase.PLAYER
+	# §11.1: the same button carries the deployment confirmation, because it is
+	# the same verb at that moment - "I am done with this phase".
+	var deploying: bool = controller.phase == controller.BattlePhase.DEPLOY
+	var can_end: bool = controller.phase == controller.BattlePhase.PLAYER or (deploying and controller.all_deployed())
 	var end_color := P.BUTTON_BG if can_end else P.BUTTON_BG_DISABLED
+	var end_label := "确认部署" if deploying else "结束回合"
+	var end_hint := "[确认后开战]" if deploying else "[空格 / Enter]"
 	canvas.draw_rect(P.END_TURN_RECT, end_color, true)
 	canvas.draw_rect(P.END_TURN_RECT, P.BUTTON_BORDER if can_end else P.PANEL_BORDER_DISABLED, false, 2.0)
-	canvas.draw_string(font, P.END_TURN_RECT.position + Vector2(46.0, 44.0), "结束回合", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.BUTTON_TEXT if can_end else P.TEXT_DISABLED)
-	canvas.draw_string(font, P.END_TURN_RECT.position + Vector2(48.0, 68.0), "[空格 / Enter]", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.GOLD_PALE if can_end else P.TEXT_DISABLED)
+	canvas.draw_string(font, P.END_TURN_RECT.position + Vector2(46.0, 44.0), end_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.BUTTON_TEXT if can_end else P.TEXT_DISABLED)
+	canvas.draw_string(font, P.END_TURN_RECT.position + Vector2(48.0, 68.0), end_hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.GOLD_PALE if can_end else P.TEXT_DISABLED)
 
 
 static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: Array, index: int, selected_skill: int) -> void:

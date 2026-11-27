@@ -23,10 +23,13 @@ static func is_valid(damage_type: String) -> bool:
 
 ## Which stat this damage type is resisted by. Only called for valid types; the
 ## explicit zero below keeps an unknown type from reading as "no defense".
+## 腐樱诅咒 (§14) is a flat defence cut, applied here so every physical source
+## sees the same number - a per-skill discount would leave some hits blessed.
 static func resistance_for(actor, damage_type: String) -> int:
 	match damage_type:
 		PHYSICAL:
-			return actor.defense
+			var penalty: int = int(actor.defense_penalty) if "defense_penalty" in actor else 0
+			return maxi(0, int(actor.defense) - maxi(0, penalty))
 		MAGICAL:
 			return actor.magic_resistance
 		TRUE_DAMAGE:

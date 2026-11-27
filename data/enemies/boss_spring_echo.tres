@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"boss_spring_echo"
+display_name_zh = "春痕回响"
+glyph = "痕"
+health = 3920
+attack = 630
+defense = 210
+magic_resistance = 280
+actions = Array[StringName]([&"spring_bloom", &"echo_bolt", &"pursuit"])
+move_steps = 1
+tier = 2
+skill_damage = 675
+basic_attack_multiplier = 0.65

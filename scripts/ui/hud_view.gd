@@ -51,8 +51,18 @@ static func _draw_turn_and_ap(canvas: CanvasItem, font: Font, controller) -> voi
 	canvas.draw_string(font, rect.position + Vector2(14.0, 56.0), "回合 %02d" % controller.turn_number, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, P.TEXT_STRONG)
 
 	var ap_label_pos := rect.position + Vector2(106.0, 55.0)
-	var b_alive: int = controller.alive_beacons().size()
-	var b_total: int = controller.beacons.size()
+	# 春之结界 nodes live in the same table as the relic chests (that is how the
+	# battle layer holds a cell), but they are not loot and must not be counted as
+	# chests the player can still save.
+	var b_alive: int = 0
+	var b_total: int = 0
+	for cell in controller.beacons:
+		var beacon: Dictionary = controller.beacons[cell]
+		if str(beacon.get("kind", "")) == "ward_node":
+			continue
+		b_total += 1
+		if int(beacon.get("health", 0)) > 0:
+			b_alive += 1
 	canvas.draw_string(font, ap_label_pos, "遗迹宝箱 %d/%d" % [b_alive, b_total], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.GOLD_PALE if b_alive > 1 else P.WARN)
 
 	var pip_start := rect.position + Vector2(14.0, 74.0)
@@ -174,7 +184,18 @@ static func _draw_enemy_order_card(canvas: CanvasItem, font: Font, controller) -
 		var intent = controller.intents[index]
 		var dot_color: Color = _intent_color(intent.action_id)
 		canvas.draw_circle(Vector2(rect.position.x + 18.0, y - 4.0), 4.5, dot_color)
-		var dmg_str: String = " (%d)" % intent.damage if intent.damage > 0 else ""
+		var dmg_str: String = ""
+		if intent.damage > 0:
+			# 结界/壁垒 payload is a shield, and 腐樱诅咒 is a defence cut - both
+			# would read as damage if printed as a bare number. Everything else is
+			# health damage, quoted through the resolver's own mitigation so the
+			# order list and the hit agree.
+			if _is_shield_action(intent.action_id):
+				dmg_str = " (盾 %d)" % intent.damage
+			elif intent.action_id == "rot_curse":
+				dmg_str = " (降防 %d)" % intent.damage
+			else:
+				dmg_str = " (%d)" % intent.preview_health_damage(controller)
 		var line: String = "%d. %s · %s%s" % [index + 1, actor_name(controller, intent.source_actor_id), action_name(intent.action_id), dmg_str]
 		var text_col: Color = P.TEXT_FAINT if intent.state == IntentScript.IntentState.ACTIVE else P.TEXT_DISABLED
 		canvas.draw_string(font, Vector2(rect.position.x + 28.0, y), line, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 38.0, 13, text_col)
@@ -226,7 +247,14 @@ static func _draw_enemy_inspector_card(canvas: CanvasItem, font: Font, controlle
 		var a_col: Color = _intent_color(active_intent.action_id)
 		var skill_title: String = action_name(active_intent.action_id)
 		if active_intent.damage > 0:
-			skill_title += "  ·  %d 伤害" % active_intent.damage
+			if _is_shield_action(active_intent.action_id):
+				skill_title += "  ·  %d 护盾" % active_intent.damage
+			elif active_intent.action_id == "rot_curse":
+				# The payload is a defence cut, not damage; calling it 伤害
+				# would tell the player to expect health loss that never comes.
+				skill_title += "  ·  降防 %d" % active_intent.damage
+			else:
+				skill_title += "  ·  %d 伤害" % active_intent.preview_health_damage(controller)
 		canvas.draw_string(font, rect.position + Vector2(14.0, 132.0), skill_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, a_col)
 		_draw_wrapped(canvas, font, action_description(active_intent.action_id), rect.position + Vector2(14.0, 156.0), rect.size.x - 28.0, 13, P.TEXT_BODY, 3)
 	else:
@@ -264,6 +292,18 @@ static func _intent_color(action_id: String) -> Color:
 		"aimed_shot", "light_shot":
 			return P.TELEGRAPH_SHOT_LINE
 		"ground_pulse", "echo_bolt":
+			return P.TELEGRAPH_PULSE_LINE
+		"blight_field":
+			return P.HAZARD_BLIGHT_LINE
+		"spring_bloom":
+			return P.HAZARD_SPRING_LINE
+		"sakura_shock":
+			return P.TELEGRAPH_CHARGE_LINE
+		"lock_on", "locked_shot":
+			return P.TELEGRAPH_SHOT_LINE
+		"shadow_raid":
+			return P.TELEGRAPH_CHARGE_LINE
+		"rot_curse":
 			return P.TELEGRAPH_PULSE_LINE
 		"basic_melee":
 			return P.RING_MELEE
@@ -309,6 +349,11 @@ static func actor_name(controller, actor_id: String) -> String:
 	return "未知单位"
 
 
+## Actions whose integer payload is a shield amount rather than damage.
+static func _is_shield_action(action_id: String) -> bool:
+	return action_id in ["ward_ally", "ward_stance"]
+
+
 static func action_name(action_id: String) -> String:
 	match action_id:
 		"charged_strike":
@@ -325,6 +370,24 @@ static func action_name(action_id: String) -> String:
 			return "地脉脉冲"
 		"echo_bolt":
 			return "回声弹"
+		"ward_ally":
+			return "古木壁垒"
+		"ward_stance":
+			return "结界守护"
+		"blight_field":
+			return "樱落领域"
+		"spring_bloom":
+			return "春痕绽放"
+		"sakura_shock":
+			return "樱庭震荡"
+		"lock_on":
+			return "百花锁命"
+		"locked_shot":
+			return "锁命箭"
+		"shadow_raid":
+			return "逐影突袭"
+		"rot_curse":
+			return "腐樱诅咒"
 		"wait":
 			return "待机观察"
 		_:
@@ -347,6 +410,24 @@ static func action_description(action_id: String) -> String:
 			return "【满充能技】锁定十字 5 格紫框爆破！撤出全部紫格即可躲避。"
 		"echo_bolt":
 			return "锁定单格释放回声弹，走离紫框即可躲避。"
+		"ward_ally":
+			return "为 2 格内一名普通同伴套上 500 护盾。先拆掉被保护的对象，或让它与守卫拉开距离。"
+		"ward_stance":
+			return "【满充能技】为自己升起护盾，每个存活结界节点都会让它更厚。先拆节点，再决战。"
+		"blight_field":
+			return "【满充能技】三格樱落斩；被斩过的地格化为凋零，站上去或走进去都会持续受伤两回合。"
+		"spring_bloom":
+			return "【满充能技】三格春痕爆发，并在原地留下残春；残春不挡路，但每一回合都会咬人。"
+		"sakura_shock":
+			return "【满充能技】预告相邻三格震荡；离开这三格就不会被震到。"
+		"lock_on":
+			return "【满充能技】在目标身上留下锁命印记；下一敌方阶段才射出强化箭。跑出 6 格或断开视线即可取消。"
+		"locked_shot":
+			return "锁命箭已上弦：追踪被标记的目标，走出射程或借障碍断线才会落空。"
+		"shadow_raid":
+			return "【满充能技】沿青色路径突进最多 3 格，落点相邻后斩击；离开红色落点即可让它挥空。"
+		"rot_curse":
+			return "【满充能技】剥离目标 100 防御，持续到下一敌方阶段结束；不叠加，只会刷新时长。"
 		"wait":
 			return "当前无合法目标，原地待机。"
 		_:

@@ -66,7 +66,7 @@ static func draw(canvas: CanvasItem, run_state, hero, page: int = 0) -> void:
 	var stat_rect := Rect2(220.0, 424.0, 240.0, 164.0)
 	canvas.draw_rect(stat_rect, P.PANEL, true)
 	canvas.draw_rect(stat_rect, P.PANEL_BORDER, false, 1.2)
-	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 26.0), "瑟弗林当前属性", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT)
+	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 26.0), "%s当前属性" % (hero.display_name_zh if hero != null and not hero.display_name_zh.is_empty() else "主角"), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT)
 	var hp_now: int = hero.health if hero != null else run_state.hero_health
 	var hp_max: int = hero.max_health if hero != null else run_state.effective_max_health()
 	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 56.0), "生命  %d / %d" % [hp_now, hp_max], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.HP_PLAYER)

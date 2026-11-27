@@ -89,6 +89,22 @@ const TELEGRAPH_CHARGE_MARK := Color("#ffe6df")
 const TELEGRAPH_PURSUIT_FILL := Color(0.78, 0.62, 0.28, 0.28)
 const TELEGRAPH_PURSUIT_LINE := Color("#e0bf6a")
 
+## §11.1 deployment zone. Gold because it is a choice, not a reachable tile:
+## the cyan move fill means "you can walk here this turn", and during deployment
+## there is no turn yet.
+const DEPLOY_FILL := Color(0.86, 0.72, 0.40, 0.16)
+const DEPLOY_LINE := Color(0.92, 0.80, 0.52, 0.55)
+const DEPLOY_ACTIVE_FILL := Color(0.96, 0.82, 0.46, 0.34)
+const DEPLOY_ACTIVE_LINE := Color(1.00, 0.92, 0.68, 0.92)
+
+## Ground hazards (凋零 / 残春). Flat and low-saturation on purpose: they are
+## terrain the player stands on, not a telegraph for a hit that has not landed
+## yet, so they must never read as "this will hit you this turn".
+const HAZARD_BLIGHT_FILL := Color(0.26, 0.13, 0.31, 0.66)
+const HAZARD_BLIGHT_LINE := Color(0.66, 0.44, 0.80, 0.95)
+const HAZARD_SPRING_FILL := Color(0.97, 0.56, 0.62, 0.46)
+const HAZARD_SPRING_LINE := Color(1.00, 0.78, 0.82, 0.96)
+
 const PANEL := Color("#262a2f")
 const PANEL_SELECTED := Color("#3a3f46")
 const PANEL_DISABLED := Color("#1e2124")

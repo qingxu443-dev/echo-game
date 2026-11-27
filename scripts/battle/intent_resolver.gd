@@ -12,9 +12,18 @@ extends RefCounted
 const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const BattleIntentScript = preload("res://scripts/battle/battle_intent.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
+const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 
 const ABSOLUTE_GUARD_MARKED_MULTIPLIER: float = 0.7
 const ABSOLUTE_GUARD_PLAIN_MULTIPLIER: float = 0.5
+## Same six-cell reach the planner uses for 百花锁命. Kept here because the shot
+## is re-checked against the live board; changing one without the other would let
+## the telegraph promise a shot the resolver then refuses.
+const LOCK_ON_MAX_RANGE: int = 6
+const ROT_CURSE_MAX_RANGE: int = 4
+## "持续至下一敌方行动阶段结束" (§14): two enemy-phase ticks, the one that
+## applies it excluded.
+const ROT_CURSE_ENEMY_TICKS: int = 2
 
 
 static func resolve_phase(battle) -> void:
@@ -49,10 +58,22 @@ static func resolve_one_active(battle) -> bool:
 		match intent.action_id:
 			"basic_melee", "light_shot", "echo_bolt":
 				_tile_locked_attack(battle, intent)
-			"ground_pulse", "charged_strike", "aimed_shot":
+			"ground_pulse", "charged_strike", "aimed_shot", "blight_field", "spring_bloom", "sakura_shock":
 				_area_attack(battle, intent)
 			"pursuit":
 				_pursuit(battle, intent)
+			"ward_ally":
+				_ward_ally(battle, intent)
+			"ward_stance":
+				_ward_stance(battle, intent)
+			"lock_on":
+				_lock_on(battle, intent)
+			"locked_shot":
+				_locked_shot(battle, intent)
+			"shadow_raid":
+				_shadow_raid(battle, intent)
+			"rot_curse":
+				_rot_curse(battle, intent)
 			"wait":
 				intent.mark_resolved()
 				battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", "wait")
@@ -75,7 +96,47 @@ static func finish_phase(battle) -> void:
 		var expired_statuses: int = statuses.expire_all_boundary(&"enemy_phase_end")
 		if expired_statuses > 0:
 			battle._emit_event("statuses_expired", "", "", "boundary=enemy_phase_end count=%d" % expired_statuses)
+		_expire_curse_penalties(battle)
+		_expire_broken_locks(battle)
 		battle._begin_player_turn()
+
+
+## 腐樱诅咒 lapses at the end of the next enemy phase. turn_number is not
+## advanced yet here, so a penalty set during turn T carries expiry T+1 and is
+## swept exactly once, on the way out of T+1's enemy phase.
+static func _expire_curse_penalties(battle) -> void:
+	for actor_id in battle.actors:
+		var actor = battle.actors[actor_id]
+		if actor.defense_penalty <= 0 or actor.defense_penalty_expiry_turn < 0:
+			continue
+		if battle.turn_number < actor.defense_penalty_expiry_turn:
+			continue
+		actor.defense_penalty = 0
+		actor.defense_penalty_expiry_turn = -1
+		battle._emit_event("enemy_curse_expired", String(actor_id), "", "defense_restored")
+
+
+## A lock that never became a shot - the hero left the archer's reach or broke
+## its line - is dropped here rather than lingering on the archer forever. The
+## planner refuses to telegraph an illegal shot, so this is the only place that
+## can report the mark going stale.
+static func _expire_broken_locks(battle) -> void:
+	for actor_id in battle.actors:
+		var enemy = battle.actors[actor_id]
+		if enemy.team != "enemy" or String(enemy.lock_target_id).is_empty():
+			continue
+		var target = battle.actors.get(enemy.lock_target_id)
+		var reason := ""
+		if target == null or not target.is_alive():
+			reason = "lock_target_gone"
+		elif GridRulesScript.manhattan_distance(enemy.cell, target.cell) > LOCK_ON_MAX_RANGE:
+			reason = "lock_range_broken"
+		elif not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(String(actor_id))):
+			reason = "lock_sight_broken"
+		if reason.is_empty():
+			continue
+		enemy.lock_target_id = ""
+		battle._emit_event("enemy_lock_broken", String(actor_id), "", "reason=%s" % reason)
 
 
 ## Absolute Guard pulls eligible single-target attacks onto its holder. This runs
@@ -160,7 +221,7 @@ static func _tile_locked_attack(battle, intent) -> void:
 		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 		return
 	if intent.action_id == "light_shot":
-		if not GridRulesScript.has_clear_line_of_sight(source.cell, intent.target_cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id)):
+		if not GridRulesScript.has_clear_line_of_sight(source.cell, intent.target_cell, battle.blocked_cells, battle.get_sight_blockers(intent.source_actor_id)):
 			intent.cancel("marked_cell_line_blocked")
 			battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 			return
@@ -191,7 +252,7 @@ static func _tile_locked_attack(battle, intent) -> void:
 static func _area_attack(battle, intent) -> void:
 	var actors = battle.actors
 	var source = actors.get(intent.source_actor_id)
-	if intent.action_id in ["charged_strike", "aimed_shot", "ground_pulse"] and source != null:
+	if intent.action_id in ["charged_strike", "aimed_shot", "ground_pulse", "blight_field", "spring_bloom", "sakura_shock"] and source != null:
 		source.skill_charge = 0
 	var hit_any := false
 	for actor_id in actors:
@@ -203,6 +264,16 @@ static func _area_attack(battle, intent) -> void:
 	for area_cell in intent.affected_cells:
 		if battle.damage_beacon_at(area_cell, intent.damage, intent.source_actor_id, intent.action_id):
 			hit_any = true
+	# The ground effect lands whether or not anyone was standing in the blast:
+	# 樱落领域 cuts the floor, it does not cut a person in particular. Doing this
+	# before the empty-area cancel below is deliberate - a swing that missed must
+	# not leave the battlefield exactly as it was.
+	if not intent.hazard_cells.is_empty() and not intent.hazard_kind.is_empty():
+		HazardFieldScript.spawn(
+			battle, intent.hazard_cells, intent.hazard_kind,
+			intent.hazard_damage, intent.source_actor_id,
+			intent.hazard_duration_turns, intent.damage_type
+		)
 	if not hit_any:
 		intent.cancel("marked_area_empty")
 		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
@@ -211,11 +282,182 @@ static func _area_attack(battle, intent) -> void:
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", intent.action_id)
 
 
+## 古木壁垒: hand the intent's payload to the ally as a shield. Re-checks the
+## world like every branch here - the ally may have died, or the warden may have
+## been pushed away since planning, and a ward cast across three cells would be
+## a lie the telegraph already told the player.
+static func _ward_ally(battle, intent) -> void:
+	var actors = battle.actors
+	var source = actors[intent.source_actor_id]
+	if not actors.has(intent.target_actor_id):
+		intent.cancel("ward_target_gone")
+		return
+	var ally = actors[intent.target_actor_id]
+	if not ally.is_alive():
+		intent.cancel("ward_target_gone")
+		return
+	if GridRulesScript.manhattan_distance(source.cell, ally.cell) > 2:
+		intent.cancel("ward_target_out_of_range")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=ward_ally")
+		return
+	var granted: int = ally.grant_shield(intent.damage)
+	if source.skill_charge_max > 0:
+		source.skill_charge = 0
+	intent.mark_resolved()
+	battle._emit_event(
+		"enemy_ward_applied", intent.source_actor_id, intent.target_actor_id,
+		"requested=%d shield=%d" % [intent.damage, granted]
+	)
+
+
+## 结界守护: the boss raises a shield for two turns (§15.2). The expiry is set on
+## the actor and swept at the start of a later player turn, so "two rounds" means
+## two player turns during which the shield is visible and countable.
+static func _ward_stance(battle, intent) -> void:
+	var actors = battle.actors
+	if not actors.has(intent.source_actor_id):
+		intent.cancel("source_gone")
+		return
+	var source = actors[intent.source_actor_id]
+	if not source.is_alive():
+		intent.cancel("source_defeated")
+		return
+	var granted: int = source.grant_shield(intent.damage)
+	# turn_number increments at the START of each player turn, so +3 keeps the
+	# shield visible for the next two player turns and sweeps it on the third.
+	source.shield_expiry_turn = battle.turn_number + 3
+	if source.skill_charge_max > 0:
+		source.skill_charge = 0
+	intent.mark_resolved()
+	battle._emit_event(
+		"enemy_stance_raised", intent.source_actor_id, intent.source_actor_id,
+		"requested=%d shield=%d expires=%d" % [intent.damage, granted, source.shield_expiry_turn]
+	)
+
+
+## 百花锁命 第一段: record the mark on the archer and spend its charge. The mark
+## is not a status on the hero - it is the archer's own intent, so a dead archer
+## takes the threat with it and nothing has to sweep the hero's status list.
+static func _lock_on(battle, intent) -> void:
+	var actors = battle.actors
+	var source = actors.get(intent.source_actor_id)
+	if source == null or not source.is_alive():
+		intent.cancel("source_defeated")
+		return
+	var target = actors.get(intent.target_actor_id)
+	if target == null or not target.is_alive() or target.team != "player":
+		intent.cancel("lock_target_gone")
+		return
+	source.lock_target_id = intent.target_actor_id
+	if source.skill_charge_max > 0:
+		source.skill_charge = 0
+	intent.mark_resolved()
+	battle._emit_event("enemy_lock_on", intent.source_actor_id, intent.target_actor_id, "action=lock_on")
+
+
+## 百花锁命 第二段: the strengthened arrow. Unlike an ordinary actor-locked
+## attack it is not dodge-proof by tile, but it does track the hero - only leaving
+## six cells or breaking sight cancels it, which is exactly what the document
+## asks for and what the mark's whole telegraph turn is for.
+static func _locked_shot(battle, intent) -> void:
+	var actors = battle.actors
+	var source = actors.get(intent.source_actor_id)
+	if source == null or not source.is_alive():
+		intent.cancel("source_defeated")
+		return
+	var target = actors.get(intent.target_actor_id)
+	if target == null or not target.is_alive() or target.team != "player":
+		_break_lock(battle, source, intent, "lock_target_gone")
+		return
+	var distance: int = GridRulesScript.manhattan_distance(source.cell, target.cell)
+	if distance < 1 or distance > LOCK_ON_MAX_RANGE:
+		_break_lock(battle, source, intent, "lock_range_broken")
+		return
+	if not GridRulesScript.has_clear_line_of_sight(source.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(intent.source_actor_id)):
+		_break_lock(battle, source, intent, "lock_sight_broken")
+		return
+	source.lock_target_id = ""
+	battle._apply_damage(target.actor_id, intent.damage, intent.source_actor_id, "locked_shot", intent.damage_type, true, intent.intent_id)
+	intent.mark_resolved()
+	battle._emit_event("enemy_action_resolved", intent.source_actor_id, target.actor_id, "locked_shot")
+
+
+static func _break_lock(battle, source, intent, reason: String) -> void:
+	source.lock_target_id = ""
+	intent.cancel(reason)
+	battle._emit_event("enemy_lock_broken", intent.source_actor_id, intent.target_actor_id, "reason=%s" % reason)
+
+
+## 逐影突袭: the resolver has already walked the intent's path (above), so this
+## branch only checks that the landing is still adjacent to a living mark and
+## that the blow still has a target. Stepping off the landing tile makes the raid
+## whiff, which is the counterplay the path telegraph promises.
+static func _shadow_raid(battle, intent) -> void:
+	var actors = battle.actors
+	var source = actors.get(intent.source_actor_id)
+	if source == null or not source.is_alive():
+		intent.cancel("source_defeated")
+		return
+	var target = actors.get(intent.target_actor_id)
+	if target == null or not target.is_alive() or target.team != "player":
+		intent.cancel("raid_target_gone")
+		return
+	if GridRulesScript.manhattan_distance(source.cell, target.cell) != 1:
+		intent.cancel("raid_missed")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, intent.target_actor_id, "action=shadow_raid")
+		return
+	battle._apply_damage(target.actor_id, intent.damage, intent.source_actor_id, "shadow_raid", intent.damage_type, true, intent.intent_id)
+	if source.skill_charge_max > 0:
+		source.skill_charge = 0
+	intent.mark_resolved()
+	battle._emit_event("enemy_action_resolved", intent.source_actor_id, target.actor_id, "shadow_raid")
+
+
+## 腐樱诅咒: a flat defence penalty that never stacks. Reapplication refreshes
+## the clock and keeps the larger penalty, so two witches cannot strip 200.
+static func _rot_curse(battle, intent) -> void:
+	var actors = battle.actors
+	var source = actors.get(intent.source_actor_id)
+	if source == null or not source.is_alive():
+		intent.cancel("source_defeated")
+		return
+	var target = actors.get(intent.target_actor_id)
+	if target == null or not target.is_alive() or target.team != "player":
+		intent.cancel("curse_target_gone")
+		return
+	var distance: int = GridRulesScript.manhattan_distance(source.cell, target.cell)
+	if distance < 1 or distance > ROT_CURSE_MAX_RANGE:
+		intent.cancel("curse_out_of_range")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, intent.target_actor_id, "action=rot_curse")
+		return
+	if not GridRulesScript.has_clear_line_of_sight(source.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(intent.source_actor_id)):
+		intent.cancel("curse_line_blocked")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, intent.target_actor_id, "action=rot_curse")
+		return
+	var amount: int = maxi(0, intent.damage)
+	target.defense_penalty = maxi(target.defense_penalty, amount)
+	target.defense_penalty_expiry_turn = battle.turn_number + 1
+	battle.statuses.apply_status(&"rot_curse", intent.source_actor_id, target.actor_id, 1, 1, -1, &"", &"replace")
+	var status = battle.statuses.get_status(target.actor_id, &"rot_curse")
+	if status != null:
+		status.enemy_turns_remaining = ROT_CURSE_ENEMY_TICKS
+	if source.skill_charge_max > 0:
+		source.skill_charge = 0
+	intent.mark_resolved()
+	battle._emit_event(
+		"enemy_curse_applied", intent.source_actor_id, target.actor_id,
+		"requested=%d defense_penalty=%d expires_after_turn=%d" % [amount, target.defense_penalty, target.defense_penalty_expiry_turn]
+	)
+
+
 static func _pursuit(battle, intent) -> void:
 	var actors = battle.actors
 	var source = actors[intent.source_actor_id]
 	var path: Array = intent.affected_cells
-	if path.is_empty() or path.size() > 2:
+	var budget: int = 2
+	if "move_steps" in source:
+		budget = clampi(int(source.move_steps), 1, 4)
+	if path.is_empty() or path.size() > budget:
 		intent.cancel("invalid_pursuit_path")
 		return
 	var cursor: Vector2i = source.cell

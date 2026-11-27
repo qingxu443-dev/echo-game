@@ -6,19 +6,25 @@ extends Control
 ## - Minimalist left-aligned typography & animated hover bars (no baked fake buttons)
 
 const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
+const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
 const BACKGROUND_PATH := "res://assets/ui/main_menu_background.png"
 
+## §4 of the 2026-11-26 design summary: two play modes on one save. "开始探索"
+## stays the tutorial mode it has always been; 未尽之春 is the season run, which
+## keeps its own in-run resources.
 const OPTION_START := 0
-const OPTION_EXIT := 1
+const OPTION_SPRING := 1
+const OPTION_EXIT := 2
 const OPTIONS: Array[Dictionary] = [
-	{"label": "开始探索", "sub": "START EXPEDITION"},
+	{"label": "开始探索", "sub": "START EXPEDITION · TUTORIAL"},
+	{"label": "未尽之春", "sub": "THE SPRING THAT NEVER FINISHED"},
 	{"label": "退出游戏", "sub": "EXIT TO DESKTOP"},
 ]
 
 var background: Texture2D
 var selected_option: int = OPTION_START
 var elapsed: float = 0.0
-var hover_slide: Array[float] = [1.0, 0.0]
+var hover_slide: Array[float] = [1.0, 0.0, 0.0]
 var motes: Array[Dictionary] = []
 
 
@@ -180,5 +186,9 @@ func _activate_selected() -> void:
 			var error := get_tree().change_scene_to_file(BATTLE_SCENE_PATH)
 			if error != OK:
 				push_error("Unable to open ECHO battle scene. Error: %s" % error)
+		OPTION_SPRING:
+			var spring_error := get_tree().change_scene_to_file(SPRING_SCENE_PATH)
+			if spring_error != OK:
+				push_error("Unable to open the 春之境 map. Error: %s" % spring_error)
 		OPTION_EXIT:
 			get_tree().quit()

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/enemy_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_id = &"sakura_beast"
+display_name_zh = "樱庭镇守兽"
+glyph = "兽"
+health = 3640
+attack = 910
+defense = 385
+magic_resistance = 280
+actions = Array[StringName]([&"sakura_shock", &"basic_melee", &"pursuit"])
+move_steps = 1
+tier = 1
+skill_damage = 975

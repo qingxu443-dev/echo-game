@@ -298,6 +298,10 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 		kills += _apply_segments(battle, caster, skill, [target], "sakura_flowing_wind")
 		if target.is_alive():
 			apply_petal_mark(battle, caster, target)
+			# §14 樱华蓄斩: the dash is the control that breaks a wind-up. The
+			# controller decides whether there is one to break, so this stays a
+			# one-line rider instead of a second copy of the rule.
+			battle.interrupt_enemy_charge(target.actor_id, "sakura_flowing_wind")
 		# §22 极意: a second strike at 40% against the same target. The plan allows
 		# a new direction and a new target, but picking one is a second aiming
 		# step the interface does not offer yet, so this strike reuses the target.

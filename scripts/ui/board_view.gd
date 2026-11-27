@@ -44,8 +44,9 @@ static func draw(canvas: CanvasItem, controller, selected_skill: int, skill_bar:
 
 static func _draw_grid(canvas: CanvasItem, controller) -> void:
 	P.board_grid_size = controller.grid_size
-	var max_x: int = controller.grid_size.x - 1
-	var max_y: int = controller.grid_size.y - 1
+	var view_size := P.view_grid_size()
+	var max_x: int = view_size.x - 1
+	var max_y: int = view_size.y - 1
 
 	# Soft ambient drop shadow beneath the floating ruin board (in view-space)
 	var shadow_poly := PackedVector2Array([
@@ -57,10 +58,10 @@ static func _draw_grid(canvas: CanvasItem, controller) -> void:
 	canvas.draw_colored_polygon(shadow_poly, Color(0.01, 0.015, 0.025, 0.55))
 
 	# Draw tiles back-to-front by view-space isometric depth (vx + vy)
-	for depth in range(controller.grid_size.x + controller.grid_size.y - 1):
-		for vx in range(controller.grid_size.x):
+	for depth in range(view_size.x + view_size.y - 1):
+		for vx in range(view_size.x):
 			var vy: int = depth - vx
-			if vy < 0 or vy >= controller.grid_size.y:
+			if vy < 0 or vy >= view_size.y:
 				continue
 			var vc := Vector2i(vx, vy)
 			var logical_cell := P.from_view_cell(vc)

@@ -70,18 +70,28 @@ static func _default_state() -> Dictionary:
 
 
 static func load_state(path: String = SAVE_PATH) -> Dictionary:
+	var state := read_state(path)
+	return _default_state() if state.is_empty() else state
+
+
+## An empty result indicates an existing file could not be safely read.
+static func read_state(path: String) -> Dictionary:
 	var state := _default_state()
 	if not FileAccess.file_exists(path):
 		return state
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return state
+		return {}
 	var parsed = JSON.parse_string(file.get_as_text())
-	if not (parsed is Dictionary):
-		return state
+	file.close()
+	if not (parsed is Dictionary) or not (parsed.get("loadout", []) is Array):
+		return {}
+	if typeof(parsed.get("shards", STARTING_SHARDS)) not in [TYPE_INT, TYPE_FLOAT]:
+		return {}
 	state["shards"] = maxi(0, int(parsed.get("shards", STARTING_SHARDS)))
 	var loadout: Array[String] = []
-	for lid in parsed.get("loadout", []):
+	var saved_loadout = parsed.get("loadout", [])
+	for lid in (saved_loadout if saved_loadout is Array else []):
 		var sid := str(lid)
 		if not recipe_by_id(sid).is_empty():
 			loadout.append(sid)
@@ -92,11 +102,9 @@ static func load_state(path: String = SAVE_PATH) -> Dictionary:
 static func save_state(state: Dictionary, path: String = SAVE_PATH) -> bool:
 	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
 		return true
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file == null:
+	if SpringSaveTransaction.is_pending(path):
 		return false
-	file.store_string(JSON.stringify(state, "\t"))
-	return true
+	return SaveFile.write_json(path, state)
 
 
 static func recipe_by_id(item_id: String) -> Dictionary:
@@ -133,17 +141,21 @@ static func buy_and_pack(state: Dictionary, item_id: String, path: String = SAVE
 	var shards: int = int(state.get("shards", 0))
 	if shards < cost:
 		return {"ok": false, "message": "残晶不足，需要 %d 残晶。" % cost}
-	state["shards"] = shards - cost
-	var loadout: Array = state.get("loadout", [])
+	var next := state.duplicate(true)
+	next["shards"] = shards - cost
+	var loadout: Array = next.get("loadout", [])
 	for _i in range(qty):
 		loadout.append(item_id)
-	state["loadout"] = loadout
-	save_state(state, path)
+	next["loadout"] = loadout
+	if not save_state(next, path):
+		return {"ok": false, "message": "工坊存档写入失败，购买未完成。"}
+	state.merge(next, true)
 	return {"ok": true, "message": "已购入「%s」×%d。" % [str(r["name"]), qty]}
 
 
 static func unpack_and_refund(state: Dictionary, item_id: String, path: String = SAVE_PATH) -> Dictionary:
-	var loadout: Array = state.get("loadout", [])
+	var next := state.duplicate(true)
+	var loadout: Array = next.get("loadout", [])
 	var found_idx := -1
 	for i in range(loadout.size() - 1, -1, -1):
 		if str(loadout[i]) == item_id:
@@ -154,9 +166,11 @@ static func unpack_and_refund(state: Dictionary, item_id: String, path: String =
 	var r := recipe_by_id(item_id)
 	var refund: int = int(r.get("cost", 0))
 	loadout.remove_at(found_idx)
-	state["loadout"] = loadout
-	state["shards"] = int(state.get("shards", 0)) + refund
-	save_state(state, path)
+	next["loadout"] = loadout
+	next["shards"] = int(next.get("shards", 0)) + refund
+	if not save_state(next, path):
+		return {"ok": false, "message": "工坊存档写入失败，退货未完成。"}
+	state.merge(next, true)
 	return {"ok": true, "message": "已退回「%s」×1，返还 %d 残晶。" % [str(r.get("name", item_id)), refund]}
 
 
@@ -168,14 +182,22 @@ static func award_shards(amount: int, path: String = SAVE_PATH) -> int:
 		return 0
 	var state := load_state(path)
 	state["shards"] = int(state.get("shards", 0)) + amount
-	save_state(state, path)
-	return int(state["shards"])
+	return int(state["shards"]) if save_state(state, path) else 0
 
 
 static func take_loadout_items(path: String = SAVE_PATH) -> Array[Dictionary]:
 	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
 		return []
-	var state := load_state(path)
+	var state := read_state(path)
+	var items := packed_items(state)
+	if not items.is_empty():
+		state["loadout"] = []
+		if not save_state(state, path):
+			return []
+	return items
+
+
+static func packed_items(state: Dictionary) -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	for lid in state.get("loadout", []):
 		var r := recipe_by_id(str(lid))
@@ -188,7 +210,4 @@ static func take_loadout_items(path: String = SAVE_PATH) -> Array[Dictionary]:
 		p["enemy_heal"] = 0
 		p["enemy_charge"] = false
 		items.append(p)
-	if not items.is_empty():
-		state["loadout"] = []
-		save_state(state, path)
 	return items

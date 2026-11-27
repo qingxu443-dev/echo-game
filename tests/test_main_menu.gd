@@ -6,9 +6,12 @@ const LobbyScript = preload("res://scripts/ui/lobby_view.gd")
 
 func _run() -> void:
 	_test_main_menu_navigation_and_layout()
+	_test_failed_atelier_write_keeps_wallet()
 	await _test_lobby_scene_and_map_selector()
 	await _test_spring_entry_loads()
-	_report()
+	_test_expedition_write_failure_recovers()
+	await _test_battle_reward_replay()
+	await _test_spring_event_response_resumes()
 
 
 func _test_main_menu_navigation_and_layout() -> void:
@@ -97,13 +100,132 @@ func _test_spring_entry_loads() -> void:
 	_check(packed != null, "the 春之境 scene loads")
 	if packed == null:
 		return
-	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://spring_run.json"))
+	var save_path := "user://spring_menu_test_%d.json" % OS.get_process_id()
+	var stash_path := "user://atelier_menu_test_%d.json" % OS.get_process_id()
+	_check(AtelierStash.save_state({"shards": 105, "loadout": ["item_dusk_potion"]}, stash_path), "the test stash is persisted")
 	var map = packed.instantiate()
+	map.save_path = save_path
+	map.atelier_save_path = stash_path
 	root.add_child(map)
 	await process_frame
 	_check(map.run != null, "opening the map starts a run")
 	if map.run != null:
 		_check(map.run.exploration.stamina == ExplorationState.STAMINA_MAX, "the map opens with ten stamina")
 		_check(map.run.template.places.size() == 11, "the opened map carries eleven places")
+		_check(map.run.battle_backpack().size() == 1, "a fresh expedition receives the packed item")
+	var checkpoint := SpringRun.load_from_file(save_path)
+	_check(checkpoint != null and checkpoint.battle_backpack().size() == 1, "the starting pack survives an immediate restart")
+	_check(AtelierStash.load_state(stash_path)["loadout"].is_empty(), "a fresh expedition clears the atelier pack")
 	map.queue_free()
-	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://spring_run.json"))
+	await process_frame
+
+	_check(AtelierStash.buy_and_pack(AtelierStash.load_state(stash_path), "item_echo_hourglass", stash_path)["ok"],
+		"a second pack can be prepared while a spring save exists")
+	var resumed = packed.instantiate()
+	resumed.save_path = save_path
+	resumed.atelier_save_path = stash_path
+	root.add_child(resumed)
+	await process_frame
+	_check(resumed.run.battle_backpack().size() == 1, "resuming uses the saved run backpack")
+	_check(AtelierStash.load_state(stash_path)["loadout"] == ["item_echo_hourglass"], "resuming leaves paid atelier supplies packed")
+	resumed.queue_free()
+	DirAccess.remove_absolute(save_path)
+	DirAccess.remove_absolute(stash_path)
+
+
+func _test_spring_event_response_resumes() -> void:
+	var packed: PackedScene = load(LobbyScript.SPRING_SCENE_PATH)
+	var path := "user://spring_event_resume_test_%d.json" % OS.get_process_id()
+	var run := SpringRun.begin(3)
+	run.random_event_id = &"forest_noise"
+	run.supplies = 4
+	var place := run.template.place_by_id(&"event_random")
+	var map = packed.instantiate()
+	map.run = run
+	map.save_path = path
+	root.add_child(map)
+	map._open_event(place)
+	map._choose_event_option(&"forest_noise", 1)
+	_check(FileAccess.file_exists(path), "choosing the event option writes its checkpoint")
+	map.queue_free()
+	await process_frame
+
+	var resumed = packed.instantiate()
+	resumed.save_path = path
+	root.add_child(resumed)
+	_check(resumed.event_open and resumed.event_place.id == place.id, "resuming reopens the committed event panel")
+	_check(StringName(resumed.event_result.get("battle", "")) == &"B001" and resumed.run.supplies == 2,
+		"the ambush persists and its already-paid cost is not charged again")
+	resumed.queue_free()
+	DirAccess.remove_absolute(path)
+
+
+func _test_failed_atelier_write_keeps_wallet() -> void:
+	var state := {"shards": 105, "loadout": ["item_dusk_potion"]}
+	var before := state.duplicate(true)
+	var directory := "user://atelier_failed_write_%d" % OS.get_process_id()
+	_check(DirAccess.make_dir_absolute(directory) == OK, "use a directory where the save file must go")
+	_check(not AtelierStash.buy_and_pack(state, "item_echo_hourglass", directory)["ok"], "a failed write rejects the purchase")
+	_check(state == before, "a failed purchase leaves the wallet and loadout intact")
+	_check(not AtelierStash.unpack_and_refund(state, "item_dusk_potion", directory)["ok"], "a failed write rejects the refund")
+	_check(state == before, "a failed refund leaves the wallet and loadout intact")
+	_check(DirAccess.dir_exists_absolute(directory), "a failed write leaves the existing destination intact")
+	DirAccess.remove_absolute(directory)
+
+
+func _test_expedition_write_failure_recovers() -> void:
+	var run_path := "user://spring_checkpoint_blocked_%d" % OS.get_process_id()
+	var stash_path := "user://spring_checkpoint_stash_%d.json" % OS.get_process_id()
+	var wallet := {"shards": 105, "loadout": ["item_dusk_potion"]}
+	_check(AtelierStash.save_state(wallet, stash_path), "seed the expedition wallet")
+	_check(DirAccess.make_dir_absolute(run_path) == OK, "block the checkpoint destination")
+	_check(SpringRunStorage.start(3, true, run_path, stash_path) == null, "a failed checkpoint prevents play")
+	_check(SpringSaveTransaction.is_pending(stash_path), "the transfer remains recoverable")
+	_check(AtelierStash.load_state(stash_path) == wallet, "the pack is still in the wallet before recovery")
+	_check(not AtelierStash.buy_and_pack(wallet, "item_echo_hourglass", stash_path)["ok"], "a pending transfer blocks wallet mutations")
+	DirAccess.remove_absolute(run_path)
+	_check(SpringSaveTransaction.recover(run_path, stash_path), "the next load finishes the expedition transfer")
+	var restored := SpringRun.load_from_file(run_path)
+	_check(restored != null and restored.route_plan.hard_mode and restored.battle_backpack().size() == 1,
+		"recovery opens the original expedition with its pack")
+	_check(AtelierStash.load_state(stash_path) == {"shards": 105, "loadout": []}, "the paid pack is removed once")
+	_check(SpringSaveTransaction.recover(run_path, stash_path) and not SpringSaveTransaction.is_pending(stash_path),
+		"repeating recovery is a no-op")
+	DirAccess.remove_absolute(run_path)
+	DirAccess.remove_absolute(stash_path)
+
+
+func _test_battle_reward_replay() -> void:
+	var run_path := "user://spring_settlement_run_%d.json" % OS.get_process_id()
+	var stash_path := "user://spring_settlement_blocked_%d" % OS.get_process_id()
+	var original := SpringRun.begin(3)
+	_check(original.save_to_file(run_path), "write the pre-fight checkpoint")
+	_check(DirAccess.make_dir_absolute(stash_path) == OK, "block the second write of battle settlement")
+
+	var result := {"result": "victory", "kind": "battle", "place": "battle_1", "chests_saved": 1}
+	SpringBattleBridge.last_result = result
+	var scene: PackedScene = load(LobbyScript.SPRING_SCENE_PATH)
+	var map = scene.instantiate()
+	map.save_path = run_path
+	map.atelier_save_path = stash_path
+	root.add_child(map)
+	_check(map.run == null and SpringSaveTransaction.is_pending(stash_path), "a partially written settlement pauses play")
+	_check(SpringRun.load_from_file(run_path).battles_won == 1, "the checkpoint was written before the blocked wallet")
+	map.queue_free()
+	await process_frame
+
+	DirAccess.remove_absolute(stash_path)
+	SpringBattleBridge.last_result = result
+	var resumed = scene.instantiate()
+	resumed.save_path = run_path
+	resumed.atelier_save_path = stash_path
+	root.add_child(resumed)
+	_check(resumed.run != null and resumed.run.battles_won == 1 and resumed.run.coins == 10,
+		"resuming consumes a replayed result without reapplying it")
+	_check(AtelierStash.load_state(stash_path)["shards"] == AtelierStash.STARTING_SHARDS + 35,
+		"the recovered reward credits the wallet once")
+	_check(not SpringBattleBridge.has_result() and not SpringSaveTransaction.is_pending(stash_path),
+		"the scene clears the completed handoff")
+	resumed.queue_free()
+	DirAccess.remove_absolute(run_path)
+	DirAccess.remove_absolute(stash_path)

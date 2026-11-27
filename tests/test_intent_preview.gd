@@ -32,6 +32,8 @@ func _run() -> void:
 	_test_quote_tracks_defence_penalty()
 	_test_preview_leaves_state_untouched()
 	_test_shield_and_curse_payloads_are_not_health_damage()
+	_test_ordered_threat_totals()
+	_test_curse_applies_in_preview_order()
 
 
 func _spawn(archetype: String, hero_cell: Vector2i, enemy_cell: Vector2i):
@@ -136,3 +138,57 @@ func _test_shield_and_curse_payloads_are_not_health_damage() -> void:
 	# 护盾载荷若误走 preview，会被防御减掉，显示成 500 → 423 这种假伤害。
 	_check(hero.preview_damage(500, "true") == 500, "真伤不被防御削减，可作为对照")
 	_check(hero.preview_damage(500, "physical") < 500, "同一发物理会被防御削减，两者必须不同")
+
+
+func _fixture_intent(battle, action: String, amount: int, damage_type: String = "physical") -> BattleIntent:
+	var mode := BattleIntent.TargetMode.ACTOR_LOCKED if action == "rot_curse" else BattleIntent.TargetMode.TILE_LOCKED
+	var actor_id := HERO if action == "rot_curse" else ""
+	return BattleIntent.new("preview_%d" % battle.intents.size(), "crimson_sword_guard_00",
+		action, mode, actor_id, battle.actors[HERO].cell, [], amount, battle.intents.size(), damage_type)
+
+
+func _test_ordered_threat_totals() -> void:
+	var battle = _spawn("crimson_sword_guard", Vector2i(2, 2), Vector2i(3, 2))
+	var hero = battle.actors[HERO]
+	hero.defense = 0
+	hero.shield = 400
+	battle.intents.clear()
+	for i in range(2):
+		battle.intents.append(_fixture_intent(battle, "echo_bolt", 1000))
+	var summary := BoardThreatView.incoming_threats_at(battle, hero.cell)
+	_check(summary["total_dmg"] == 1600, "two hits share the same 400 shield")
+	_check(summary["entries"][0]["dmg"] == 600 and summary["entries"][1]["dmg"] == 1000,
+		"damage breakdown consumes the shield on the first hit")
+	_check(hero.health == 1800 and hero.shield == 400, "the detailed preview leaves the live actor unchanged")
+	battle.end_player_turn()
+	_check(1800 - hero.health == summary["total_dmg"], "the displayed total matches normal phase resolution")
+
+	hero.health = 200
+	hero.shield = 350
+	hero.magic_resistance = 1000
+	battle.intents.clear()
+	battle.intents.append(_fixture_intent(battle, "echo_bolt", 600, "magical"))
+	battle.intents.append(_fixture_intent(battle, "echo_bolt", 600, "true"))
+	battle.intents.append(_fixture_intent(battle, "echo_bolt", 600))
+	summary = BoardThreatView.incoming_threats_at(battle, hero.cell)
+	_check(summary["entries"][0]["dmg"] == 0, "a magical hit can be fully absorbed")
+	_check(summary["entries"][1]["dmg"] == 200 and summary["total_dmg"] == 200, "the lethal hit is capped at remaining HP")
+	_check(summary["entries"][2]["dmg"] == 0, "later hits add no damage after predicted defeat")
+
+
+func _test_curse_applies_in_preview_order() -> void:
+	var battle = _spawn("crimson_sword_guard", Vector2i(2, 2), Vector2i(3, 2))
+	var hero = battle.actors[HERO]
+	hero.defense = 1000
+	hero.health = 1800
+	battle.intents.clear()
+	battle.intents.append(_fixture_intent(battle, "echo_bolt", 1000))
+	battle.intents.append(_fixture_intent(battle, "rot_curse", 500))
+	battle.intents.append(_fixture_intent(battle, "echo_bolt", 1000))
+	var summary := BoardThreatView.incoming_threats_at(battle, hero.cell)
+	_check(summary["entries"][0]["dmg"] == 500, "the first hit uses the original defence")
+	_check(summary["entries"][1]["dmg"] == 0 and summary["entries"][2]["dmg"] == 666,
+		"the curse changes only following physical hits")
+	_check(hero.defense_penalty == 0, "curse preview does not apply a live status")
+	battle.end_player_turn()
+	_check(1800 - hero.health == summary["total_dmg"], "curse and hits resolve in preview order")

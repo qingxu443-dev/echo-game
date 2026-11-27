@@ -13,6 +13,7 @@ extends RefCounted
 ## capacity - are NOT invented here. They start at zero and are injected by
 ## content, which is what "尚未确定" means in practice.
 
+const SAVE_PATH := "user://spring_run.json"
 const SAVE_VERSION: int = 3
 
 ## The hero's battle-side baseline, mirroring `data/characters/sakura.tres`.
@@ -65,9 +66,10 @@ var shop_price_multiplier: float = 1.0
 var shop_price_notes: Array[String] = []
 var shop: SpringShop
 
-## An event can put a fight in the player's way (§10.2 林间的异响 / 被封存的箱子).
-## The encounter id waits here until the map opens it.
-var pending_battle: StringName = &""
+## Decisions that must survive closing the game before their overlay is resolved.
+var pending_event: Dictionary = {}
+var reward_choices: Array[StringName] = []
+var revive_prompt: bool = false
 ## §11.3: one continuation per area. Spring's map is a single area today, so
 ## this flag lasts the whole run. There is no area concept in the code yet -
 ## nothing resets it after it is used - so a future area transition must reset
@@ -419,7 +421,9 @@ func to_dict() -> Dictionary:
 		"collectibles": _names_to_strings(collectibles),
 		"battle_carry": battle_carry.duplicate(true),
 		"battles_won": battles_won,
-		"pending_battle": String(pending_battle),
+		"pending_event": pending_event.duplicate(true),
+		"reward_choices": _names_to_strings(reward_choices),
+		"revive_prompt": revive_prompt,
 		"revive_used": revive_used,
 		"event_log": event_log.duplicate(true),
 		"price": {
@@ -542,7 +546,10 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	if not carry.is_empty():
 		run.battle_carry = carry.duplicate(true)
 	run.battles_won = int(data.get("battles_won", 0))
-	run.pending_battle = StringName(str(data.get("pending_battle", "")))
+	run.pending_event = data.get("pending_event", {}).duplicate(true)
+	for choice in data.get("reward_choices", []):
+		run.reward_choices.append(StringName(choice))
+	run.revive_prompt = bool(data.get("revive_prompt", false))
 	run.revive_used = bool(data.get("revive_used", false))
 	run.event_log = data.get("event_log", {}).duplicate(true)
 	var price: Dictionary = data.get("price", {})
@@ -557,12 +564,7 @@ static func from_dict(data: Dictionary) -> SpringRun:
 
 
 func save_to_file(path: String) -> bool:
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify(to_dict(), "\t"))
-	file.close()
-	return true
+	return SaveFile.write_json(path, to_dict())
 
 
 static func load_from_file(path: String) -> SpringRun:

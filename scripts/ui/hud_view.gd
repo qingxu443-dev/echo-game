@@ -212,7 +212,7 @@ static func _draw_incoming_threat_card(canvas: CanvasItem, font: Font, controlle
 	var rows: int = entries.size() + (1 if not caution.is_empty() else 0)
 	var h: float = 34.0 + float(rows) * 19.0 + 8.0
 	var rect := Rect2(P.PORTRAIT_CARD_RECT.position.x, P.PORTRAIT_CARD_RECT.position.y - h - 8.0, P.PORTRAIT_CARD_RECT.size.x, h)
-	var lethal: bool = total_dmg > 0 and target_cell == hero.cell and total_dmg >= hero.health + hero.shield
+	var lethal: bool = total_dmg > 0 and target_cell == hero.cell and total_dmg >= hero.health
 	var border := Color("#ff4d4f") if (hit_count > 0) else Color("#ffae52")
 	_draw_card(canvas, rect, Color(0.18, 0.08, 0.09, 0.96) if hit_count > 0 else Color(0.17, 0.13, 0.08, 0.96), border)
 	canvas.draw_rect(Rect2(rect.position, Vector2(4.0, rect.size.y)), border, true)

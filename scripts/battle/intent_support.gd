@@ -192,8 +192,19 @@ static func fire_axis_of(from_cell: Vector2i, to_cell: Vector2i) -> int:
 	return -1
 
 
+## True if a cell is impassable terrain (out of bounds, wall, or intact chest/node).
+static func _is_terrain_blocked(battle, cell: Vector2i) -> bool:
+	if not GridRulesScript.is_inside_bounds(cell, battle.grid_size):
+		return true
+	if battle.blocked_cells.has(cell):
+		return true
+	if battle.beacons.has(cell) and int(battle.beacons[cell].get("health", 0)) > 0:
+		return true
+	return false
+
+
 ## Counts how many open escape cells adjacent to target_cell would be newly
-## covered by a forward orthogonal sweep from cand, excluding already-threatened tiles.
+## covered by a forward orthogonal sweep from cand, ignoring walls/chests.
 static func _uncovered_escape_count(battle, cand: Vector2i, target_cell: Vector2i, threatened: Dictionary) -> int:
 	var forward := Vector2i(signi(target_cell.x - cand.x), signi(target_cell.y - cand.y))
 	var perp := Vector2i(-forward.y, forward.x)
@@ -205,11 +216,29 @@ static func _uncovered_escape_count(battle, cand: Vector2i, target_cell: Vector2
 	var hits: int = 0
 	for off in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
 		var esc: Vector2i = target_cell + off
-		if not GridRulesScript.is_inside_bounds(esc, battle.grid_size) or battle.blocked_cells.has(esc):
+		if _is_terrain_blocked(battle, esc):
 			continue
 		if sweep.has(esc) and not threatened.has(esc):
 			hits += 1
 	return hits
+
+
+## True when standing on cand would step directly onto an allied backline's
+## unobstructed 8-way firing lane to target_cell (blocking friendly fire).
+static func _blocks_ranged_sight(battle, cand: Vector2i, target_cell: Vector2i, ranged_cells: Array, sight_blockers: Dictionary) -> bool:
+	for raw_rc in ranged_cells:
+		var rc: Vector2i = raw_rc
+		if rc == cand or rc == target_cell:
+			continue
+		if fire_axis_of(rc, target_cell) < 0:
+			continue
+		if fire_axis_of(rc, cand) != fire_axis_of(rc, target_cell):
+			continue
+		if GridRulesScript.manhattan_distance(rc, cand) + GridRulesScript.manhattan_distance(cand, target_cell) != GridRulesScript.manhattan_distance(rc, target_cell):
+			continue
+		if GridRulesScript.has_clear_line_of_sight(rc, target_cell, battle.blocked_cells, sight_blockers):
+			return true
+	return false
 
 
 ## True when cand lies on the protective screen between target_cell and any ally
@@ -227,11 +256,71 @@ static func _screens_ranged_ally(cand: Vector2i, target_cell: Vector2i, ranged_c
 	return false
 
 
-## Tactical melee movement with formation awareness:
+## Global BFS detour when walls or chests block every firing lane within max_steps:
+## finds the nearest unreserved cell anywhere on the board that has a clear firing
+## lane / sightline to target_cell, then returns the first max_steps along it.
+static func _find_ranged_detour_path(
+	battle,
+	enemy,
+	target,
+	eff_min: int,
+	max_range: int,
+	require_line: bool,
+	need_sight: bool,
+	max_steps: int,
+	occupied: Dictionary,
+	sight_blockers: Dictionary,
+	reserved_cells: Dictionary
+) -> Array[Vector2i]:
+	var start: Vector2i = enemy.cell
+	var queue: Array[Vector2i] = [start]
+	var came_from := {start: start}
+	var goal_cell := start
+	var found := false
+	while not queue.is_empty():
+		var cur: Vector2i = queue.pop_front()
+		if cur != start and not reserved_cells.has(cur):
+			var dist: int = maxi(absi(cur.x - target.cell.x), absi(cur.y - target.cell.y)) if require_line else GridRulesScript.manhattan_distance(cur, target.cell)
+			if dist >= eff_min and dist <= max_range:
+				var aligned: bool = fire_axis_of(cur, target.cell) >= 0
+				if require_line:
+					if aligned and GridRulesScript.has_clear_line_of_sight(cur, target.cell, battle.blocked_cells, sight_blockers):
+						goal_cell = cur
+						found = true
+						break
+				elif not need_sight or (aligned and GridRulesScript.has_clear_line_of_sight(cur, target.cell, battle.blocked_cells, sight_blockers)):
+					goal_cell = cur
+					found = true
+					break
+		for dir in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+			var nxt: Vector2i = cur + dir
+			if not GridRulesScript.is_inside_bounds(nxt, battle.grid_size):
+				continue
+			if battle.blocked_cells.has(nxt) or occupied.has(nxt) or came_from.has(nxt):
+				continue
+			came_from[nxt] = cur
+			queue.append(nxt)
+	if not found:
+		return []
+	var rev: Array[Vector2i] = []
+	var cursor: Vector2i = goal_cell
+	while cursor != start:
+		rev.push_front(cursor)
+		cursor = came_from[cursor]
+	var out: Array[Vector2i] = []
+	for i in range(mini(max_steps, rev.size())):
+		out.append(rev[i])
+	while not out.is_empty() and reserved_cells.has(out[out.size() - 1]):
+		out.pop_back()
+	return out
+
+
+## Tactical melee movement with formation & terrain awareness:
 ## 1) If a 2-tile orthogonal cleave/signature is ready, step into an unreserved
-##    orthogonal launch cell that seals uncovered escape tiles.
-## 2) In Shield-Wall formation, screen between the hero and allied backline.
-## 3) In Pincer formation, prefer opposite/flanking sides of the hero.
+##    orthogonal launch cell that seals uncovered real escape tiles.
+## 2) In Shield-Wall formation, screen between hero and backline WITHOUT stepping
+##    into friendly archers' clear firing lanes.
+## 3) In Pincer formation, exploit walls/chests as natural pinning barriers.
 static func melee_tactical_path(
 	battle,
 	enemy,
@@ -242,6 +331,7 @@ static func melee_tactical_path(
 	formation: Dictionary = {}
 ) -> Array[Vector2i]:
 	var occupied: Dictionary = battle.get_occupied_cells(enemy.actor_id)
+	var sight_blockers: Dictionary = battle.get_sight_blockers(enemy.actor_id)
 	var form_id: String = str(formation.get("id", ""))
 	var ranged_cells: Array = formation.get("ranged_cells", [])
 	var threatened: Dictionary = formation.get("threatened_cells", {})
@@ -276,14 +366,20 @@ static func melee_tactical_path(
 				var opposite: Vector2i = target.cell * 2 - cand
 				if occupied.has(opposite) or reserved_cells.has(opposite):
 					score += 260 if form_id == "pincer_lockdown" else 160
+				elif _is_terrain_blocked(battle, opposite):
+					# Pin the hero against a wall or intact chest!
+					score += 220 if form_id == "pincer_lockdown" else 120
 				elif form_id == "pincer_lockdown":
-					# Reward opening a perpendicular flank when one side is held.
 					for perp in [Vector2i(cand.y - target.cell.y, target.cell.x - cand.x), Vector2i(target.cell.y - cand.y, cand.x - target.cell.x)]:
-						if occupied.has(target.cell + perp) or reserved_cells.has(target.cell + perp):
+						var side_c: Vector2i = target.cell + perp
+						if occupied.has(side_c) or reserved_cells.has(side_c) or _is_terrain_blocked(battle, side_c):
 							score += 130
 							break
-			if form_id == "shield_wall" and _screens_ranged_ally(cand, target.cell, ranged_cells):
-				score += 260
+			if form_id == "shield_wall":
+				if _blocks_ranged_sight(battle, cand, target.cell, ranged_cells, sight_blockers):
+					score -= 260
+				elif _screens_ranged_ally(cand, target.cell, ranged_cells):
+					score += 260
 			score -= path.size() * 20
 			if score > best_score:
 				best_score = score
@@ -293,10 +389,10 @@ static func melee_tactical_path(
 	return pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, max_steps, reserved_cells)
 
 
-## Smart ranged/caster kiting & formation crossfire positioning:
+## Smart ranged/caster kiting & formation crossfire positioning with obstacle detour:
 ## Picks an unreserved reachable cell within max_steps that establishes a valid
-## firing lane or line-of-sight, prefers cross-axis fire distinct from ranged
-## allies, and stays behind allied front-liners in Shield-Wall formation.
+## firing lane or line-of-sight around walls/chests; if every local cell is
+## occluded by terrain, routes around obstacles via _find_ranged_detour_path.
 static func ranged_reposition_path(
 	battle,
 	enemy,
@@ -312,6 +408,7 @@ static func ranged_reposition_path(
 	var occupied: Dictionary = battle.get_occupied_cells(enemy.actor_id)
 	var sight_blockers: Dictionary = battle.get_sight_blockers(enemy.actor_id)
 	var ideal_dist: int = clampi(min_range + 1, min_range, max_range)
+	var eff_min: int = 2 if require_line else min_range
 	var form_id: String = str(formation.get("id", ""))
 	var used_axes: Dictionary = formation.get("used_axes", {})
 	var melee_cells: Array = formation.get("melee_cells", [])
@@ -321,6 +418,7 @@ static func ranged_reposition_path(
 
 	var best_score: int = -999999
 	var best_path: Array[Vector2i] = []
+	var found_clear_local := false
 	for dy in range(-max_steps, max_steps + 1):
 		for dx in range(-max_steps, max_steps + 1):
 			if dx == 0 and dy == 0:
@@ -337,7 +435,6 @@ static func ranged_reposition_path(
 				continue
 
 			var dist: int = maxi(absi(cand.x - target.cell.x), absi(cand.y - target.cell.y)) if require_line else GridRulesScript.manhattan_distance(cand, target.cell)
-			var eff_min: int = 2 if require_line else min_range
 			var aligned: bool = (cand.x == target.cell.x or cand.y == target.cell.y or absi(cand.x - target.cell.x) == absi(cand.y - target.cell.y))
 			var in_range: bool = dist >= eff_min and dist <= max_range
 			var clear_line: bool = false
@@ -347,6 +444,9 @@ static func ranged_reposition_path(
 			if not require_line and need_sight and in_range and aligned:
 				clear_sight = GridRulesScript.has_clear_line_of_sight(cand, target.cell, battle.blocked_cells, sight_blockers)
 
+			if clear_line or (not require_line and in_range and (not need_sight or clear_sight)):
+				found_clear_local = true
+
 			var score: int = 0
 			if require_line:
 				if clear_line:
@@ -354,8 +454,9 @@ static func ranged_reposition_path(
 					var axis: int = fire_axis_of(cand, target.cell)
 					if axis >= 0 and not used_axes.is_empty() and not used_axes.has(axis):
 						score += 320 if form_id == "crossfire_net" else 260
-				elif aligned:
-					score += 120
+				elif aligned and in_range:
+					# Aligned but blocked by a wall/chest: penalize hugging the occluded line!
+					score -= 80
 			else:
 				if in_range:
 					score += 800
@@ -382,11 +483,17 @@ static func ranged_reposition_path(
 				best_score = score
 				best_path = path
 
+	# When walls or chests occlude every local cell, route smoothly around them
+	# toward the nearest unobstructed firing lane instead of hugging the wall.
+	if not found_clear_local:
+		var detour := _find_ranged_detour_path(battle, enemy, target, eff_min, max_range, require_line, need_sight, max_steps, occupied, sight_blockers, reserved_cells)
+		if not detour.is_empty():
+			return detour
 	return best_path
 
 
-## Picks an aim cell that maximizes lockdown across the target and its open
-## escape tiles when target_cell is already threatened by an earlier ally.
+## Picks an aim cell that maximizes lockdown across the target and its REAL open
+## escape tiles (ignoring walls and intact chests the hero cannot enter).
 static func pick_uncrowded_aim(
 	battle,
 	source_cell: Vector2i,
@@ -403,7 +510,7 @@ static func pick_uncrowded_aim(
 	var best_score: int = -9999
 	for offset in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
 		var adj: Vector2i = target_cell + offset
-		if not GridRulesScript.is_inside_bounds(adj, battle.grid_size) or battle.blocked_cells.has(adj):
+		if _is_terrain_blocked(battle, adj):
 			continue
 		var d: int = GridRulesScript.manhattan_distance(source_cell, adj)
 		if d < min_r or d > max_r:
@@ -412,11 +519,9 @@ static func pick_uncrowded_aim(
 		if not claimed_cells.has(adj):
 			score += 100
 		if is_cross_area:
-			# Cross blast centered on adj covers adj + target_cell + 3 other tiles;
-			# count how many uncovered open cells around target_cell it seals.
 			for off2 in [Vector2i.ZERO, Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
 				var c: Vector2i = adj + off2
-				if not GridRulesScript.is_inside_bounds(c, battle.grid_size) or battle.blocked_cells.has(c):
+				if _is_terrain_blocked(battle, c):
 					continue
 				if GridRulesScript.manhattan_distance(c, target_cell) <= 1 and not claimed_cells.has(c):
 					score += 80

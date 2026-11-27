@@ -28,6 +28,7 @@ static func draw(canvas: CanvasItem, controller, selected_skill: int, skill_bar:
 	# hide the ground entirely. The player must see the cost of the step they are
 	# about to take, not just that the step is allowed.
 	BoardThreatViewScript.draw_hazard_tiles(canvas, controller, fx_state)
+	BoardThreatViewScript.draw_formation_links(canvas, controller, fx_state)
 	_draw_hover_hint(canvas, controller, fx_state)
 	BoardThreatViewScript.draw_telegraphs(canvas, controller, fx_state)
 	_draw_target_hints(canvas, controller, selected_skill, skill_bar, fx_state)

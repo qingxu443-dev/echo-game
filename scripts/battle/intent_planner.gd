@@ -98,7 +98,7 @@ static func plan(battle) -> Array:
 		var enemy = actors[actor_id]
 		if not enemy.is_alive() or enemy.team != "enemy":
 			continue
-		var target = _pick_target_for_enemy(battle, enemy, claimed_cells)
+		var target = _pick_target_for_enemy(battle, enemy, claimed_cells, formation)
 		if target == null:
 			continue
 		var intent = _choose_intent(battle, enemy, target, occupied, claimed_cells, reserved_cells, formation)
@@ -152,7 +152,7 @@ static func actions_for(enemy) -> Array[StringName]:
 ## Picks either the hero or a stationary Relic Beacon so multiple enemies split
 ## pressure (attacking beacons the player cannot simply walk away from) instead
 ## of all stacking onto the player's single tile.
-static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
+static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary, formation: Dictionary = {}):
 	var hero = battle.get_defender()
 	if hero == null or not hero.is_alive():
 		return null
@@ -177,11 +177,12 @@ static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
 			best_beacon = b
 
 	var hero_dist: int = GridRulesScript.manhattan_distance(enemy.cell, hero.cell)
-	# Hero is always primary aggro. Only peel off to hit an unclaimed chest when
-	# the hero is already claimed and a chest is within 2 tiles, or when a chest
-	# is right next to the enemy while the hero is far away (>= 5 tiles).
+	# Hero is always primary aggro. When an enemy formation is active, enemies
+	# hold formation on the hero and only clear an adjacent chest if the hero is
+	# still far away (>= 5 tiles); lone stragglers may peel within 2 tiles.
 	if not best_beacon.is_empty() and not claimed_cells.has(best_beacon["cell"]):
-		if (hero_claimed and best_b_dist <= 2) or (best_b_dist == 1 and hero_dist >= 5):
+		var in_formation: bool = not formation.is_empty()
+		if (best_b_dist == 1 and hero_dist >= 5) or (not in_formation and hero_claimed and best_b_dist <= 2):
 			return {"cell": best_beacon["cell"], "actor_id": str(best_beacon["id"]), "is_beacon": true}
 	return hero
 

@@ -29,6 +29,7 @@ static func plan(battle) -> Array:
 	var generated: Array = []
 	var occupied: Dictionary = battle.get_occupied_cells()
 	var claimed_cells: Dictionary = {}
+	var reserved_cells: Dictionary = {}
 
 	for actor_id in actors:
 		var enemy = actors[actor_id]
@@ -37,11 +38,15 @@ static func plan(battle) -> Array:
 		var target = _pick_target_for_enemy(battle, enemy, claimed_cells)
 		if target == null:
 			continue
-		var intent = _choose_intent(battle, enemy, target, occupied, claimed_cells)
+		var intent = _choose_intent(battle, enemy, target, occupied, claimed_cells, reserved_cells)
 		if intent != null:
 			generated.append(intent)
 			if intent.action_id not in ["wait", "pursuit", "ward_ally"]:
 				claimed_cells[intent.target_cell] = true
+			if not intent.move_path.is_empty():
+				reserved_cells[intent.move_path[intent.move_path.size() - 1]] = true
+			elif intent.action_id == "pursuit" and not intent.affected_cells.is_empty():
+				reserved_cells[intent.affected_cells[intent.affected_cells.size() - 1]] = true
 
 	generated.sort_custom(func(a, b):
 		if a.execution_priority != b.execution_priority:
@@ -110,15 +115,30 @@ static func _pick_target_for_enemy(battle, enemy, claimed_cells: Dictionary):
 	return hero
 
 
-static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_cells: Dictionary = {}):
-	# 百花锁命 第二段: a mark placed last enemy phase fires now. It is checked
-	# before the action list because the shot is not one of the archer's choices -
-	# it is the delayed half of a decision already made.
+static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_cells: Dictionary = {}, reserved_cells: Dictionary = {}):
+	# 百花锁命 第二段: a mark placed last enemy phase fires now. If cover broke
+	# line of sight, a mobile sniper steps around cover to take the locked shot.
 	var locked_intent = EliteSkillsScript.locked_shot(battle, enemy)
 	if locked_intent != null:
 		return locked_intent
-
 	var actions: Array[StringName] = actions_for(enemy)
+	if "lock_target_id" in enemy and not String(enemy.lock_target_id).is_empty() and actions.has(&"pursuit") and battle.turn_number > 1:
+		var lock_target = battle.actors.get(String(enemy.lock_target_id))
+		if lock_target != null and lock_target.is_alive():
+			var lock_path: Array[Vector2i] = IntentSupportScript.ranged_reposition_path(battle, enemy, lock_target, 1, 6, true, _move_steps_of(enemy), true, reserved_cells)
+			if not lock_path.is_empty():
+				var origin_l: Vector2i = enemy.cell
+				var dest_l: Vector2i = lock_path[lock_path.size() - 1]
+				occupied.erase(origin_l)
+				occupied[dest_l] = enemy.actor_id
+				enemy.cell = dest_l
+				var moved_lock = EliteSkillsScript.locked_shot(battle, enemy)
+				enemy.cell = origin_l
+				occupied.erase(dest_l)
+				occupied[origin_l] = enemy.actor_id
+				if moved_lock != null:
+					moved_lock.move_path = lock_path
+					return moved_lock
 
 	# 1. Try any non-movement attack from the current tile first.
 	for action_id in actions:
@@ -129,28 +149,18 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 			return intent
 
 	# 2. Into-the-Breach enemy cadence: if out of attack position after turn 1,
-	#    reposition first (up to 2 tiles) and IMMEDIATELY telegraph an attack
-	#    from the new tile instead of wasting a whole turn just walking.
-	#
-	#    The move is recorded on the intent (move_path) and applied by
-	#    IntentResolver during the enemy phase. Planning must not touch the
-	#    board: the old version wrote enemy.cell here and emitted actor_moved,
-	#    so calling plan() twice moved the enemy twice and the telegraph could
-	#    disagree with what actually happened.
+	#    reposition first and IMMEDIATELY telegraph an attack from the new tile
+	#    instead of wasting a whole turn just walking.
 	if actions.has(&"pursuit") and battle.turn_number > 1:
-		var move_path: Array[Vector2i] = _compute_move_path(battle, enemy, target)
+		var move_path: Array[Vector2i] = _compute_move_path(battle, enemy, target, reserved_cells)
 		if not move_path.is_empty():
 			var dest: Vector2i = move_path[move_path.size() - 1]
 			var origin: Vector2i = enemy.cell
-			# Evaluate the follow-up from the destination, then restore the board
-			# exactly as it was. No event, no lasting mutation.
 			occupied.erase(origin)
 			occupied[dest] = enemy.actor_id
 			enemy.cell = dest
 			var follow_intent = null
 			for action_id in actions:
-				# 逐影突袭 already carries its own path; evaluating it again from a
-				# simulated destination would stack two moves into one intent.
 				if action_id == &"pursuit" or action_id == &"shadow_raid":
 					continue
 				follow_intent = _build_intent(battle, enemy, target, occupied, action_id, claimed_cells)
@@ -162,37 +172,51 @@ static func _choose_intent(battle, enemy, target, occupied: Dictionary, claimed_
 			if follow_intent != null:
 				follow_intent.move_path = move_path
 				return follow_intent
-			# Cannot attack even after stepping: walk instead of the old
-			# teleport-then-wait, so the movement is a real intent the resolver
-			# animates in the enemy phase.
-			return _pursuit(battle, enemy, target)
+			return _pursuit(battle, enemy, target, reserved_cells)
 
 	# 3. Still too far after moving (or turn 1 setup): fall back to pursuit / wait.
 	if actions.has(&"pursuit") and battle.turn_number == 1:
-		var p_intent = _pursuit(battle, enemy, target)
+		var p_intent = _pursuit(battle, enemy, target, reserved_cells)
 		if p_intent != null:
 			return p_intent
-	# Cornered ranged archer fallback: if pinned adjacent with no retreat tile,
-	# strike back in melee instead of passing the turn helplessly.
-	if (actions.has(&"light_shot") or actions.has(&"aimed_shot")) and GridRulesScript.manhattan_distance(enemy.cell, target.cell) == 1:
+	# Cornered ranged fallback: if any ranged/caster unit is pinned adjacent with
+	# no legal retreat tile, strike back in melee instead of passing helplessly.
+	if _is_ranged_kit(actions) and GridRulesScript.manhattan_distance(enemy.cell, target.cell) == 1:
 		var fallback_melee = _basic_melee(battle, enemy, target)
 		if fallback_melee != null:
 			return fallback_melee
 	return _wait_intent(battle, enemy)
 
 
-static func _compute_move_path(battle, enemy, target) -> Array[Vector2i]:
+static func _is_ranged_kit(actions: Array[StringName]) -> bool:
+	for a in [&"aimed_shot", &"lock_on", &"light_shot", &"ground_pulse", &"echo_bolt", &"spring_bloom"]:
+		if actions.has(a):
+			return true
+	return false
+
+
+static func _has_ready_ortho_cleave(enemy, actions: Array[StringName]) -> bool:
+	for a in [&"charged_strike", &"sakura_shock", &"blight_field"]:
+		if actions.has(a):
+			var spec = EnemySkillCatalogScript.get_skill(a)
+			if spec != null and IntentSupportScript.charge_ready(enemy, spec):
+				return true
+	return false
+
+
+static func _compute_move_path(battle, enemy, target, reserved_cells: Dictionary = {}) -> Array[Vector2i]:
 	var steps: int = _move_steps_of(enemy)
 	var actions: Array[StringName] = actions_for(enemy)
 	if actions.has(&"aimed_shot") or actions.has(&"lock_on") or actions.has(&"light_shot"):
 		var shot = EnemySkillCatalogScript.get_skill(&"aimed_shot")
 		var keep: int = shot.reposition_min_range if shot.reposition_min_range > 0 else shot.min_range
-		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, keep, shot.max_range, true, steps)
+		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, keep, shot.max_range, true, steps, true, reserved_cells)
 	if actions.has(&"ground_pulse") or actions.has(&"echo_bolt") or actions.has(&"spring_bloom"):
 		var spec_id: StringName = &"spring_bloom" if actions.has(&"spring_bloom") else (&"ground_pulse" if actions.has(&"ground_pulse") else &"echo_bolt")
 		var pulse = EnemySkillCatalogScript.get_skill(spec_id)
-		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, pulse.min_range, pulse.max_range, false, steps)
-	return IntentSupportScript.pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, steps)
+		var need_sight: bool = actions.has(&"rot_curse") or actions.has(&"spring_bloom")
+		return IntentSupportScript.ranged_reposition_path(battle, enemy, target, pulse.min_range, pulse.max_range, false, steps, need_sight, reserved_cells)
+	return IntentSupportScript.melee_tactical_path(battle, enemy, target, steps, _has_ready_ortho_cleave(enemy, actions), reserved_cells)
 
 
 ## Reposition budget for this actor. Two is the prototype baseline; a profile
@@ -268,8 +292,8 @@ static func _basic_melee(battle, enemy, target):
 	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], IntentSupportScript.plain_attack_damage(enemy, spec.damage_multiplier), spec.execution_priority)
 
 
-static func _pursuit(battle, enemy, target):
-	var pursuit_path: Array[Vector2i] = _compute_move_path(battle, enemy, target)
+static func _pursuit(battle, enemy, target, reserved_cells: Dictionary = {}):
+	var pursuit_path: Array[Vector2i] = _compute_move_path(battle, enemy, target, reserved_cells)
 	if pursuit_path.is_empty():
 		return null
 	return BattleIntentScript.new(IntentSupportScript.intent_id(battle, enemy), enemy.actor_id, "pursuit", BattleIntentScript.TargetMode.NONE, "", pursuit_path[pursuit_path.size() - 1], pursuit_path, 0, 2)

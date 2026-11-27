@@ -119,21 +119,37 @@ static func intent_id(battle, enemy) -> String:
 	return "intent_%d_%s" % [battle.turn_number, enemy.actor_id]
 
 
-## Breadth-first walk that stops on the first cell adjacent to the goal, then
-## returns the first max_steps of the path. Deterministic direction order.
-static func pursuit_path(battle, start: Vector2i, goal: Vector2i, actor_id: String, max_steps: int) -> Array[Vector2i]:
+## Breadth-first walk that targets an unreserved cell adjacent to the goal,
+## avoiding ally destination collisions. If every adjacent tile is blocked or
+## reserved, advances toward the closest reachable unreserved cell so melee
+## units surround instead of idling behind teammates.
+static func pursuit_path(
+	battle,
+	start: Vector2i,
+	goal: Vector2i,
+	actor_id: String,
+	max_steps: int,
+	reserved_cells: Dictionary = {}
+) -> Array[Vector2i]:
 	var queue: Array[Vector2i] = [start]
 	var came_from := {start: start}
+	var dist_map := {start: 0}
 	var directions: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 	var occupied: Dictionary = battle.get_occupied_cells(actor_id)
 	var found_cell := start
 	var found := false
+	var best_close_cell := start
+	var best_close_dist: int = GridRulesScript.manhattan_distance(start, goal)
 	while not queue.is_empty():
 		var current: Vector2i = queue.pop_front()
-		if GridRulesScript.manhattan_distance(current, goal) == 1:
+		var cur_d: int = GridRulesScript.manhattan_distance(current, goal)
+		if current != start and cur_d == 1 and not reserved_cells.has(current):
 			found_cell = current
 			found = true
 			break
+		if current != start and not reserved_cells.has(current) and cur_d < best_close_dist:
+			best_close_dist = cur_d
+			best_close_cell = current
 		for direction in directions:
 			var next: Vector2i = current + direction
 			if not GridRulesScript.is_inside_bounds(next, battle.grid_size):
@@ -141,23 +157,86 @@ static func pursuit_path(battle, start: Vector2i, goal: Vector2i, actor_id: Stri
 			if battle.blocked_cells.has(next) or occupied.has(next) or came_from.has(next):
 				continue
 			came_from[next] = current
+			dist_map[next] = int(dist_map[current]) + 1
 			queue.append(next)
-	if not found or found_cell == start:
+	var chosen := found_cell if found else best_close_cell
+	if chosen == start:
 		return []
 	var reversed_path: Array[Vector2i] = []
-	var cursor: Vector2i = found_cell
+	var cursor: Vector2i = chosen
 	while cursor != start:
 		reversed_path.push_front(cursor)
 		cursor = came_from[cursor]
 	var result: Array[Vector2i] = []
 	for index in range(mini(max_steps, reversed_path.size())):
 		result.append(reversed_path[index])
+	if not result.is_empty() and reserved_cells.has(result[result.size() - 1]):
+		while not result.is_empty() and reserved_cells.has(result[result.size() - 1]):
+			result.pop_back()
 	return result
 
 
+## Tactical melee movement:
+## 1) If a 2-tile orthogonal cleave/signature is ready, step into an unreserved
+##    orthogonal launch cell within max_steps so the unit can unleash it now.
+## 2) Otherwise prefer unreserved adjacent cells that flank the target away from
+##    other allies instead of colliding on the same tile.
+## 3) If out of immediate reach, close in cleanly via pursuit_path.
+static func melee_tactical_path(
+	battle,
+	enemy,
+	target,
+	max_steps: int,
+	prefer_ortho_range2: bool,
+	reserved_cells: Dictionary = {}
+) -> Array[Vector2i]:
+	var occupied: Dictionary = battle.get_occupied_cells(enemy.actor_id)
+	var best_score: int = -999999
+	var best_path: Array[Vector2i] = []
+	for dy in range(-max_steps, max_steps + 1):
+		for dx in range(-max_steps, max_steps + 1):
+			if dx == 0 and dy == 0:
+				continue
+			if absi(dx) + absi(dy) > max_steps:
+				continue
+			var cand: Vector2i = enemy.cell + Vector2i(dx, dy)
+			if not GridRulesScript.is_inside_bounds(cand, battle.grid_size):
+				continue
+			if battle.blocked_cells.has(cand) or occupied.has(cand) or reserved_cells.has(cand):
+				continue
+			var d: int = GridRulesScript.manhattan_distance(cand, target.cell)
+			var ortho_cleave_ok := false
+			if prefer_ortho_range2 and d >= 1 and d <= 2 and (cand.x == target.cell.x or cand.y == target.cell.y):
+				ortho_cleave_ok = GridRulesScript.has_clear_orthogonal_line(cand, target.cell, battle.blocked_cells, occupied)
+			if d != 1 and not ortho_cleave_ok:
+				continue
+			var path := GridRulesScript.find_path(enemy.cell, cand, battle.grid_size, battle.blocked_cells, occupied, max_steps)
+			if path.is_empty():
+				continue
+			var score: int = 0
+			if ortho_cleave_ok:
+				score += 1200 + (80 if d == 2 else 0)
+			if d == 1:
+				score += 900
+				# Flanking bonus: reward taking the opposite side of an already
+				# occupied/reserved adjacent tile so allies pincer the target.
+				var opposite: Vector2i = target.cell * 2 - cand
+				if occupied.has(opposite) or reserved_cells.has(opposite):
+					score += 160
+			# Prefer fewer steps when equally effective so movement feels crisp.
+			score -= path.size() * 20
+			if score > best_score:
+				best_score = score
+				best_path = path
+	if not best_path.is_empty():
+		return best_path
+	return pursuit_path(battle, enemy.cell, target.cell, enemy.actor_id, max_steps, reserved_cells)
+
+
 ## Smart ranged/caster kiting & line-of-fire positioning:
-## Picks a reachable cell within max_steps that establishes a valid firing lane
-## (or retreats out of dead-zone range) instead of walking into melee range.
+## Picks an unreserved reachable cell within max_steps that establishes a valid
+## firing lane or line-of-sight (or retreats out of dead-zone range) instead of
+## walking into melee range or colliding with allies.
 static func ranged_reposition_path(
 	battle,
 	enemy,
@@ -165,10 +244,12 @@ static func ranged_reposition_path(
 	min_range: int,
 	max_range: int,
 	require_line: bool,
-	max_steps: int
+	max_steps: int,
+	need_sight: bool = false,
+	reserved_cells: Dictionary = {}
 ) -> Array[Vector2i]:
 	var occupied: Dictionary = battle.get_occupied_cells(enemy.actor_id)
-	var all_occupied: Dictionary = battle.get_occupied_cells()
+	var sight_blockers: Dictionary = battle.get_sight_blockers(enemy.actor_id)
 	var ideal_dist: int = clampi(min_range + 1, min_range, max_range)
 
 	var best_score: int = -999999
@@ -182,7 +263,7 @@ static func ranged_reposition_path(
 			var cand: Vector2i = enemy.cell + Vector2i(dx, dy)
 			if not GridRulesScript.is_inside_bounds(cand, battle.grid_size):
 				continue
-			if battle.blocked_cells.has(cand) or occupied.has(cand):
+			if battle.blocked_cells.has(cand) or occupied.has(cand) or reserved_cells.has(cand):
 				continue
 			var path := GridRulesScript.find_path(enemy.cell, cand, battle.grid_size, battle.blocked_cells, occupied, max_steps)
 			if path.is_empty():
@@ -194,10 +275,10 @@ static func ranged_reposition_path(
 			var in_range: bool = dist >= eff_min and dist <= max_range
 			var clear_line: bool = false
 			if require_line and aligned and in_range:
-				var sim_occ := all_occupied.duplicate()
-				sim_occ.erase(enemy.cell)
-				sim_occ[cand] = enemy.actor_id
-				clear_line = GridRulesScript.has_clear_line_of_sight(cand, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id))
+				clear_line = GridRulesScript.has_clear_line_of_sight(cand, target.cell, battle.blocked_cells, sight_blockers)
+			var clear_sight: bool = false
+			if not require_line and need_sight and in_range and aligned:
+				clear_sight = GridRulesScript.has_clear_line_of_sight(cand, target.cell, battle.blocked_cells, sight_blockers)
 
 			var score: int = 0
 			if require_line:
@@ -208,6 +289,8 @@ static func ranged_reposition_path(
 			else:
 				if in_range:
 					score += 800
+				if need_sight and clear_sight:
+					score += 700
 
 			if in_range:
 				score += 320

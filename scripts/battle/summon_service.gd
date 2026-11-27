@@ -22,7 +22,7 @@ static func cooldown_remaining(battle, summon_id: StringName = SummonCatalogScri
 	var definition := SummonCatalogScript.get_definition(summon_id)
 	if definition == null:
 		return 0
-	var last_used: int = int(battle.summon_last_used_turn.get(String(summon_id), -1))
+	var last_used: int = int(battle.ledger.summon_last_used_turn.get(String(summon_id), -1))
 	if last_used < 0:
 		return 0
 	return maxi(0, definition.cooldown_turns - (battle.turn_number - last_used))
@@ -70,7 +70,7 @@ static func request(battle, summon_id: StringName, target_actor_id: String) -> b
 		return false
 
 	var damage: int = CombatMathScript.calculate_raw_damage(definition.attack, definition.damage_multiplier)
-	battle.summon_last_used_turn[String(summon_id)] = battle.turn_number
+	battle.ledger.summon_last_used_turn[String(summon_id)] = battle.turn_number
 	battle._emit_event(
 		"hunter_summoned",
 		String(summon_id),

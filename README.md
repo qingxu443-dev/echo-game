@@ -88,7 +88,7 @@ godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_
 
 ## 自动化测试与工程守卫
 
-本分支预期基线为 **37 个套件、2686 条断言**；区域推进改动整合后，Ubuntu 与 Windows 双端 CI 待复验（明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)）。首次克隆需先执行一次 `godot --headless --path . --import` 生成资源缓存，随后一条命令运行全部套件与 7 项守卫：
+基线是**覆盖下限**，由 [`tests/framework/baseline.json`](tests/framework/baseline.json) 单独声明；当前套件数与断言数以运行输出为准，逐套件明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)。新增测试不需要改任何共享文档。
 
 ```bash
 # macOS / Linux / Git Bash
@@ -108,10 +108,10 @@ tests/run_all.sh --fix      # PowerShell: .\tests\run_all.ps1 -Fix
 正常通过示例（退出码 `0`）：
 
 ```text
-suites=37 assertions=2686 failures=0 broken=0
-doc-numbers: ok (2686)
-doc-suites: ok (37)
-module-sizes: ok (80 rows)
+suites=<实际套件数> assertions=<实际断言数> failures=0 broken=0
+doc-numbers: ok (floor <下限>)
+doc-suites: ok (floor <下限>)
+module-sizes: ok (no copied line counts; module-lines enforces the limit)
 module-lines: ok (limit 600)
 table-shape: ok
 field-readers: ok
@@ -149,5 +149,5 @@ contracts: ok
 │   ├── meta/            # 黄昏补给商行残晶存档与局外配置
 │   ├── spring/          # 未尽之春地图、事件、行商、遭遇与本局存档
 │   └── ui/              # 2.5D 棋盘视图、预告层、HUD、商店与大厅界面
-└── tests/               # 37 个自动化测试套件与文档/规范守卫
+└── tests/               # 自动化测试套件与文档/规范守卫
 ```

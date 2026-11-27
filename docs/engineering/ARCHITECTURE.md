@@ -218,3 +218,12 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。
 
 压力计次与击杀返 AP 额度现由每场 `BattleLedger` 持有，随遭遇统一重置并自动进入暂停快照；旧快照的顶层 pressure 字段由 `BattleSession.restore()` 迁入账本，不再使用进程全局实例 ID 索引。
+
+
+### 流程与规则边界补充（2026-11-28）
+
+- `SpringMapFlow` 负责地图恢复、检查点、进战/回图、待决事件/领奖/续行；场景提供存档路径和可注入的切换 Callable，地图视图委托流程并保留输入/绘制。
+- `BattleRewards` 由教学视图驱动，单场 `rewards_settled` 随账本保存和重置；春之境继续由事务结算。BattleFlow 不认识工坊奖励或桥接模式。
+- `KnockbackService` 统一碰撞、位移和意图同步；SkillEffects/SkillExecutor 保留兼容委托，均打断显式 interruptible 蓄势，保留既有碰撞事件开关差异。
+- `project.godot` 声明 `echo_*` 动作，InputRouter 消费命名输入并保持默认键位；地图取消与全局暂停读取各自命名动作。暂停载荷校验场景与坐标/生命边界后再应用。
+- 技能完整说明直接读 SkillDefinition，短提示由字段生成；素材工具锁定与复现见 [工具说明](../../tools/README.md)。

@@ -25,7 +25,7 @@ static func capture(view: Node) -> Dictionary:
 
 
 static func restore(view: Node, data: Dictionary) -> bool:
-	if not SessionSave.valid(data): return false
+	if data.get("scene", "") != "battle" or not SessionSave.valid(data): return false
 	view.spring_mode = bool(data.get("spring_mode", false))
 	if view.spring_mode:
 		SpringBattleBridge.pending = data.bridge.duplicate(true)
@@ -45,6 +45,9 @@ static func restore(view: Node, data: Dictionary) -> bool:
 	SessionCodec.apply_fields(battle, data.controller)
 	SessionCodec.apply_fields(battle.ap, data.ap)
 	SessionCodec.apply_fields(battle.ledger, data.get("ledger", {}))
+	# Old finished snapshots were captured after BattleFlow paid mode rewards.
+	if not data.get("ledger", {}).has("rewards_settled") and battle.phase == battle.BattlePhase.FINISHED:
+		battle.ledger.rewards_settled = true
 	# Older snapshots stored pressure counters outside the ledger.
 	if not data.get("ledger", {}).has("pressure_sequence"):
 		battle.ledger.pressure_sequence = int(data.get("pressure_sequence", 0))

@@ -24,6 +24,16 @@ const ACTION_ROTATE_CAM: String = "rotate_cam"
 const ACTION_TOGGLE_BAG: String = "toggle_bag"
 
 
+const KEY_ACTIONS := {
+	"echo_cancel": {"action": ACTION_CANCEL},
+	"echo_end_turn": {"action": ACTION_END_TURN},
+	"echo_switch": {"action": ACTION_SWITCH},
+	"echo_rotate_left": {"action": ACTION_ROTATE_CAM, "step": -1},
+	"echo_rotate_right": {"action": ACTION_ROTATE_CAM, "step": 1},
+	"echo_inventory": {"action": ACTION_TOGGLE_BAG},
+}
+
+
 static func translate(event: InputEvent) -> Dictionary:
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
@@ -42,33 +52,17 @@ static func translate(event: InputEvent) -> Dictionary:
 		return {}
 
 	if event is InputEventKey:
-		var key := event as InputEventKey
-		if not key.pressed or key.echo:
+		if not event.pressed or event.echo:
 			return {}
-		match key.keycode:
-			KEY_1:
-				return {"action": ACTION_SKILL, "index": 0}
-			KEY_2:
-				return {"action": ACTION_SKILL, "index": 1}
-			KEY_3:
-				return {"action": ACTION_SKILL, "index": 2}
-			KEY_4:
-				return {"action": ACTION_SKILL, "index": 3}
-			KEY_5:
-				return {"action": ACTION_SKILL, "index": 4}
-			KEY_6:
-				return {"action": ACTION_SKILL, "index": 5}
-			KEY_ESCAPE:
-				return {"action": ACTION_CANCEL}
-			KEY_ENTER, KEY_SPACE:
-				return {"action": ACTION_END_TURN}
-			KEY_TAB:
-				return {"action": ACTION_SWITCH}
-			KEY_Q:
-				return {"action": ACTION_ROTATE_CAM, "step": -1}
-			KEY_E:
-				return {"action": ACTION_ROTATE_CAM, "step": 1}
-			KEY_B:
-				return {"action": ACTION_TOGGLE_BAG}
-
+	elif event is InputEventAction:
+		if not event.pressed:
+			return {}
+	else:
+		return {}
+	for index in range(6):
+		if event.is_action_pressed("echo_skill_%d" % (index + 1)):
+			return {"action": ACTION_SKILL, "index": index}
+	for action in KEY_ACTIONS:
+		if event.is_action_pressed(action):
+			return KEY_ACTIONS[action].duplicate()
 	return {}

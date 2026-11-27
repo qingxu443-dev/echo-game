@@ -55,7 +55,7 @@ func intercept(event: InputEvent) -> bool:
 	if not stage.is_empty():
 		get_viewport().set_input_as_handled()
 		return true
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and _is_gameplay():
+	if event is InputEventKey and event.pressed and not event.echo and event.is_action_pressed("echo_pause") and _is_gameplay():
 		if is_paused:
 			if not menu.dismiss_detail(): resume()
 		else: open_pause()

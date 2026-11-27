@@ -481,6 +481,10 @@ func _handle_inventory_tap(position: Vector2) -> void:
 		queue_redraw()
 
 func _handle_settlement_tap(position: Vector2) -> void:
+	if not BattleRewards.settle(controller, spring_mode, atelier_save_path):
+		status_message = "战后残晶保存失败，当前战果已保留，请检查存档位置后重试。"
+		queue_redraw()
+		return
 	var won: bool = controller.battle_result == "victory"
 	var action: String = SettlementViewScript.hit(position, won, _has_next_level(), spring_mode)
 	match action:
@@ -542,6 +546,7 @@ func _on_battle_event(event: Dictionary) -> void:
 
 func _on_battle_finished(result: String) -> void:
 	inventory_open = false
+	var rewards_saved := BattleRewards.settle(controller, spring_mode, atelier_save_path)
 	if result == "victory":
 		pending_rewards = controller.collect_remaining_chests()
 		var hero = controller.get_active_character()
@@ -557,4 +562,6 @@ func _on_battle_finished(result: String) -> void:
 			status_message = "战斗失败。返回春之境后可消耗补给续行一次。"
 		else:
 			status_message = "遭遇战失败，点击重开将清空本局装备与背包重新开始。"
+	if not rewards_saved:
+		status_message += " 残晶保存失败，离开前请重试结算。"
 	queue_redraw()

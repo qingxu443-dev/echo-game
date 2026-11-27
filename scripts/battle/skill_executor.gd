@@ -81,69 +81,7 @@ static func absolute_guard(battle) -> bool:
 
 
 static func _knockback_one(battle, caster, target, direction: Vector2i, collision_damage: int) -> void:
-	if direction == Vector2i.ZERO:
-		return
-	var step := Vector2i(signi(direction.x), signi(direction.y))
-	var dest: Vector2i = target.cell + step
-	var out_of_bounds: bool = dest.x < 0 or dest.y < 0 or dest.x >= battle.grid_size.x or dest.y >= battle.grid_size.y
-	if out_of_bounds or battle.blocked_cells.has(dest):
-		battle._apply_damage(target.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
-		return
-	if battle.beacons.has(dest) and int(battle.beacons[dest].get("health", 0)) > 0:
-		battle._apply_damage(target.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
-		battle.damage_beacon_at(dest, collision_damage, caster.actor_id, "knockback_collision")
-		return
-	for other_id in battle.actors:
-		var other = battle.actors[other_id]
-		if other.actor_id == target.actor_id:
-			continue
-		if (other.is_alive() or other.is_downed()) and other.cell == dest:
-			battle._apply_damage(target.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
-			if other.is_alive():
-				battle._apply_damage(other.actor_id, collision_damage, caster.actor_id, "knockback_collision", "true")
-			return
-	target.cell = dest
-	# Forced movement is control: a swordsman shoved off his mark loses the
-	# wind-up, the same way the dash's impact does (§14 樱华蓄斩).
-	battle.interrupt_enemy_charge(target.actor_id, "knockback")
-	for intent in battle.intents:
-		if intent.source_actor_id != target.actor_id or intent.state != 0:
-			continue
-		if intent.action_id not in ["charged_strike", "aimed_shot", "light_shot", "ground_pulse", "echo_bolt", "basic_melee"]:
-			continue
-		intent.target_cell = intent.target_cell + step
-		if intent.action_id == "charged_strike":
-			var forward := Vector2i(signi(intent.target_cell.x - target.cell.x), signi(intent.target_cell.y - target.cell.y))
-			var perp := Vector2i(-forward.y, forward.x)
-			var rebuilt: Array[Vector2i] = []
-			for depth in [1, 2]:
-				var row_center: Vector2i = target.cell + forward * depth
-				for side in [-1, 0, 1]:
-					var c: Vector2i = row_center + perp * side
-					if GridRulesScript.is_inside_bounds(c, battle.grid_size) and not battle.blocked_cells.has(c) and c != target.cell:
-						rebuilt.append(c)
-			intent.affected_cells = rebuilt
-		elif intent.action_id == "aimed_shot":
-			var astep := Vector2i(signi(intent.target_cell.x - target.cell.x), signi(intent.target_cell.y - target.cell.y))
-			var rebuilt: Array[Vector2i] = []
-			for offset in [-1, 0, 1]:
-				var c: Vector2i = intent.target_cell + astep * offset
-				if GridRulesScript.is_inside_bounds(c, battle.grid_size) and not battle.blocked_cells.has(c) and c != target.cell:
-					rebuilt.append(c)
-			intent.affected_cells = rebuilt
-		elif intent.action_id == "ground_pulse":
-			var rebuilt: Array[Vector2i] = []
-			for offset in [Vector2i.ZERO, Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
-				var c: Vector2i = intent.target_cell + offset
-				if GridRulesScript.is_inside_bounds(c, battle.grid_size):
-					rebuilt.append(c)
-			intent.affected_cells = rebuilt
-		else:
-			var shifted: Array[Vector2i] = []
-			if GridRulesScript.is_inside_bounds(intent.target_cell, battle.grid_size) and not battle.blocked_cells.has(intent.target_cell):
-				shifted.append(intent.target_cell)
-			intent.affected_cells = shifted
-	battle._emit_event("actor_moved", target.actor_id, caster.actor_id, "knockback dest=%s" % str(dest))
+	KnockbackService.apply(battle, caster, target, direction, collision_damage, false)
 
 
 static func gain_active_energy(battle, actor_id: String) -> void:

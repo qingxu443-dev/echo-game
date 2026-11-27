@@ -1,6 +1,8 @@
 class_name SpringBattleBridge
 extends RefCounted
 
+const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
+
 ## Carries one fight between the map scene and the battle scene.
 ##
 ## The two scenes never share an object: the map writes `pending`, the battle

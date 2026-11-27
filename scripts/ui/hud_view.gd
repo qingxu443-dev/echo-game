@@ -167,9 +167,17 @@ static func _draw_portrait_card(canvas: CanvasItem, font: Font, controller) -> v
 		canvas.draw_circle(c, 5.0, P.CYAN if lit else Color(0.18, 0.21, 0.25))
 		canvas.draw_arc(c, 5.0, 0.0, TAU, 16, P.TEXT_DIM, 1.0)
 
-	# Oath Vow passive stacks
-	var vow: int = controller.get_oath_vow_stacks()
-	canvas.draw_string(font, Vector2(info_x, rect.position.y + 106.0), "守誓 %d / %d" % [vow, P.OATH_VOW_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.GOLD_LIGHT)
+	# Character signature resource (e.g. Sakura's Blade Intent) or Oath Vow passive stacks
+	if hero.has_resource():
+		var res_label: String = hero.resource_name_zh if not hero.resource_name_zh.is_empty() else "蓄力"
+		var res_text: String = "%s %d / %d" % [res_label, hero.resource_current, hero.resource_max]
+		var res_col: Color = P.RING_PETAL if hero.is_resource_full() else P.PETAL_LABEL
+		if hero.is_resource_full():
+			res_text += " · 满"
+		canvas.draw_string(font, Vector2(info_x, rect.position.y + 106.0), res_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, res_col)
+	else:
+		var vow: int = controller.get_oath_vow_stacks()
+		canvas.draw_string(font, Vector2(info_x, rect.position.y + 106.0), "守誓 %d / %d" % [vow, P.OATH_VOW_MAX], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.GOLD_LIGHT)
 
 
 # --- top-right: enemy turn order + hovered enemy skill inspector ------------

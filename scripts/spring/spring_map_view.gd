@@ -49,7 +49,6 @@ var shop_message: String = ""
 var save_path := SpringRun.SAVE_PATH
 var atelier_save_path := AtelierStash.SAVE_PATH
 
-
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
@@ -312,7 +311,8 @@ func _draw_finished() -> void:
 	draw_string(font, panel.position + Vector2(28.0, 40.0), str(ending.get("title", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, color)
 	for index in range(lines.size()):
 		draw_string(font, panel.position + Vector2(28.0, 76.0 + 24.0 * float(index)), str(lines[index]), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
-	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), str(ending.get("footer", "")), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
+	var footer: String = BridgeScript.last_transition_message if not BridgeScript.last_transition_message.is_empty() else str(ending.get("footer", ""))
+	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), footer, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
 	_draw_button(RETURN_BTN, "返回大厅", true)
 
 
@@ -547,15 +547,20 @@ func _open_shop() -> void:
 func _apply_returned_battle() -> void:
 	if run == null or not BridgeScript.has_result():
 		return
-	var outcome: Dictionary = BridgeScript.settle(run)
+	var outcome: Dictionary = BridgeScript.settle_and_transition(run, get_tree())
 	status_message = str(outcome.get("message", status_message))
 	if not run.pending_event.is_empty() and run.exploration.completed.has(StringName(run.pending_event["place"])):
 		run.pending_event.clear()
+	reward_choices.clear()
+	for choice in outcome.get("reward_choices", []):
+		reward_choices.append(StringName(choice))
+	revive_prompt = bool(outcome.get("needs_revive", false))
 	if run.pending_hidden_reveal:
 		run.pending_hidden_reveal = false
-		_reveal_hidden_place()
-	_save()
-
+		if not bool(outcome.get("transition_started", false)):
+			_reveal_hidden_place()
+	if not bool(outcome.get("transition_started", false)):
+		_save()
 
 func _reveal_hidden_place() -> void:
 	for cell in FactoryScript.LAYOUT_ORDER:

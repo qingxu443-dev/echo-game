@@ -1,6 +1,8 @@
 class_name SpringBattleBridge
 extends RefCounted
 
+const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
+
 ## Carries one fight between the map scene and the battle scene.
 ##
 ## The two scenes never share an object: the map writes `pending`, the battle
@@ -38,6 +40,7 @@ static var last_result: Dictionary = {}
 static var requested_mode: String = ""
 ## Starting consumables packed at the Atelier hub for the upcoming expedition.
 static var starting_loadout: Array[Dictionary] = []
+static var last_transition_message: String = ""
 
 
 static func stage_starting_loadout(items: Array[Dictionary]) -> void:
@@ -138,11 +141,12 @@ static func pack_carry(run_state) -> Dictionary:
 
 ## Applies `last_result` to the run. Returns a player-facing summary.
 ##
-## Every branch keeps §16.1's promise: the place is finished either way (a lost
-## fight is greyed out and cannot be retried), a win keeps the map position and
-## the remaining stamina untouched, and only a win pays.
-static func settle(run) -> Dictionary:
-	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false}
+## Ordinary wins preserve the map position and exploration stamina. A boss win
+## closes the current floor, discards its remaining stamina, and returns a
+## progression request. The map decides whether the next region can actually load.
+static func settle(run, unlocked_region_ids: Array = [], next_region_scene_available: bool = false) -> Dictionary:
+	last_transition_message = ""
+	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false, "region_transition": {}}
 	if not has_result():
 		return outcome
 	var result: Dictionary = consume_result()
@@ -214,9 +218,23 @@ static func settle(run) -> Dictionary:
 			else:
 				run.add_coins(60)
 				outcome["message"] = "击败了首领。藏品已收集齐全，换得 60 花钿。"
-			# §3: 春之境 ends here; 夏之境 is not unlocked in this build.
+			# §3: 春之境 ends here. Entering the next region requires both
+			# a persistent unlock and a scene that exists in this build.
+			var transition: Dictionary = RegionProgressionScript.resolve_next(
+				RegionProgressionScript.REGION_SPRING,
+				unlocked_region_ids,
+				next_region_scene_available
+			)
+			outcome["region_transition"] = transition
+			match str(transition.get("status", "locked")):
+				"available":
+					outcome["message"] += " 下一层：%s，正在前往。" % str(transition.get("next_region_name", ""))
+				"content_unavailable":
+					outcome["message"] += " %s已解锁，但区域内容尚未开放，本次探索结束。" % str(transition.get("next_region_name", "下一层"))
+				_:
+					outcome["message"] += " 下一层：%s尚未解锁，当前探索结束。" % str(transition.get("next_region_name", "后续区域"))
 			run.exploration.finish("cleared")
-			outcome["finished_run"] = true
+			outcome["finished_run"] = not bool(transition.get("can_enter", false))
 		_:
 			pass
 
@@ -231,6 +249,32 @@ static func settle(run) -> Dictionary:
 		outcome["message"] = "；".join(parts) + "。"
 	else:
 		outcome["message"] += "（+%d 工坊残晶）" % win_shards
+	return outcome
+
+
+## Complete the battle-return handshake and, when permitted, change to the next
+## region. The map remains a thin view and never guesses whether a scene exists.
+static func settle_and_transition(run, scene_tree: SceneTree) -> Dictionary:
+	var unlocked_ids: Array[StringName] = RegionProgressionScript.get_unlocked_region_ids()
+	var scene_path: String = RegionProgressionScript.scene_path_for(RegionProgressionScript.REGION_SUMMER)
+	var scene_available: bool = not scene_path.is_empty() and ResourceLoader.exists(scene_path)
+	var outcome: Dictionary = settle(run, unlocked_ids, scene_available)
+	var transition: Dictionary = outcome.get("region_transition", {})
+	if bool(transition.get("can_enter", false)):
+		RegionProgressionScript.set_pending_transition(run, transition)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://spring_run.json"))
+		var error := scene_tree.change_scene_to_file(scene_path)
+		if error == OK:
+			outcome["transition_started"] = true
+			return outcome
+		RegionProgressionScript.clear_pending_transition()
+		transition["status"] = "load_failed"
+		transition["can_enter"] = false
+		outcome["region_transition"] = transition
+		outcome["finished_run"] = true
+		outcome["message"] = "夏之境已解锁，但无法载入区域场景；本次探索已结束。"
+	if not transition.is_empty() and bool(outcome.get("finished_run", false)):
+		last_transition_message = str(outcome.get("message", ""))
 	return outcome
 
 

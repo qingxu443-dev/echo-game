@@ -13,3 +13,4 @@ defense = 245
 magic_resistance = 210
 actions = Array[StringName]([&"basic_melee", &"pursuit"])
 move_steps = 3
+tier = 1

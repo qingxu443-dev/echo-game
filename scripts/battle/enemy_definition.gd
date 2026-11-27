@@ -27,6 +27,14 @@ extends Resource
 ## so two is the default and a profile only overrides it to express weight:
 ## a heavy guard plods (1) while a wind runner skirmishes (3).
 @export var move_steps: int = 2
+## 0 ordinary, 1 elite, 2 boss. Only used by rules that draw a line between the
+## ranks - 古木壁垒 shields *ordinary* allies and never another elite or boss
+## (§14), so the distinction has to live in the data rather than in a name check.
+@export var tier: int = 0
+## Shield this archetype grants to one ordinary ally within two cells when its
+## charge bar is full (§14 古木壁垒: 500). Zero means the archetype has no ward
+## action at all, which is every other sheet.
+@export var ward_shield: int = 0
 
 
 func is_valid() -> bool:
@@ -39,5 +47,9 @@ func is_valid() -> bool:
 	if actions.is_empty():
 		return false
 	if move_steps <= 0:
+		return false
+	if tier < 0 or tier > 2:
+		return false
+	if ward_shield < 0:
 		return false
 	return true

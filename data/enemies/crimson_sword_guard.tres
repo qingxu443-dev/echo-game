@@ -12,3 +12,4 @@ attack = 875
 defense = 280
 magic_resistance = 210
 actions = Array[StringName]([&"charged_strike", &"basic_melee", &"pursuit"])
+tier = 1

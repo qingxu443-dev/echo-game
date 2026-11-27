@@ -53,6 +53,8 @@ static func resolve_one_active(battle) -> bool:
 				_area_attack(battle, intent)
 			"pursuit":
 				_pursuit(battle, intent)
+			"ward_ally":
+				_ward_ally(battle, intent)
 			"wait":
 				intent.mark_resolved()
 				battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", "wait")
@@ -209,6 +211,34 @@ static func _area_attack(battle, intent) -> void:
 		return
 	intent.mark_resolved()
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", intent.action_id)
+
+
+## 古木壁垒: hand the intent's payload to the ally as a shield. Re-checks the
+## world like every branch here - the ally may have died, or the warden may have
+## been pushed away since planning, and a ward cast across three cells would be
+## a lie the telegraph already told the player.
+static func _ward_ally(battle, intent) -> void:
+	var actors = battle.actors
+	var source = actors[intent.source_actor_id]
+	if not actors.has(intent.target_actor_id):
+		intent.cancel("ward_target_gone")
+		return
+	var ally = actors[intent.target_actor_id]
+	if not ally.is_alive():
+		intent.cancel("ward_target_gone")
+		return
+	if GridRulesScript.manhattan_distance(source.cell, ally.cell) > 2:
+		intent.cancel("ward_target_out_of_range")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=ward_ally")
+		return
+	var granted: int = ally.grant_shield(intent.damage)
+	if source.skill_charge_max > 0:
+		source.skill_charge = 0
+	intent.mark_resolved()
+	battle._emit_event(
+		"enemy_ward_applied", intent.source_actor_id, intent.target_actor_id,
+		"requested=%d shield=%d" % [intent.damage, granted]
+	)
 
 
 static func _pursuit(battle, intent) -> void:

@@ -52,6 +52,11 @@ var skill_charge_max: int = 3
 ## EnemyDefinition. Kept on the actor because the planner and the resolver read
 ## it while the board is live, and neither of them holds the data profile.
 var move_steps: int = 2
+## 0 ordinary, 1 elite, 2 boss; copied from the sheet. Player characters keep 0.
+var tier: int = 0
+## Shield this unit can grant to a lesser ally (古木壁垒). Zero for everyone
+## except the one elite that carries the ward.
+var ward_shield: int = 0
 ## Weapons/armors stolen from destroyed Relic Chests; dropped onto the ground on death.
 var stolen_equipment: Array[Dictionary] = []
 

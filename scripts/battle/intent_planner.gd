@@ -53,7 +53,7 @@ static func plan(battle) -> Array:
 		var intent = _choose_intent(battle, enemy, target, occupied, claimed_cells)
 		if intent != null:
 			generated.append(intent)
-			if intent.action_id != "wait" and intent.action_id != "pursuit":
+			if intent.action_id not in ["wait", "pursuit", "ward_ally"]:
 				claimed_cells[intent.target_cell] = true
 
 	generated.sort_custom(func(a, b):
@@ -210,6 +210,8 @@ static func _build_intent(battle, enemy, target, occupied: Dictionary, action_id
 			return _ground_pulse(battle, enemy, target, claimed_cells)
 		&"echo_bolt":
 			return _echo_bolt(battle, enemy, target, claimed_cells)
+		&"ward_ally":
+			return _ward_ally(battle, enemy, target)
 	push_error("IntentPlanner: unknown action '%s' for archetype '%s'" % [action_id, enemy.archetype])
 	return null
 
@@ -241,6 +243,57 @@ static func _basic_melee(battle, enemy, target):
 	if distance != BASIC_MELEE_RANGE:
 		return null
 	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "basic_melee", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], CombatMathScript.calculate_raw_damage(enemy.attack, BASIC_MELEE_MULTIPLIER), 1)
+
+
+## 古木壁垒 (§14): shield one *ordinary* ally within two cells. Carried on the
+## intent's `damage` field because that is the only integer payload the intent
+## has; the resolver reads it as a shield amount, never as damage.
+##
+## The charge bar doubles as the cooldown: spending it here means the ward cannot
+## fire again until the player has burned three more AP, which is the document's
+## "冷却 3 个敌方行动阶段" expressed with the mechanism the battle layer already
+## has. Ties inside two cells go to the ally with the lowest health ratio.
+static func _ward_ally(battle, enemy, target):
+	var amount: int = _ward_shield_of(enemy)
+	if amount <= 0:
+		return null
+	if enemy.skill_charge_max > 0 and enemy.skill_charge < enemy.skill_charge_max:
+		return null
+	var best = null
+	# Starts above any real ratio so a full-health ally still becomes a candidate.
+	var best_health_ratio: float = 2.0
+	for actor_id in battle.actors:
+		var ally = battle.actors[actor_id]
+		if ally == enemy or ally.team != "enemy" or not ally.is_alive():
+			continue
+		if _tier_of(ally) != 0:
+			continue
+		if ally.shield > 0:
+			continue
+		if GridRulesScript.manhattan_distance(enemy.cell, ally.cell) > 2:
+			continue
+		var ratio: float = float(ally.health) / float(maxi(1, ally.max_health))
+		if ratio < best_health_ratio:
+			best_health_ratio = ratio
+			best = ally
+	if best == null:
+		return null
+	return BattleIntentScript.new(
+		_intent_id(battle, enemy), enemy.actor_id, "ward_ally",
+		BattleIntentScript.TargetMode.ACTOR_LOCKED, best.actor_id, best.cell, [], amount, 1
+	)
+
+
+static func _ward_shield_of(enemy) -> int:
+	if enemy == null or not ("ward_shield" in enemy):
+		return 0
+	return maxi(0, int(enemy.ward_shield))
+
+
+static func _tier_of(actor) -> int:
+	if actor == null or not ("tier" in actor):
+		return 0
+	return int(actor.tier)
 
 
 static func _pursuit(battle, enemy, target):

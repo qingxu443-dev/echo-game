@@ -12,3 +12,4 @@ attack = 840
 defense = 210
 magic_resistance = 210
 actions = Array[StringName]([&"aimed_shot", &"light_shot", &"pursuit"])
+tier = 1

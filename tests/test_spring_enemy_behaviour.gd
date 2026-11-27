@@ -36,6 +36,10 @@ func _run() -> void:
 	_test_move_steps_come_from_the_profile()
 	_test_elite_and_boss_movement_matches_the_document()
 	_test_bosses_are_not_statues()
+	_test_bulwark_shields_an_ordinary_ally()
+	_test_bulwark_never_shields_an_elite()
+	_test_bulwark_range_is_two_cells()
+	_test_bulwark_ward_waits_for_its_cooldown()
 	_test_move_steps_must_be_positive()
 
 
@@ -50,6 +54,29 @@ func _spawn(archetype: String, hero_cell: Vector2i, enemy_cell: Vector2i):
 	battle.beacons.clear()
 	battle.intents = PlannerScript.plan(battle)
 	return battle
+
+
+## Same setup with several enemies, so warden/ally pairs can share a board.
+## The literal arrays are untyped, and start_encounter wants typed ones, so they
+## are converted here rather than every call site declaring two more variables.
+func _spawn_group(enemy_cells: Array, archetypes: Array):
+	var cells: Array[Vector2i] = []
+	cells.assign(enemy_cells)
+	var roster: Array[String] = []
+	roster.assign(archetypes)
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	battle.start_encounter(HERO_CELL, cells, [], roster)
+	battle.beacons.clear()
+	battle.intents = PlannerScript.plan(battle)
+	return battle
+
+
+func _planned_action(battle, actor_id: String) -> String:
+	for intent in battle.intents:
+		if intent.source_actor_id == actor_id:
+			return String(intent.action_id)
+	return ""
 
 
 func _test_every_enemy_advances_or_strikes() -> void:
@@ -151,6 +178,74 @@ func _test_bosses_are_not_statues() -> void:
 		battle.queue_free()
 
 
+## 古木壁垒 (§14): 500 shield onto one *ordinary* ally within two cells. The
+## fight is built around this - "壁垒" that does not shield anybody is just a
+## slow guard - so the assertion reads the ally's actual shield after a turn.
+func _test_bulwark_shields_an_ordinary_ally() -> void:
+	var battle = _spawn_group(
+		[Vector2i(4, 4), Vector2i(5, 4)],
+		["ancient_bulwark", "petal_warrior"]
+	)
+	var warden = battle.get_actor("ancient_bulwark_00")
+	var ally = battle.get_actor("petal_warrior_01")
+	_check(warden.ward_shield == 500, "the bulwark carries the document's 500 shield")
+	var planned := _planned_action(battle, "ancient_bulwark_00")
+	_check(planned == "ward_ally", "the bulwark opens with its ward, not a walk", "planned=%s" % planned)
+	battle.end_player_turn()
+	_check(ally.shield == 500, "the ordinary ally receives the 500 shield", "shield=%d" % ally.shield)
+	_check(warden.skill_charge == 0, "the ward spends the charge bar that serves as its cooldown")
+	battle.queue_free()
+
+
+## §14 says the ward protects an ordinary enemy and explicitly not an elite or a
+## boss. With only an elite inside two cells the warden must do something else.
+func _test_bulwark_never_shields_an_elite() -> void:
+	var battle = _spawn_group(
+		[Vector2i(4, 4), Vector2i(5, 4)],
+		["ancient_bulwark", "crimson_sword_guard"]
+	)
+	var elite = battle.get_actor("crimson_sword_guard_01")
+	var planned := _planned_action(battle, "ancient_bulwark_00")
+	_check(planned != "ward_ally", "the bulwark does not ward an elite", "planned=%s" % planned)
+	battle.end_player_turn()
+	_check(elite.shield == 0, "the elite's shield stays at zero", "shield=%d" % elite.shield)
+	battle.queue_free()
+
+
+## Two cells is the reach. At three the ward is out of range and the warden must
+## fall back to walking instead of shielding across the board.
+func _test_bulwark_range_is_two_cells() -> void:
+	var battle = _spawn_group(
+		[Vector2i(2, 2), Vector2i(2, 5)],
+		["ancient_bulwark", "petal_warrior"]
+	)
+	var ally = battle.get_actor("petal_warrior_01")
+	var planned := _planned_action(battle, "ancient_bulwark_00")
+	_check(planned != "ward_ally", "a ward cannot reach three cells", "planned=%s" % planned)
+	battle.end_player_turn()
+	_check(ally.shield == 0, "the out-of-range ally stays unshielded", "shield=%d" % ally.shield)
+	battle.queue_free()
+
+
+## The charge bar is the cooldown (§14: 3 敌方行动阶段). After the first ward the
+## bar is empty, so a second, still-unshielded ally next to the warden must wait -
+## otherwise "cooldown" is a word in a document and nothing more.
+func _test_bulwark_ward_waits_for_its_cooldown() -> void:
+	var battle = _spawn_group(
+		[Vector2i(4, 4), Vector2i(5, 4), Vector2i(4, 5)],
+		["ancient_bulwark", "petal_warrior", "petal_warrior"]
+	)
+	var warden = battle.get_actor("ancient_bulwark_00")
+	_check(_planned_action(battle, "ancient_bulwark_00") == "ward_ally", "the first ward is available")
+	battle.end_player_turn()
+	var second_ally = battle.get_actor("petal_warrior_02")
+	_check(second_ally.shield == 0, "the second ally is still unshielded")
+	_check(warden.skill_charge == 0, "the ward left the charge bar empty")
+	var planned := _planned_action(battle, "ancient_bulwark_00")
+	_check(planned != "ward_ally", "an empty charge bar blocks the second ward", "planned=%s" % planned)
+	battle.queue_free()
+
+
 func _test_move_steps_must_be_positive() -> void:
 	var definition := EnemyDefinition.new()
 	definition.archetype_id = &"probe"
@@ -163,3 +258,5 @@ func _test_move_steps_must_be_positive() -> void:
 	_check(not definition.is_valid(), "a negative movement budget is invalid")
 	definition.move_steps = 2
 	_check(definition.is_valid(), "the default movement budget is valid")
+	definition.tier = 3
+	_check(not definition.is_valid(), "a tier outside ordinary/elite/boss is invalid")

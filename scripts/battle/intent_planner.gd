@@ -401,7 +401,7 @@ static func _aimed_shot(battle, enemy, target, occupied: Dictionary):
 	var aligned: bool = (dx == 0 or dy == 0 or absi(dx) == absi(dy))
 	if not aligned:
 		return null
-	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, occupied):
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id)):
 		return null
 	var step := Vector2i(signi(dx), signi(dy))
 	var affected: Array[Vector2i] = []
@@ -421,7 +421,7 @@ static func _light_shot(battle, enemy, target, occupied: Dictionary):
 	var aligned: bool = (dx == 0 or dy == 0 or absi(dx) == absi(dy))
 	if not aligned:
 		return null
-	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, occupied):
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id)):
 		return null
 	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "light_shot", BattleIntentScript.TargetMode.TILE_LOCKED, "", target.cell, [target.cell], _plain_attack_damage(enemy, LIGHT_SHOT_MULTIPLIER), 2)
 
@@ -502,7 +502,7 @@ static func _spring_bloom(battle, enemy, target):
 	var distance: int = GridRulesScript.manhattan_distance(enemy.cell, target.cell)
 	if distance < SPRING_BLOOM_MIN_RANGE or distance > SPRING_BLOOM_MAX_RANGE:
 		return null
-	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(enemy.actor_id)):
+	if not GridRulesScript.has_clear_line_of_sight(enemy.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id)):
 		return null
 	var affected: Array[Vector2i] = _three_cell_band(battle, enemy.cell, target.cell, enemy.cell)
 	if affected.is_empty():
@@ -667,7 +667,7 @@ static func _ranged_reposition_path(
 				var sim_occ := all_occupied.duplicate()
 				sim_occ.erase(enemy.cell)
 				sim_occ[cand] = enemy.actor_id
-				clear_line = GridRulesScript.has_clear_line_of_sight(cand, target.cell, battle.blocked_cells, sim_occ)
+				clear_line = GridRulesScript.has_clear_line_of_sight(cand, target.cell, battle.blocked_cells, battle.get_sight_blockers(enemy.actor_id))
 
 			var score: int = 0
 			if require_line:

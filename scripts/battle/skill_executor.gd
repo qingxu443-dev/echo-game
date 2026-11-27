@@ -253,7 +253,7 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 	var distance: int = GridRulesScript.manhattan_distance(caster.cell, target.cell)
 	if distance < skill.min_range or distance > skill.max_range:
 		return false
-	if not GridRulesScript.has_clear_line_of_sight(caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells()):
+	if not GridRulesScript.has_clear_line_of_sight(caster.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers()):
 		return false
 	if not battle.ap.can_spend(skill.ap_cost):
 		return false

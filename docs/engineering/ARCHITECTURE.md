@@ -2,7 +2,7 @@
 
 本文件描述 **`main` 当前实际存在的实现**，不是规划稿，也不承担进度汇报职责（进度见 `PROJECT_STATUS.md`，重构对照基准见 `docs/engineering/BASELINE.md`）。历史演进过程请查阅 git 记录。
 
-最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**二十九个测试套件 2179 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
+最后核对：2026-11-26，`main`（PR #55 2.5D 新底层重构与测试基线对齐后；当前版本先行单角色瑟弗林验证，底层多角色框架保持兼容），Godot 4.7.2 导入零错误、**二十九个测试套件 2187 条断言 0 失败**（本机实测复核与 `docs/engineering/BASELINE.md` 一致）。
 
 > **首次克隆提示**：克隆后须先在 Godot 4.7.2 Standard 中导入项目（GUI 导入，或执行 `godot --headless --path . --import`）生成 `.godot` 导入缓存，再运行测试；否则依赖 `.tres` 资源的套件会因资源未导入而报「crashed or failed to parse」。
 
@@ -65,8 +65,8 @@ wc -l scripts/**/*.gd
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `battle_controller.gd` | 586 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
-| `battle_flow.gd` | 447 | 回合边界、遭遇构建、终止判定 | — |
+| `battle_controller.gd` | 605 | **权威状态持有者与唯一 UI 入口**：状态字段、`request_*` 公共面、阶段枚举、信号与转发 | 子系统以 `battle` 实例参数操作状态，依赖单向；`PLAYER_MOVE_MAX_STEPS` 常量供 UI 读取 |
+| `battle_flow.gd` | 450 | 回合边界、遭遇构建、终止判定 | — |
 | `intent_planner.gd` | 701 | 敌方意图生成 | — |
 | `intent_resolver.gd` | 335 | 敌方意图执行 | actor 锁定攻击按设计不可闪避（执行时不复查距离）；绝对守护嘲讽覆盖两格半径 |
 | `skill_executor.gd` | 278 | 玩家技能校验与结算；施法者取自 `get_active_character()`；AP 退款走账本 | — |

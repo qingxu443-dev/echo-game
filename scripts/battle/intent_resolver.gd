@@ -165,7 +165,7 @@ static func _tile_locked_attack(battle, intent) -> void:
 		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 		return
 	if intent.action_id == "light_shot":
-		if not GridRulesScript.has_clear_line_of_sight(source.cell, intent.target_cell, battle.blocked_cells, battle.get_occupied_cells(intent.source_actor_id)):
+		if not GridRulesScript.has_clear_line_of_sight(source.cell, intent.target_cell, battle.blocked_cells, battle.get_sight_blockers(intent.source_actor_id)):
 			intent.cancel("marked_cell_line_blocked")
 			battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 			return

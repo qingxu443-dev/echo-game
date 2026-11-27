@@ -45,6 +45,8 @@ func _run() -> void:
 	_test_thousand_boughs_spawns_two_ward_nodes()
 	_test_ward_nodes_are_not_boss_objectives()
 	_test_breaking_ward_nodes_costs_defense()
+	_test_ward_node_blocks_movement_but_not_sight()
+	_test_ranged_boss_shoots_across_its_own_nodes()
 	_test_ward_stance_shield_scales_with_nodes()
 	_test_ward_stance_shield_expires()
 	_test_move_steps_must_be_positive()
@@ -367,6 +369,71 @@ func _test_breaking_ward_nodes_costs_defense() -> void:
 
 ## §15.2 结界守护: 6% max health + 2% per standing node, on a full charge bar.
 ## 5040 HP gives 302 alone, 403 with one node, 504 with both.
+## §15.2: "节点占格阻挡移动但不阻挡视线". Before this split the node lived in the
+## same occupancy table as everything else, so it walled off archery lanes the
+## document says it must leave open - a wall the player could not reason about.
+func _test_ward_node_blocks_movement_but_not_sight() -> void:
+	var battle = _begin_boss_fight(&"boss_thousand_boughs")
+	var nodes: Array[Dictionary] = _ward_node_list(battle)
+	_check(nodes.size() == 2, "the boss brought its nodes")
+	var node = nodes[0]
+	var node_cell: Vector2i = node["cell"]
+	_check(not bool(node.get("blocks_sight", true)), "a spawned node records that it does not block sight")
+	_check(battle.get_occupied_cells().has(node_cell), "it still holds its cell against movement")
+	_check(not battle.get_sight_blockers().has(node_cell), "it does not appear in the sight table")
+
+	# Two identical spans across two different occupants: the node's span is open,
+	# the chest's span is not. Same geometry, same call, one flag apart.
+	var node_lane := Vector2i(1, 5)
+	battle.beacons[node_lane] = {
+		"id": "probe_node", "cell": node_lane, "health": 700, "max_health": 700,
+		"opened": false, "loot": {}, "kind": "ward_node", "blocks_sight": false,
+	}
+	var chest_lane := Vector2i(2, 5)
+	battle.beacons[chest_lane] = {
+		"id": "probe_chest", "cell": chest_lane, "health": 2000, "max_health": 2000,
+		"opened": false, "loot": {}, "blocks_sight": true,
+	}
+	_check(
+		GridRulesScript.has_clear_line_of_sight(node_lane + Vector2i(0, -1), node_lane + Vector2i(0, 1), battle.blocked_cells, battle.get_sight_blockers()),
+		"sight passes straight through a 结界 node"
+	)
+	_check(
+		not GridRulesScript.has_clear_line_of_sight(chest_lane + Vector2i(0, -1), chest_lane + Vector2i(0, 1), battle.blocked_cells, battle.get_sight_blockers()),
+		"sight is still stopped by a relic chest"
+	)
+	battle.queue_free()
+
+
+## The split only matters if the *planner* uses it: a boss that stands behind its
+## own 结界 should still be able to cast across the node, and the same shot should
+## be refused the moment that cell is a solid object instead.
+func _test_ranged_boss_shoots_across_its_own_nodes() -> void:
+	var battle = _spawn("boss_spring_echo", Vector2i(1, 3), Vector2i(5, 3))
+	for id in battle.actors:
+		var actor = battle.actors[id]
+		if actor.team == "enemy":
+			actor.skill_charge = actor.skill_charge_max
+	var lane := Vector2i(3, 3)
+	battle.beacons[lane] = {
+		"id": "probe_node", "cell": lane, "health": 700, "max_health": 700,
+		"opened": false, "loot": {}, "kind": "ward_node", "blocks_sight": false,
+		# Same as a spawned node: the boss must not pick it as a target, or the
+		# test would be measuring target choice instead of the sight lane.
+		"enemy_objective": false,
+	}
+	battle.intents = PlannerScript.plan(battle)
+	_check(battle.intents[0].action_id == "spring_bloom", "the boss casts through its own node", "action=%s" % battle.intents[0].action_id)
+
+	# Same cell, same distance, but now the object in the lane blocks sight too.
+	# `kind` stays ward_node so the boss does not simply retarget the object - the
+	# assertion is about the lane, not about target choice.
+	battle.beacons[lane]["blocks_sight"] = true
+	battle.intents = PlannerScript.plan(battle)
+	_check(battle.intents[0].action_id != "spring_bloom", "a solid object in the lane refuses the cast", "action=%s" % battle.intents[0].action_id)
+	battle.queue_free()
+
+
 func _test_ward_stance_shield_scales_with_nodes() -> void:
 	var battle = _begin_boss_fight(&"boss_thousand_boughs")
 	var boss = battle.get_actor("boss_thousand_boughs_00")

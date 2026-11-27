@@ -166,6 +166,23 @@ func request_begin_battle() -> bool:
 
 # --- read-only queries -------------------------------------------------------
 
+## Cells that block line of sight. Split from `get_occupied_cells` because
+## §15.2 says the 春之结界 nodes "阻挡移动但不阻挡视线": they hold their cell, so
+## nobody can walk through, but an archer can still shoot across one. Everything
+## else that holds a cell - actors, walls, relic chests - blocks both.
+func get_sight_blockers(exclude_actor_id: String = "") -> Dictionary:
+	var blockers: Dictionary = blocked_cells.duplicate()
+	for actor_id in actors:
+		var actor = actors[actor_id]
+		if actor_id != exclude_actor_id and actor.blocks_cell():
+			blockers[actor.cell] = actor_id
+	for b_cell in beacons:
+		var b: Dictionary = beacons[b_cell]
+		if int(b.get("health", 0)) > 0 and bool(b.get("blocks_sight", true)):
+			blockers[b_cell] = str(b["id"])
+	return blockers
+
+
 func get_occupied_cells(exclude_actor_id: String = "") -> Dictionary:
 	var occupied: Dictionary = {}
 	for actor_id in actors:
@@ -264,6 +281,8 @@ func spawn_ward_nodes(count: int = 2, health: int = WARD_NODE_HEALTH, defense_bo
 			"opened": false,
 			"loot": {},
 			"kind": "ward_node",
+			# §15.2: the node blocks movement but not sight.
+			"blocks_sight": false,
 			# The boss must not treat its own nodes as objectives.
 			"enemy_objective": false,
 			"ward_defense": defense_bonus,

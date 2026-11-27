@@ -44,7 +44,7 @@ static func can_aim(battle, skill, target, depth_bonus: int = 0, needs_orthogona
 		return GridRulesScript.has_clear_orthogonal_line(
 			caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id))
 	return GridRulesScript.has_clear_line_of_sight(
-		caster.cell, target.cell, battle.blocked_cells, battle.get_occupied_cells(caster.actor_id))
+		caster.cell, target.cell, battle.blocked_cells, battle.get_sight_blockers(caster.actor_id))
 
 
 ## A rectangle is cast through the cell in front of the caster, so only that lane

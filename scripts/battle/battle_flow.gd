@@ -218,6 +218,9 @@ static func _spawn_default_beacons(
 			"health": 2000,
 			"max_health": 2000,
 			"opened": false,
+			# A chest is a solid box: it blocks both movement and sight, unlike the
+			# 结界 nodes, which §15.2 limits to movement.
+			"blocks_sight": true,
 			"loot": loot,
 		}
 

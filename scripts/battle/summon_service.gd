@@ -57,7 +57,12 @@ static func request(battle, summon_id: StringName, target_actor_id: String) -> b
 	if definition == null or not can_summon(battle, summon_id, target_actor_id):
 		return false
 
-	var target = battle.actors[target_actor_id]
+	# can_summon() answers "is the summon usable at all" for an empty target (the
+	# skill bar asks that to light the button up), so an empty or non-enemy id
+	# reaches here legally. Resolve it to a real enemy before touching .cell.
+	var target = battle.actors.get(target_actor_id)
+	if target == null or not target.is_alive() or target.team != "enemy":
+		return false
 	var summon_cell: Vector2i = find_hunter_cell(battle, target)
 	if is_cell_missing(summon_cell):
 		return false

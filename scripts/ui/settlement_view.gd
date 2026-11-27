@@ -74,9 +74,13 @@ static func _draw_chest_settlement(canvas: CanvasItem, font: Font, controller, l
 		canvas.draw_rect(empty_rect, P.PANEL_BORDER, false, 1.2)
 		canvas.draw_string(font, empty_rect.position + Vector2(210.0, 86.0), "本关宝箱均已被怪物拆毁，未获得战利品。", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, P.WARN)
 	else:
-		var card_w: float = 360.0
 		var card_h: float = 178.0
 		var gap: float = 28.0
+		# The panel is 840 wide (768 usable). Cards shrink to share one row instead
+		# of running off the right edge: at 3+ chests a fixed 360-wide card would
+		# push the row past the panel and get clipped.
+		var usable_w: float = rect.size.x - 72.0
+		var card_w: float = minf(360.0, (usable_w - float(kept_count - 1) * gap) / float(kept_count))
 		var total_w: float = float(kept_count) * card_w + float(kept_count - 1) * gap
 		var start_x: float = rect.position.x + (rect.size.x - total_w) * 0.5
 		var y: float = rect.position.y + 158.0

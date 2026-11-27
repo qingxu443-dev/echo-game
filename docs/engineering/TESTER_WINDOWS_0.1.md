@@ -55,6 +55,6 @@
 
 ## 测试状态说明
 
-本项目已于 2026-11-26 在 Godot 4.7.2（Windows 与 Ubuntu CI 双端）完成引擎验证：导入零错误，19 个测试套件共 877 条断言、0 失败，主场景可正常启动与渲染（详见 `docs/engineering/PROJECT_STATUS.md` 的验证记录小节；更早的 Linux 无头记录见 `docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md`）。
+本项目已于 2026-11-26 在 Godot 4.7.2（Windows 与 Ubuntu CI 双端）完成引擎验证：导入零错误，19 个测试套件共 887 条断言、0 失败，主场景可正常启动与渲染（详见 `docs/engineering/PROJECT_STATUS.md` 的验证记录小节；更早的 Linux 无头记录见 `docs/archive/GODOT_ENGINE_VALIDATION_zh-CN.md`）。
 
 本文档面向 **Windows 桌面端人工确认**——headless 无法覆盖交互手感、画面观感与设备表现。因此仍不得将“成功导入”当作人工验收完成；需要逐一记录实际操作中的观察结果。

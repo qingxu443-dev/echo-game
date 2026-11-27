@@ -17,6 +17,14 @@ const ACTION_CLOSE: String = "close"
 const ACTION_UNEQUIP_WEAPON: String = "unequip_weapon"
 const ACTION_UNEQUIP_ARMOR: String = "unequip_armor"
 const ACTION_BAG_PREFIX: String = "bag:"
+const ACTION_PAGE_PREV: String = "page_prev"
+const ACTION_PAGE_NEXT: String = "page_next"
+
+## Cards the panel can show at once: 2 columns x 4 rows. Anything beyond that is
+## paged rather than dropped, so a long run's 9th+ item stays reachable.
+const PAGE_SIZE: int = 8
+const PAGE_PREV_RECT := Rect2(492.0, 588.0, 96.0, 26.0)
+const PAGE_NEXT_RECT := Rect2(964.0, 588.0, 96.0, 26.0)
 
 
 static func bag_card_rect(index: int) -> Rect2:
@@ -34,7 +42,7 @@ static func bag_card_rect(index: int) -> Rect2:
 	)
 
 
-static func draw(canvas: CanvasItem, run_state, hero) -> void:
+static func draw(canvas: CanvasItem, run_state, hero, page: int = 0) -> void:
 	if run_state == null:
 		return
 	var font := ThemeDB.fallback_font
@@ -73,8 +81,29 @@ static func draw(canvas: CanvasItem, run_state, hero) -> void:
 		canvas.draw_string(font, Vector2(492.0, 224.0), "背包空空如也。走到遗迹宝箱旁 1 格点击即可免费开箱！", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_DIM)
 		return
 
-	for i in range(mini(8, count)):
-		_draw_bag_card(canvas, font, bag_card_rect(i), run_state.backpack[i])
+	var pages: int = maxi(1, int(ceil(float(count) / float(PAGE_SIZE))))
+	var current: int = clampi(page, 0, pages - 1)
+	var start: int = current * PAGE_SIZE
+	var shown: int = mini(PAGE_SIZE, count - start)
+	for i in range(shown):
+		_draw_bag_card(canvas, font, bag_card_rect(i), run_state.backpack[start + i])
+
+	if pages > 1:
+		_draw_page_controls(canvas, font, current, pages)
+
+
+static func _draw_page_controls(canvas: CanvasItem, font: Font, page: int, pages: int) -> void:
+	if page > 0:
+		canvas.draw_rect(PAGE_PREV_RECT, P.BUTTON_BG, true)
+		canvas.draw_rect(PAGE_PREV_RECT, P.BUTTON_BORDER, false, 1.2)
+		canvas.draw_string(font, PAGE_PREV_RECT.position + Vector2(14.0, 18.0), "上一页", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.BUTTON_TEXT)
+	if page < pages - 1:
+		canvas.draw_rect(PAGE_NEXT_RECT, P.BUTTON_BG, true)
+		canvas.draw_rect(PAGE_NEXT_RECT, P.BUTTON_BORDER, false, 1.2)
+		canvas.draw_string(font, PAGE_NEXT_RECT.position + Vector2(14.0, 18.0), "下一页", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.BUTTON_TEXT)
+	var label := "%d / %d" % [page + 1, pages]
+	var lw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	canvas.draw_string(font, Vector2(776.0 - lw * 0.5, 605.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.TEXT_MUTED)
 
 
 static func _draw_equip_slot(canvas: CanvasItem, font: Font, rect: Rect2, title: String, item: Dictionary, accent: Color) -> void:
@@ -112,14 +141,23 @@ static func _draw_bag_card(canvas: CanvasItem, font: Font, rect: Rect2, item: Di
 	canvas.draw_string(font, rect.position + Vector2(14.0, 72.0), str(item.get("desc", "")), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 24.0, 12, P.TEXT_BODY)
 
 
-static func hit(position: Vector2, bag_count: int) -> String:
+static func hit(position: Vector2, bag_count: int, page: int = 0) -> String:
 	if CLOSE_BTN.has_point(position) or not PANEL_RECT.has_point(position):
 		return ACTION_CLOSE
 	if WEAPON_SLOT_RECT.has_point(position):
 		return ACTION_UNEQUIP_WEAPON
 	if ARMOR_SLOT_RECT.has_point(position):
 		return ACTION_UNEQUIP_ARMOR
-	for i in range(mini(8, bag_count)):
+	var pages: int = maxi(1, int(ceil(float(bag_count) / float(PAGE_SIZE))))
+	var current: int = clampi(page, 0, pages - 1)
+	if pages > 1:
+		if current > 0 and PAGE_PREV_RECT.has_point(position):
+			return ACTION_PAGE_PREV
+		if current < pages - 1 and PAGE_NEXT_RECT.has_point(position):
+			return ACTION_PAGE_NEXT
+	var start: int = current * PAGE_SIZE
+	var shown: int = mini(PAGE_SIZE, bag_count - start)
+	for i in range(shown):
 		if bag_card_rect(i).has_point(position):
-			return ACTION_BAG_PREFIX + str(i)
+			return ACTION_BAG_PREFIX + str(start + i)
 	return ""

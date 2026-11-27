@@ -36,6 +36,13 @@ static func resolve_one_active(battle) -> bool:
 		if not actors.has(intent.source_actor_id) or not actors[intent.source_actor_id].is_alive():
 			intent.cancel("source_defeated")
 			continue
+		# Into-the-Breach reposition: the planner recorded the steps instead of
+		# moving the enemy itself, so apply them here before anything reads the
+		# source cell (taunt redirect measures distance from it).
+		if not intent.move_path.is_empty():
+			if not _apply_reposition(battle, intent):
+				battle._check_battle_end()
+				return true
 		var guardian_id: String = battle.get_absolute_guardian()
 		if not guardian_id.is_empty():
 			redirect_to_guardian(battle, intent, guardian_id)
@@ -226,3 +233,32 @@ static func _pursuit(battle, intent) -> void:
 	source.cell = cursor
 	intent.mark_resolved()
 	battle._emit_event("enemy_action_resolved", intent.source_actor_id, "", "pursuit")
+
+
+## Walks the intent's recorded reposition path step by step, re-validating each
+## cell against the CURRENT board (the player may have moved or the path may have
+## been blocked since planning). Cancels the whole intent if any step is illegal,
+## rather than teleporting through a wall.
+static func _apply_reposition(battle, intent) -> bool:
+	var actors = battle.actors
+	if not actors.has(intent.source_actor_id):
+		return false
+	var source = actors[intent.source_actor_id]
+	if not source.is_alive():
+		intent.cancel("source_defeated")
+		return false
+	var cursor: Vector2i = source.cell
+	for destination in intent.move_path:
+		if not GridRulesScript.is_inside_bounds(destination, battle.grid_size):
+			intent.cancel("reposition_out_of_bounds")
+			return false
+		if battle.blocked_cells.has(destination) or battle.get_occupied_cells(intent.source_actor_id).has(destination):
+			intent.cancel("reposition_blocked")
+			return false
+		if GridRulesScript.manhattan_distance(cursor, destination) != 1:
+			intent.cancel("reposition_not_adjacent")
+			return false
+		cursor = destination
+	source.cell = cursor
+	battle._emit_event("actor_moved", intent.source_actor_id, "", "reposition dest=%s" % str(cursor))
+	return true

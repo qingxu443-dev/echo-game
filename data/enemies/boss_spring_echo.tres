@@ -14,3 +14,4 @@ magic_resistance = 280
 actions = Array[StringName]([&"aimed_shot", &"echo_bolt", &"pursuit"])
 move_steps = 1
 tier = 2
+skill_damage = 675

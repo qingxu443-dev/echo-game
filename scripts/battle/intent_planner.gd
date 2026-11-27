@@ -235,7 +235,7 @@ static func _charged_strike(battle, enemy, target, occupied: Dictionary):
 			var cell: Vector2i = row_center + perp * side
 			if GridRulesScript.is_inside_bounds(cell, battle.grid_size) and not battle.blocked_cells.has(cell):
 				affected.append(cell)
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "charged_strike", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, CombatMathScript.calculate_raw_damage(enemy.attack, CHARGED_STRIKE_MULTIPLIER), 0)
+	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "charged_strike", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, _signature_damage(enemy, CHARGED_STRIKE_MULTIPLIER), 0)
 
 
 static func _basic_melee(battle, enemy, target):
@@ -296,6 +296,15 @@ static func _tier_of(actor) -> int:
 	return int(actor.tier)
 
 
+## Signature-skill damage. §14 requires it to be independent of the base attack
+## (the sheets already carry a 30% cut), so a profile that pins `skill_damage`
+## wins over the per-action multiplier.
+static func _signature_damage(enemy, multiplier: float) -> int:
+	if "skill_damage" in enemy and int(enemy.skill_damage) > 0:
+		return int(enemy.skill_damage)
+	return CombatMathScript.calculate_raw_damage(enemy.attack, multiplier)
+
+
 static func _pursuit(battle, enemy, target):
 	var pursuit_path: Array[Vector2i] = _compute_move_path(battle, enemy, target)
 	if pursuit_path.is_empty():
@@ -323,7 +332,7 @@ static func _aimed_shot(battle, enemy, target, occupied: Dictionary):
 		var c: Vector2i = target.cell + step * offset
 		if GridRulesScript.is_inside_bounds(c, battle.grid_size) and not battle.blocked_cells.has(c) and c != enemy.cell:
 			affected.append(c)
-	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "aimed_shot", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, CombatMathScript.calculate_raw_damage(enemy.attack, AIMED_SHOT_MULTIPLIER), 2)
+	return BattleIntentScript.new(_intent_id(battle, enemy), enemy.actor_id, "aimed_shot", BattleIntentScript.TargetMode.AREA_LOCKED, "", target.cell, affected, _signature_damage(enemy, AIMED_SHOT_MULTIPLIER), 2)
 
 
 static func _light_shot(battle, enemy, target, occupied: Dictionary):

@@ -35,6 +35,11 @@ extends Resource
 ## charge bar is full (§14 古木壁垒: 500). Zero means the archetype has no ward
 ## action at all, which is every other sheet.
 @export var ward_shield: int = 0
+## Flat raw damage for this archetype's signature skill. Zero falls back to
+## `attack x action multiplier`. §14 is explicit that skill damage must not ride
+## on the base attack: the sheets carry attacks already cut by 30%, and without
+## this field cutting the attack would quietly cut the skill too.
+@export var skill_damage: int = 0
 
 
 func is_valid() -> bool:
@@ -51,5 +56,7 @@ func is_valid() -> bool:
 	if tier < 0 or tier > 2:
 		return false
 	if ward_shield < 0:
+		return false
+	if skill_damage < 0:
 		return false
 	return true

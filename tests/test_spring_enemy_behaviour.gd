@@ -40,6 +40,7 @@ func _run() -> void:
 	_test_bulwark_never_shields_an_elite()
 	_test_bulwark_range_is_two_cells()
 	_test_bulwark_ward_waits_for_its_cooldown()
+	_test_signature_damage_is_independent_of_attack()
 	_test_move_steps_must_be_positive()
 
 
@@ -244,6 +245,38 @@ func _test_bulwark_ward_waits_for_its_cooldown() -> void:
 	var planned := _planned_action(battle, "ancient_bulwark_00")
 	_check(planned != "ward_ally", "an empty charge bar blocks the second ward", "planned=%s" % planned)
 	battle.queue_free()
+
+
+## §14: "技能直接伤害需与基础攻击属性解耦". The sheets carry attacks already cut
+## by 30%; if the skill kept multiplying that number the cut would silently halve
+## the signature hit too. Raising the attack must therefore leave the skill's raw
+## damage untouched.
+func _test_signature_damage_is_independent_of_attack() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	battle.start_encounter(Vector2i(1, 3), [Vector2i(3, 3)], [], ["crimson_sword_guard"])
+	battle.beacons.clear()
+	battle.intents = PlannerScript.plan(battle)
+	var enemy = battle.get_actor("crimson_sword_guard_00")
+	var intent = battle.intents[0]
+	_check(intent.action_id == "charged_strike", "the elite opens with its charged strike")
+	_check(intent.damage == 1688, "the skill carries its pinned raw damage", "damage=%d" % intent.damage)
+	enemy.attack += 1000
+	battle.intents = PlannerScript.plan(battle)
+	var raised = battle.intents[0]
+	_check(raised.damage == 1688, "raising attack by 1000 does not touch the skill", "damage=%d" % raised.damage)
+	battle.queue_free()
+
+	# An archetype without a pinned skill keeps deriving damage from its attack.
+	var plain = ControllerScript.new()
+	root.add_child(plain)
+	plain.start_encounter(Vector2i(1, 3), [Vector2i(3, 3)], [], ["vanguard"])
+	plain.beacons.clear()
+	plain.intents = PlannerScript.plan(plain)
+	var vanguard_intent = plain.intents[0]
+	_check(vanguard_intent.action_id == "charged_strike", "the vanguard still uses its cleave")
+	_check(vanguard_intent.damage == 2100, "an unpinned skill derives 1400 x 1.5")
+	plain.queue_free()
 
 
 func _test_move_steps_must_be_positive() -> void:

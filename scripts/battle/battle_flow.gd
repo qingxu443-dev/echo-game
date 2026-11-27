@@ -131,6 +131,7 @@ static func start_encounter(
 		enemy_unit.move_steps = profile.move_steps
 		enemy_unit.tier = profile.tier
 		enemy_unit.ward_shield = profile.ward_shield
+		enemy_unit.skill_damage = profile.skill_damage
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		battle.actors[enemy_id] = enemy_unit

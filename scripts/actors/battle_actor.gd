@@ -57,6 +57,8 @@ var tier: int = 0
 ## Shield this unit can grant to a lesser ally (古木壁垒). Zero for everyone
 ## except the one elite that carries the ward.
 var ward_shield: int = 0
+## Flat raw damage for this unit's signature skill; 0 means "derive from attack".
+var skill_damage: int = 0
 ## Weapons/armors stolen from destroyed Relic Chests; dropped onto the ground on death.
 var stolen_equipment: Array[Dictionary] = []
 

@@ -13,6 +13,8 @@ extends "res://tests/framework/test_case.gd"
 const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
 const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
+const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 
 
 func _run() -> void:
@@ -24,6 +26,8 @@ func _run() -> void:
 	_test_elite_offers_three()
 	_test_boss_closes_the_region()
 	_test_save_keeps_the_fight_results()
+	_test_baseline_matches_the_hero_sheet()
+	_test_the_spring_hero_fights_as_herself()
 
 
 func _fresh_run(seed_value: int = 5) -> SpringRun:
@@ -41,8 +45,9 @@ func _result(overrides: Dictionary) -> Dictionary:
 		"result": "victory",
 		"kind": BridgeScript.KIND_BATTLE,
 		"place": "battle_1",
-		"hero_health": 2400,
-		"hero_max_health": 3600,
+		# 樱的档案是 1800 血（§2 把她定为这个模式的主角）。
+		"hero_health": 1200,
+		"hero_max_health": 1800,
 		"carry": {"mods": [], "equipped_weapon": {}, "equipped_armor": {}, "backpack": []},
 		"chests_saved": 0,
 		"loot": [],
@@ -101,7 +106,7 @@ func _test_victory_settles() -> void:
 	_check(run.exploration.stamina == stamina_before, "a fight costs no exploration stamina (§11.2)")
 	_check(run.exploration.position == position_before, "a fight returns to the same cell (§11.2)")
 	_check(str(outcome["message"]).contains("战斗胜利"), "the outcome says the fight was won")
-	_check(run.hero_health == 2400, "the win carries the hero's health back")
+	_check(run.hero_health == 1200, "the win carries the hero's health back")
 
 
 func _test_defeat_finishes_the_node() -> void:
@@ -186,7 +191,7 @@ func _test_boss_closes_the_region() -> void:
 
 func _test_save_keeps_the_fight_results() -> void:
 	var run := _fresh_run()
-	run.hero_health = 2600
+	run.hero_health = 1300
 	run.grant_collectible(&"col_petal_purse")
 	run.battles_won = 2
 	run.exploration.mark_completed(&"battle_1")
@@ -197,9 +202,49 @@ func _test_save_keeps_the_fight_results() -> void:
 	_check(restored != null, "a run with content restores")
 	if restored == null:
 		return
-	_check(restored.hero_health == 2600, "health survives the save")
+	_check(restored.hero_health == 1300, "health survives the save")
 	_check(restored.has_collectible(&"col_petal_purse"), "collectibles survive the save")
 	_check(restored.battles_won == 2, "the win count survives the save")
 	_check(restored.exploration.completed.has(&"battle_1"), "finished nodes survive the save")
 	_check(restored.battle_carry["mods"] == ["heavy_push"], "the battle carry survives the save")
 	_check(restored.battle_carry["backpack"].size() == 1, "the backpack survives the save")
+
+
+## SpringRun duplicates the hero's four stats because it must not depend on the
+## battle layer (§4). Duplication drifts, so this pins the copy to the sheet:
+## changing one without the other fails here rather than in a balance bug.
+func _test_baseline_matches_the_hero_sheet() -> void:
+	var sheet = CharacterCatalogScript.get_definition(SpringRun.HERO_CHARACTER_ID)
+	_check(sheet != null, "the spring run names a character sheet that exists")
+	if sheet == null:
+		return
+	_check(SpringRun.HERO_BASE_MAX_HEALTH == sheet.max_health, "baseline health matches the sheet", "%d vs %d" % [SpringRun.HERO_BASE_MAX_HEALTH, sheet.max_health])
+	_check(SpringRun.HERO_BASE_ATTACK == sheet.attack, "baseline attack matches the sheet", "%d vs %d" % [SpringRun.HERO_BASE_ATTACK, sheet.attack])
+	_check(SpringRun.HERO_BASE_DEFENSE == sheet.defense, "baseline defense matches the sheet", "%d vs %d" % [SpringRun.HERO_BASE_DEFENSE, sheet.defense])
+	_check(SpringRun.HERO_BASE_MAGIC_RESISTANCE == sheet.magic_resistance, "baseline resistance matches the sheet", "%d vs %d" % [SpringRun.HERO_BASE_MAGIC_RESISTANCE, sheet.magic_resistance])
+
+
+## §2: 樱 is the lead of this mode. Before this change the spring run built its
+## encounter with the *default* character, so the mode was played as 瑟弗林 with
+## her 3600 HP and oath kit while the narrative kept calling the lead 樱.
+func _test_the_spring_hero_fights_as_herself() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	var placed := battle.start_encounter(
+		Vector2i(3, 6), [Vector2i(3, 5)], [], ["petal_warrior"], [String(SpringRun.HERO_CHARACTER_ID)]
+	)
+	_check(placed, "a spring encounter accepts the spring hero")
+	var hero = battle.get_active_character()
+	_check(hero != null and hero.character_id == &"sakura", "the deployed hero is 樱", "id=%s" % (String(hero.character_id) if hero != null else "none"))
+	_check(hero.max_health == 1800, "she fights with her own health pool", "max=%d" % hero.max_health)
+
+	# Her kit, not Sevrin's: 穿花 is a 樱 skill and must resolve; 誓刃 is not hers
+	# and must be refused even though the executor exists.
+	battle.ap.reset()
+	var enemy = battle.get_actor("petal_warrior_00")
+	enemy.cell = hero.cell + Vector2i(0, -1)
+	var before: int = enemy.health
+	_check(battle.request_skill(&"sakura_pierce_blossom", enemy.actor_id), "樱 can use 穿花")
+	_check(enemy.health < before, "穿花 lands damage", "before=%d after=%d" % [before, enemy.health])
+	_check(not battle.request_skill(&"oathblade", enemy.actor_id), "she cannot borrow 瑟弗林's 誓刃")
+	battle.queue_free()

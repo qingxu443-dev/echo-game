@@ -13,17 +13,19 @@ extends RefCounted
 ## capacity - are NOT invented here. They start at zero and are injected by
 ## content, which is what "尚未确定" means in practice.
 
-const SAVE_VERSION: int = 2
+const SAVE_VERSION: int = 3
 
-## The hero's battle-side baseline. 3600 / 1150 / 350 / 250 are 瑟弗林's sheet
-## values, the only playable character sheet the battle layer has. 春之境's
-## narrative lead is 樱 (§2) and her sheet is not wired into combat yet, so the
-## mode borrows this baseline; when that gap closes, only these four numbers and
-## the battle bridge need to change.
-const HERO_BASE_MAX_HEALTH: int = 3600
-const HERO_BASE_ATTACK: int = 1150
-const HERO_BASE_DEFENSE: int = 350
-const HERO_BASE_MAGIC_RESISTANCE: int = 250
+## The hero's battle-side baseline, mirroring `data/characters/sakura.tres`.
+## §2 makes 樱 the narrative lead of 春之境, and this mode now fights as her
+## rather than borrowing 瑟弗林's sheet. The four numbers are duplicated here
+## because SpringRun must not depend on the battle layer (§4); a suite asserts
+## that they still match the sheet, so the copy cannot drift silently.
+const HERO_BASE_MAX_HEALTH: int = 1800
+const HERO_BASE_ATTACK: int = 520
+const HERO_BASE_DEFENSE: int = 180
+const HERO_BASE_MAGIC_RESISTANCE: int = 111
+## The character sheet the spring battles deploy.
+const HERO_CHARACTER_ID: String = "sakura"
 
 ## §5.1: 补给 is shared by the whole party, not carried per character.
 var seed_value: int = 0
@@ -471,8 +473,15 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	# Everything below arrived with save version 2. A version-1 file simply has no
 	# such keys, and each default matches what version 1 meant, so old saves load.
 	var hero: Dictionary = data.get("hero", {})
+	var version: int = int(data.get("version", 1))
 	run.bonus_max_health = maxi(0, int(hero.get("bonus_max_health", 0)))
 	run.carry_max_health = maxi(0, int(hero.get("carry_max_health", 0)))
+	if version < 3:
+		# v3 changed the explorer from 瑟弗林 (3600 HP) to 樱 (1800). A v2 save
+		# carries the old ceiling, and keeping it would start the run at twice her
+		# health - the one migration where "load it anyway" is worse than dropping
+		# the field.
+		run.carry_max_health = 0
 	run.hero_health = clampi(int(hero.get("health", run.effective_max_health())), 1, run.effective_max_health())
 	for collectible_id in data.get("collectibles", []):
 		run.collectibles.append(StringName(collectible_id))

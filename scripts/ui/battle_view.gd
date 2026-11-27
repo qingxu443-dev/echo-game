@@ -23,6 +23,7 @@ const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 const InventoryViewScript = preload("res://scripts/ui/inventory_view.gd")
 const SpringBattleBridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
+const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
@@ -83,7 +84,7 @@ func _begin_spring_fight() -> void:
 	spring_mode = true
 	var payload: Dictionary = SpringBattleBridgeScript.pending
 	var encounter_id := StringName(str(payload.get("encounter", "")))
-	var definition := SpringEncounterCatalogScript.build(encounter_id, [CharacterCatalogScript.default_id()])
+	var definition := SpringEncounterCatalogScript.build(encounter_id, [String(SpringRunScript.HERO_CHARACTER_ID)])
 	if definition == null:
 		push_error("春之境：遭遇 %s 无法构建，直接返回地图。" % String(encounter_id))
 		SpringBattleBridgeScript.last_result = {
@@ -293,10 +294,21 @@ func _draw() -> void:
 		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level(), pending_rewards, spring_mode)
 
 
+## The active character's display name, for prompts that name who is being
+## placed. Read from the sheet so swapping the lead does not leave a stale name
+## in the banner.
+func _hero_name() -> String:
+	var hero = controller.get_active_character() if controller != null else null
+	if hero != null and not hero.display_name_zh.is_empty():
+		return hero.display_name_zh
+	var sheet = CharacterCatalogScript.get_definition(String(SpringRunScript.HERO_CHARACTER_ID))
+	return sheet.display_name_zh if sheet != null else "主角"
+
+
 func _effective_banner_message() -> String:
 	var level := _current_level()
 	if controller.phase == ControllerScript.BattlePhase.DEPLOY:
-		return "【部署阶段】点击南侧高亮格放置瑟弗林，确认后开战。部署不消耗行动点，也不计入回合。"
+		return "【部署阶段】点击南侧高亮格放置%s，确认后开战。部署不消耗行动点，也不计入回合。" % _hero_name()
 	if level == null or controller.phase != ControllerScript.BattlePhase.PLAYER:
 		return status_message
 	var hero = controller.get_active_character()

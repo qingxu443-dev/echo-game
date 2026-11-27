@@ -19,6 +19,7 @@ const EventCatalogScript = preload("res://scripts/spring/spring_event_catalog.gd
 const EncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
+const EndingScript = preload("res://scripts/spring/spring_ending.gd")
 
 const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
 const SAVE_PATH := "user://spring_run.json"
@@ -35,7 +36,7 @@ const END_BTN := Rect2(1040.0, 648.0, 196.0, 44.0)
 const GO_BTN := Rect2(824.0, 648.0, 196.0, 44.0)
 const CONFIRM_YES := Rect2(520.0, 408.0, 116.0, 40.0)
 const CONFIRM_NO := Rect2(648.0, 408.0, 116.0, 40.0)
-const RETURN_BTN := Rect2(566.0, 428.0, 148.0, 44.0)
+const RETURN_BTN := Rect2(566.0, 540.0, 148.0, 44.0)
 const REVIVE_YES := Rect2(520.0, 392.0, 180.0, 46.0)
 const REVIVE_NO := Rect2(724.0, 392.0, 180.0, 46.0)
 
@@ -298,32 +299,20 @@ func _draw_confirm() -> void:
 
 func _draw_finished() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
-	var panel := Rect2(440.0, 300.0, 400.0, 200.0)
+	# 留白式结局：文案来自 SpringEnding（可测试），这里只负责绘制。平定一局有多行
+	# 收束文字，其余结束较短；面板按行数伸缩，按钮用常量定位、始终贴在面板下方。
+	var ending: Dictionary = EndingScript.ending_for(run.exploration.finish_reason)
+	var lines: Array = ending.get("lines", [])
+	var panel_h: float = 148.0 + 24.0 * float(lines.size())
+	var panel := Rect2(390.0, 250.0, 500.0, panel_h)
 	draw_rect(panel, P.OVERLAY_BG, true)
 	draw_rect(panel, P.GOLD, false, 2.0)
 	var font := ThemeDB.fallback_font
-	# Three ways a 春之境 run can end, and they read differently on purpose: a
-	# cleared boss is an achievement, an empty stamina bar is a soft stop, and a
-	# lost fight is a failure.
-	var title: String = "本局结束"
-	var line: String = "五区域中的春之境到此为止。夏之境及其后内容尚未解锁。"
-	var color: Color = P.GOLD_PALE
-	match run.exploration.finish_reason:
-		"cleared":
-			title = "春之境 · 平定"
-			line = "凋落的花已经落尽。夏之境尚未解锁，这一趟归乡先到这里。"
-			color = P.GOLD_PALE
-		"defeat":
-			title = "本局结束 · 失守"
-			line = "失守的节点留在了地图上，这一趟走不下去了。"
-			color = P.WARN
-		"exhausted":
-			title = "本局结束 · 体力耗尽"
-			line = "体力走完了。夏之境及其后内容尚未解锁。"
-		_:
-			title = "本局结束 · 主动结束"
-	draw_string(font, panel.position + Vector2(28.0, 48.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, color)
-	draw_string(font, panel.position + Vector2(28.0, 84.0), line, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
+	var color: Color = P.WARN if run.exploration.finish_reason == "defeat" else P.GOLD_PALE
+	draw_string(font, panel.position + Vector2(28.0, 40.0), str(ending.get("title", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, color)
+	for index in range(lines.size()):
+		draw_string(font, panel.position + Vector2(28.0, 76.0 + 24.0 * float(index)), str(lines[index]), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
+	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), str(ending.get("footer", "")), HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
 	_draw_button(RETURN_BTN, "返回主菜单", true)
 
 

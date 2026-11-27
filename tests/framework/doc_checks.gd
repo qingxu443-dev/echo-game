@@ -30,7 +30,7 @@ const MAX_MODULE_LINES := 600
 ## 而永久豁免和没有守卫是一回事。
 const MODULE_LINE_DEBT := {
 	"battle_view.gd": 846,
-	"spring_map_view.gd": 766,
+	"spring_map_view.gd": 755,
 	"battle_controller.gd": 628,
 }
 

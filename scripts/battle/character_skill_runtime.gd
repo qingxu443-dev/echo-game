@@ -31,7 +31,7 @@ const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 
 ## Single entry point. Callers press a skill id; whether it is legal, what it
 ## costs and what it does are all decided further down.
-static func request(battle, skill_id: StringName, target_actor_id: String) -> bool:
+static func request(battle, skill_id: StringName, target_actor_id: String, target_cell: Vector2i = Vector2i(-1, -1)) -> bool:
 	# Summons are player-side support actions rather than character skills, so they
 	# live in their own catalog. The bar names them "summon:<id>" so one entry point
 	# can serve every summon without a branch per summon.
@@ -48,6 +48,17 @@ static func request(battle, skill_id: StringName, target_actor_id: String) -> bo
 	# stats, and the UI is the only thing that would have prevented it.
 	if not _owns_skill(battle, skill_id):
 		return false
+	if skill.target_mode == SkillDefinitionScript.TARGET_CELL:
+		# Keep actor-id callers compatible while the UI can aim at any legal cell.
+		if target_cell == Vector2i(-1, -1):
+			var actor = battle.get_actor(target_actor_id)
+			var node := find_ward_node(battle, target_actor_id)
+			if actor != null and actor.team == "enemy" and actor.is_alive():
+				target_cell = actor.cell
+			elif not node.is_empty():
+				target_cell = node["cell"]
+		TacticalPressureScript.begin_player_action(battle)
+		return _dispatch(battle, skill, target_cell)
 
 	# Self-target skills are pressed, not aimed: the caller passes no target, so
 	# the active character is the target.
@@ -165,14 +176,14 @@ static func supports(executor_id: StringName) -> bool:
 	return _executors.has(executor_id)
 
 
-static func _dispatch(battle, skill, target_actor_id: String) -> bool:
+static func _dispatch(battle, skill, target: Variant) -> bool:
 	var executor_id := StringName(skill.executor_id)
 	if not _executors.has(executor_id):
 		# Never silently return false: the press would do nothing and the player
 		# would have no way to tell a missing executor from a failed condition.
 		push_error("CharacterSkillRuntime: no executor registered for '%s' (skill '%s')" % [executor_id, skill.skill_id])
 		return false
-	return _executors[executor_id].call(battle, skill, target_actor_id)
+	return _executors[executor_id].call(battle, skill, target)
 
 
 ## Forwarded rather than reimplemented: the target ring and the cast must ask the

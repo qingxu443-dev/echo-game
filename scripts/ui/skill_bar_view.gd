@@ -15,7 +15,7 @@ const SKILL_HINTS := {
 	&"absolute_guard": "2 AP + 4 能 · 周围击退",
 	&"sakura_pierce_blossom": "相邻 · 100% ATK · 施加残香",
 	&"sakura_flowing_wind": "突进 2 格 · 80% ATK · 施加残香",
-	&"sakura_falling_petals": "面前 3×2 · 三段 · 每段 30% ATK",
+	&"sakura_falling_petals": "点地格定向 · 面前 3×2 · 三段",
 	&"sakura_endless_fragrance": "2 AP + 5 能量 · 十字四段",
 }
 
@@ -26,7 +26,7 @@ const SKILL_FULL_DESC := {
 	&"absolute_guard": "【绝对裁决 · 2 AP + 4 能量】对自身周围 1 格（八方向）所有敌人造成 130% 攻击重击并击退 1 格（可撞墙）。",
 	&"sakura_pierce_blossom": "【穿花 · 1 AP】对相邻 1 格敌人造成 100% 攻击物理伤害，命中后施加残香。",
 	&"sakura_flowing_wind": "【流风 · 1 AP】朝指定方向突进至多 2 格，对一名相邻敌人造成 80% 攻击伤害并施加残香。",
-	&"sakura_falling_petals": "【落英 · 2 AP】对面前 3×2 区域内的敌人三段斩击，每段 30% 攻击，命中后施加残香。",
+	&"sakura_falling_petals": "【落英 · 2 AP】点选地格定向（可选空地）；对面前 3×2 区域内敌人三段斩击，每段 30% 攻击并施加残香。",
 	&"sakura_endless_fragrance": "【无尽芳华 · 2 AP + 5 能量】以自身为中心的十字四段斩击（20/20/20/40% 攻击），每层剑意使终结斩 +5%。",
 }
 
@@ -55,6 +55,8 @@ static func _mode_for(target_mode: StringName) -> String:
 		return "actor"
 	if target_mode == SkillDefinitionScript.TARGET_SELF_AND_ALLY:
 		return "ally"
+	if target_mode == SkillDefinitionScript.TARGET_CELL:
+		return "cell"
 	return "self"
 
 
@@ -163,5 +165,5 @@ static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: A
 	var text_color := P.BUTTON_TEXT if affordable else P.TEXT_DISABLED
 	canvas.draw_string(font, rect.position + Vector2(36.0, 24.0), str(skill["name"]), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 80.0, 16, text_color)
 	canvas.draw_string(font, rect.position + Vector2(10.0, 52.0), str(skill["hint"]), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 20.0, 12, P.TEXT_MUTED if affordable else P.TEXT_DISABLED)
-	var mode_tag: String = "点敌人施放" if str(skill["mode"]) == "actor" else ("点自身施放" if str(skill["mode"]) == "ally" else "点击即生效")
+	var mode_tag: String = {"actor": "点敌人施放", "ally": "点自己/友军施放", "cell": "点地格施放（可空地）"}.get(str(skill["mode"]), "点击即生效")
 	canvas.draw_string(font, rect.position + Vector2(10.0, 72.0), mode_tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.GOLD if is_selected else P.TEXT_DIM)

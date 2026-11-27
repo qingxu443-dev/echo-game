@@ -326,32 +326,28 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 ## §23 落英: a rectangle in front of the caster - three cells wide and two deep
 ## by owner decision on 2026-11-25, replacing the undecided fan. Three segments of
 ## 30% each; the mark lands on hit, and targets already marked take a follow-up.
-static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
+static func area_cells(battle, skill, aim: Vector2i) -> Dictionary:
+	var caster = battle.get_active_character()
+	if caster == null:
+		return {}
+	var extreme := is_extreme(caster)
+	var bonus: int = EXTREME_SHAPE_DEPTH_BONUS if extreme else 0
+	if not CombatGeometryScript.can_aim_cell(battle, skill, aim, bonus):
+		return {}
+	var direction := CombatGeometryScript.direction_toward(caster.cell, aim)
+	var width: int = skill.shape_width + (EXTREME_SHAPE_WIDTH_BONUS if extreme else 0)
+	return CombatGeometryScript.rectangle_cells(battle, caster.cell, direction, width, skill.shape_depth + bonus)
+
+
+static func _falling_petals(battle, skill, aim: Vector2i) -> bool:
 	var caster = battle.get_active_character()
 	if not _can_cast(battle, caster, skill):
 		return false
-	var target = battle.actors.get(target_actor_id)
-	if target == null or target.team != "enemy" or not target.is_alive():
-		return false
-
-	# 落英 had no range gate and no sight gate at all: the rectangle only checked
-	# bounds, so a wall between Sakura and the enemy did not matter and the cast
-	# still landed. One predicate now covers the ring and the cast.
-	if not can_aim(battle, skill, target):
-		return false
-
-	var direction: Vector2i = CombatGeometryScript.direction_toward(caster.cell, target.cell)
-	if direction == Vector2i.ZERO:
-		return false
 	var extreme: bool = is_extreme(caster)
-	# §23 极意: the area expands. The bonus is a constant beside the mechanic
-	# rather than a data field because the plan gives no number to put in data.
-	var width: int = skill.shape_width + (EXTREME_SHAPE_WIDTH_BONUS if extreme else 0)
-	var depth: int = skill.shape_depth + (EXTREME_SHAPE_DEPTH_BONUS if extreme else 0)
-	var cells: Dictionary = CombatGeometryScript.rectangle_cells(battle, caster.cell, direction, width, depth)
-	var targets: Array = CombatGeometryScript.actors_in_cells(battle, cells)
-	if targets.is_empty():
+	var cells := area_cells(battle, skill, aim)
+	if cells.is_empty():
 		return false
+	var targets: Array = CombatGeometryScript.actors_in_cells(battle, cells)
 	if not battle.ap.spend(skill.ap_cost):
 		return false
 
@@ -360,6 +356,10 @@ static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
 		was_marked[actor.actor_id] = battle.statuses.has_status(actor.actor_id, PETAL_MARK)
 
 	var kills: int = _apply_segments(battle, caster, skill, targets, "sakura_falling_petals")
+	for cell in cells:
+		var node: Dictionary = battle.beacons.get(cell, {})
+		if node.get("kind", "") == "ward_node" and int(node.get("health", 0)) > 0:
+			battle.damage_beacon_at(cell, CombatMathScript.calculate_raw_damage(caster.attack, skill.damage_multiplier), caster.actor_id, String(skill.skill_id))
 	for actor in targets:
 		if actor.is_alive():
 			apply_petal_mark(battle, caster, actor)
@@ -374,7 +374,7 @@ static func _falling_petals(battle, skill, target_actor_id: String) -> bool:
 	for actor in targets:
 		if actor.is_alive() and bool(was_marked.get(actor.actor_id, false)):
 			_check_echo_return(battle, caster, actor, echo_multiplier)
-	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_falling_petals cells=%d targets=%d extreme=%s" % [cells.size(), targets.size(), str(extreme)])
+	battle._emit_event("skill_resolved", caster.actor_id, "", "skill=sakura_falling_petals aim=%s cells=%d targets=%d extreme=%s" % [aim, cells.size(), targets.size(), str(extreme)])
 	battle._check_battle_end()
 	return true
 

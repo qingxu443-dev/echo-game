@@ -142,6 +142,8 @@ func step_enemy_phase(delta: float, controller) -> String:
 ## 摄像机旋转后：中断进行中的跳跃并把所有角色视觉位置直接对齐到新投影格。
 func snap_actor_positions(controller) -> void:
 	actor_hop_state.clear()
+	actor_lunge.clear()
+	floating_popups.clear()
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]
 		actor_visual_pos[String(actor_id)] = Palette.cell_center(actor.cell)

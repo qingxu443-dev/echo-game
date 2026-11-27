@@ -49,7 +49,7 @@ static func draw_depth_sorted_objects(canvas: CanvasItem, controller, fx_state: 
 	var actor_positions: Dictionary = fx_state.get("actor_pos", {})
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]
-		if not actor.is_alive() and not actor.is_downed():
+		if not is_actor_visible(controller, actor):
 			continue
 		var screen_pos: Vector2 = actor_positions.get(actor_id, P.cell_center(actor.cell))
 		# Depth sort by visual ground Y so mid-hop actors sort cleanly too
@@ -76,6 +76,12 @@ static func draw_depth_sorted_objects(canvas: CanvasItem, controller, fx_state: 
 				_draw_relic_beacon(canvas, controller, item["cell"], item["beacon"], fx_state)
 		else:
 			_draw_single_actor(canvas, controller, item["actor_id"], item["actor"], item["pos"], fx_state)
+
+
+static func is_actor_visible(controller, actor) -> bool:
+	if controller.phase == controller.BattlePhase.DEPLOY and actor.team == "player":
+		return false
+	return actor.is_alive() or actor.is_downed()
 
 
 ## Ground-level loot beams for items dropped on the field; drawn before the

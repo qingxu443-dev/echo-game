@@ -4,6 +4,9 @@ extends RefCounted
 
 ## Starts a new expedition only after the inventory transfer is durably recorded.
 static func start(p_seed: int, hard_mode: bool, path: String, atelier_path: String) -> SpringRun:
+	# A failed load must never authorize overwriting an existing checkpoint.
+	if FileAccess.file_exists(path) and SpringRun.load_from_file(path) == null:
+		return null
 	var fresh := SpringRun.begin(p_seed, hard_mode)
 	if atelier_path == AtelierStash.SAVE_PATH and DisplayServer.get_name() == "headless":
 		return fresh if fresh.save_to_file(path) else null

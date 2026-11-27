@@ -490,6 +490,11 @@ static func _migrate_v2_to_v3(data: Dictionary) -> Dictionary:
 
 
 static func from_dict(data: Dictionary) -> SpringRun:
+	var invalid := SpringSaveValidation.invalid_field(data)
+	if not invalid.is_empty():
+		push_warning("SpringRun.from_dict: invalid field %s" % invalid)
+		return null
+	data = data.duplicate(true)
 	# 先把旧档推到当前版本，再读任何字段。迁移表放在文件末尾，加版本时只加
 	# 一行；以前是一串 `if version < N` 散在读字段的逻辑中间，第三个版本
 	# 进来时已经很难看出「哪一段属于哪一次升级」。
@@ -547,6 +552,9 @@ static func from_dict(data: Dictionary) -> SpringRun:
 		run.battle_carry = carry.duplicate(true)
 	run.battles_won = int(data.get("battles_won", 0))
 	run.pending_event = data.get("pending_event", {}).duplicate(true)
+	if not run.pending_event.is_empty() and run.template.place_by_id(StringName(run.pending_event["place"])) == null:
+		push_warning("SpringRun.from_dict: invalid field pending_event.place")
+		return null
 	for choice in data.get("reward_choices", []):
 		run.reward_choices.append(StringName(choice))
 	run.revive_prompt = bool(data.get("revive_prompt", false))

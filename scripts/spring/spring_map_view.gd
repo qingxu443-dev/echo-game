@@ -83,7 +83,7 @@ func _ready() -> void:
 func start_new_run(seed_value: int, hard_mode: bool = false) -> void:
 	run = SpringRunStorage.start(seed_value, hard_mode, save_path, atelier_save_path)
 	if run == null:
-		status_message = "出征存档未完成，请返回大厅后重试。"
+		status_message = "无法读取或写入出征存档，原存档已保留。"
 		return
 	selected_cell = Vector2i(-1, -1)
 	if hard_mode:

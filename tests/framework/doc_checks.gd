@@ -457,6 +457,15 @@ static func report() -> bool:
 		print("doc-links: %d broken link(s); fix the path or restore the file" % links.size())
 		ok = false
 
+	var index_entries := check_doc_index()
+	if index_entries.is_empty():
+		print("doc-index: ok")
+	else:
+		for problem in index_entries:
+			print("doc-index: ", problem)
+		print("doc-index: %d document(s) missing from docs/README.md; classify them first" % index_entries.size())
+		ok = false
+
 	return ok
 
 
@@ -483,6 +492,37 @@ static func check_doc_links() -> Array[String]:
 		for file_name in dir.get_files():
 			if file_name.ends_with(".md"):
 				_check_md_links(folder.path_join(file_name), problems)
+		for child in dir.get_directories():
+			if not child.begins_with("."):
+				pending.append(folder.path_join(child))
+	return problems
+
+
+## 新文档必须先进 `docs/README.md` 的目录表。否则它会悄悄落在某个角落，
+## 下一次目录调整时又变成“没人知道该放哪”的冲突源。
+static func check_doc_index() -> Array[String]:
+	var problems: Array[String] = []
+	var index_path := "res://docs/README.md"
+	var listed := {}
+	for match in _md_link_re.search_all(read_text(index_path)):
+		var target: String = match.get_string(1).strip_edges()
+		if target.is_empty() or target.begins_with("http://") or target.begins_with("https://") or target.begins_with("mailto:") or target.begins_with("#"):
+			continue
+		var path_part: String = target.split("#", true, 1)[0]
+		if path_part.is_empty():
+			continue
+		listed[index_path.get_base_dir().path_join(path_part).simplify_path()] = true
+	var pending: Array[String] = ["res://docs"]
+	while not pending.is_empty():
+		var folder: String = pending.pop_back()
+		var dir := DirAccess.open(folder)
+		if dir == null:
+			continue
+		for file_name in dir.get_files():
+			if file_name.ends_with(".md"):
+				var doc_path := folder.path_join(file_name)
+				if doc_path != index_path and not listed.has(doc_path):
+					problems.append("%s is not listed in docs/README.md" % doc_path.trim_prefix("res://"))
 		for child in dir.get_directories():
 			if not child.begins_with("."):
 				pending.append(folder.path_join(child))

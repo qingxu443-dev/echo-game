@@ -87,7 +87,7 @@ godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_
 
 ## 自动化测试与工程守卫
 
-项目当前基线为 **37 个套件、2657 条断言、0 失败**（明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)）。首次克隆需先执行一次 `godot --headless --path . --import` 生成资源缓存，随后一条命令运行全部套件与 7 项守卫：
+项目当前基线为 **37 个套件、2667 条断言、0 失败**（明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)）。首次克隆需先执行一次 `godot --headless --path . --import` 生成资源缓存，随后一条命令运行全部套件与 7 项守卫：
 
 ```bash
 # macOS / Linux / Git Bash
@@ -107,10 +107,10 @@ tests/run_all.sh --fix      # PowerShell: .\tests\run_all.ps1 -Fix
 正常通过示例（退出码 `0`）：
 
 ```text
-suites=37 assertions=2657 failures=0 broken=0
-doc-numbers: ok (2657)
+suites=37 assertions=2667 failures=0 broken=0
+doc-numbers: ok (2667)
 doc-suites: ok (37)
-module-sizes: ok (78 rows)
+module-sizes: ok (79 rows)
 module-lines: ok (limit 600)
 table-shape: ok
 field-readers: ok

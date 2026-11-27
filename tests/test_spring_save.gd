@@ -20,6 +20,7 @@ func _run() -> void:
 	_test_progress_round_trip()
 	_test_hidden_place_round_trip()
 	_test_bad_payloads_are_refused()
+	_test_invalid_nested_payloads_and_preserve_file()
 	_test_json_file_round_trip()
 	_test_templates_rebuild_identically()
 	_test_old_versions_migrate_forward()
@@ -189,3 +190,34 @@ func _test_templates_rebuild_identically() -> void:
 				if first.places[index].id != second.places[index].id:
 					same = false
 		_check(same, "template %d rebuilds to the same layout every time" % template_id)
+
+
+func _test_invalid_nested_payloads_and_preserve_file() -> void:
+	var original := SpringRun.begin(3).to_dict()
+	for fixture in [
+		["hero", []],
+		["version", "3"],
+		["exploration", {"position": [1]}],
+		["hidden", {"revealed": true, "cell": [9, 9]}],
+		["resources", {"coins": -5}],
+		["shop", {"stock": [27]}],
+		["route_plan", {"waypoints": [[1, 2]], "cursor": 8}],
+		["pending_event", {"place": "event_random", "result": {"battle": "not_an_encounter"}}],
+	]:
+		var broken := original.duplicate(true)
+		broken[fixture[0]] = fixture[1]
+		_check(SpringRun.from_dict(broken) == null, "invalid field is rejected safely: %s" % fixture[0])
+
+	var path := "user://spring_invalid_preserved_%d.json" % OS.get_process_id()
+	var stash := "user://spring_invalid_preserved_stash_%d.json" % OS.get_process_id()
+	var truncated := '{"hero":'
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		_check(false, "write a truncated save fixture")
+		return
+	file.store_string(truncated)
+	file.close()
+	_check(SpringRunStorage.start(4, true, path, stash) == null, "a new expedition cannot overwrite an unreadable save")
+	_check(FileAccess.get_file_as_string(path) == truncated and not FileAccess.file_exists(stash),
+		"the unreadable save is retained and the wallet remains untouched")
+	DirAccess.remove_absolute(path)

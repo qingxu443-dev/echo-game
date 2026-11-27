@@ -29,7 +29,9 @@ static func start_encounter(
 	character_ids: Array[String] = [],
 	ally_cells: Array[Vector2i] = [],
 	chest_items: Array[StringName] = [],
-	ward_nodes: int = 0
+	ward_nodes: int = 0,
+	deploy_zone_cells: Array[Vector2i] = [],
+	defer_start: bool = false
 ) -> bool:
 	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
 		return false
@@ -103,6 +105,11 @@ static func start_encounter(
 	battle.damage_dealt = 0
 	battle.damage_taken = 0
 	battle.enemies_defeated = 0
+	battle.hazards.clear()
+	battle.hazard_trigger_turn.clear()
+	battle.deploy_zone = deploy_zone_cells.duplicate() if not deploy_zone_cells.is_empty() else default_deploy_zone(battle)
+	battle.deploy_order.clear()
+	battle.deploy_index = 0
 
 	for index in range(roster.size()):
 		var character_id: String = roster[index]
@@ -120,8 +127,11 @@ static func start_encounter(
 		if index == 0 and battle.run_state != null:
 			battle.run_state.apply_to_actor(unit)
 		battle.actors[character_id] = unit
-	battle.active_character_id = roster[0]
-	battle.free_move_used_turn = -1
+		if index == 0:
+			battle.active_character_id = roster[0]
+			battle.free_move_used_turn = -1
+		# §11.1 deploys the roster in order, one cell each.
+		battle.deploy_order.append(character_id)
 	for index in range(enemy_cells.size()):
 		var cell: Vector2i = enemy_cells[index]
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
@@ -148,6 +158,16 @@ static func start_encounter(
 	if ward_nodes > 0:
 		battle.spawn_ward_nodes(ward_nodes)
 
+	# §11.1: the board, the enemies, the obstacles and the chests are all placed
+	# before deployment, and the deployment phase itself spends no AP, advances no
+	# turn and lets no enemy act. So the only thing "defer" changes is that the
+	# first player turn waits for request_begin_battle().
+	if defer_start:
+		battle.phase = battle.BattlePhase.DEPLOY
+		battle.turn_number = 0
+		battle.ap.reset()
+		battle._emit_event("deployment_started", "", "", "zone=%d roster=%d" % [battle.deploy_zone.size(), battle.deploy_order.size()])
+		return true
 	battle.phase = battle.BattlePhase.PLAYER
 	begin_player_turn(battle)
 	return true
@@ -221,6 +241,79 @@ static func resolve_next_enemy_intent(battle) -> bool:
 
 static func finish_enemy_phase_stepped(battle) -> void:
 	IntentResolverScript.finish_phase(battle)
+
+
+## §11.1 部署区. The document leaves the shape open ("部署区形状可变化"), so the
+## default is stated in one place - the southern three rows, the edge the hero
+## already enters from - and a level that wants another shape passes its own
+## cells through `EncounterDefinition.deploy_cells`.
+const DEFAULT_DEPLOY_ROWS: int = 3
+
+
+static func default_deploy_zone(battle) -> Array[Vector2i]:
+	var zone: Array[Vector2i] = []
+	var start_row: int = maxi(0, battle.grid_size.y - DEFAULT_DEPLOY_ROWS)
+	for y in range(start_row, battle.grid_size.y):
+		for x in range(battle.grid_size.x):
+			zone.append(Vector2i(x, y))
+	return zone
+
+
+## Places the next character waiting for deployment, or slides the last one
+## already placed. §11.1 lets the player adjust before confirming, and with a
+## one-character roster "the last one placed" is the same character, so a second
+## tap simply relocates them.
+static func request_deploy(battle, cell: Vector2i) -> bool:
+	if battle.phase != battle.BattlePhase.DEPLOY:
+		return false
+	if battle.deploy_order.is_empty():
+		return false
+	if not battle.deploy_zone.has(cell):
+		battle._emit_event("action_rejected", "", "", "outside_deploy_zone cell=%s" % str(cell))
+		return false
+	if battle.blocked_cells.has(cell):
+		battle._emit_event("action_rejected", "", "", "deploy_on_obstacle cell=%s" % str(cell))
+		return false
+	var pending: bool = battle.deploy_index < battle.deploy_order.size()
+	var actor_id: String = battle.deploy_order[battle.deploy_index] if pending else battle.deploy_order[battle.deploy_order.size() - 1]
+	var occupant: String = _actor_at(battle, cell)
+	if not occupant.is_empty() and occupant != actor_id:
+		battle._emit_event("action_rejected", actor_id, occupant, "deploy_cell_taken cell=%s" % str(cell))
+		return false
+	var actor = battle.actors[actor_id]
+	if actor == null or actor.team != "player":
+		return false
+	actor.cell = cell
+	if pending:
+		battle.deploy_index += 1
+	battle._emit_event("actor_deployed", actor_id, "", "cell=%s placed=%d/%d" % [str(cell), battle.deploy_index, battle.deploy_order.size()])
+	return true
+
+
+## §11.1 "点击确认部署后才正式开始战斗". Only after the whole roster is placed:
+## starting with a character still off the board would be a battle the player
+## cannot act in.
+static func request_begin_battle(battle) -> bool:
+	if battle.phase != battle.BattlePhase.DEPLOY:
+		return false
+	if battle.deploy_index < battle.deploy_order.size():
+		battle._emit_event("action_rejected", "", "", "deployment_incomplete %d/%d" % [battle.deploy_index, battle.deploy_order.size()])
+		return false
+	# Everything that "fires at battle start" - resource gain, ultimate energy,
+	# relic procs - lives inside begin_player_turn, so deferring that call is what
+	# keeps them out of deployment without a second list of exceptions.
+	battle.phase = battle.BattlePhase.PLAYER
+	begin_player_turn(battle)
+	battle._emit_event("battle_started", battle.active_character_id, "", "turn=%d" % battle.turn_number)
+	return true
+
+
+static func _actor_at(battle, cell: Vector2i) -> String:
+	for actor_id in battle.actors:
+		var actor = battle.actors[actor_id]
+		if actor.blocks_cell() and actor.cell == cell:
+			return String(actor_id)
+	return ""
 
 
 static func end_player_turn(battle) -> bool:

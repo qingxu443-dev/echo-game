@@ -37,7 +37,9 @@ const RunStateScript = preload("res://scripts/battle/run_state.gd")
 ## constant so the movement-range rule has a single source of truth.
 const PLAYER_MOVE_MAX_STEPS: int = 2
 
-enum BattlePhase { PLAYER, ENEMY, FINISHED }
+## DEPLOY is appended rather than prepended so the three existing constants keep
+## their values: a few tests and save-ish payloads compare them by number.
+enum BattlePhase { PLAYER, ENEMY, FINISHED, DEPLOY }
 
 @export var grid_size: Vector2i = Vector2i(8, 8)
 ## Team-wide AP pool (design plan §4): five points shared by the whole party per
@@ -60,6 +62,12 @@ var hazards: Dictionary = {}
 ## Per-character ledger for "at most one hazard trigger per player turn":
 ## actor_id -> turn_number of the last trigger.
 var hazard_trigger_turn: Dictionary = {}
+## 11.1 部署阶段: the cells the player may place characters on, the roster order
+## they are placed in, and how many have been placed. Empty when the encounter
+## skips deployment.
+var deploy_zone: Array[Vector2i] = []
+var deploy_order: Array[String] = []
+var deploy_index: int = 0
 var intents: Array = []
 var event_sequence: int = 0
 var turn_number: int = 0
@@ -124,13 +132,36 @@ func start_encounter(
 	character_ids: Array[String] = [],
 	ally_cells: Array[Vector2i] = [],
 	chest_items: Array[StringName] = [],
-	ward_nodes: int = 0
+	ward_nodes: int = 0,
+	deploy_zone_cells: Array[Vector2i] = [],
+	defer_start: bool = false
 ) -> bool:
-	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes)
+	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes, deploy_zone_cells, defer_start)
 
 
 func end_player_turn() -> bool:
 	return BattleFlowScript.end_player_turn(self)
+
+
+# --- 11.1 deployment ---------------------------------------------------------
+
+func is_deploy_cell(cell: Vector2i) -> bool:
+	return deploy_zone.has(cell)
+
+
+func all_deployed() -> bool:
+	return not deploy_order.is_empty() and deploy_index >= deploy_order.size()
+
+
+## Places the next undeployed character on `cell`, or slides the last placed one
+## there: §11.1 allows adjusting before confirming.
+func request_deploy(cell: Vector2i) -> bool:
+	return BattleFlowScript.request_deploy(self, cell)
+
+
+## §11.1 "点击确认部署后才正式开始战斗".
+func request_begin_battle() -> bool:
+	return BattleFlowScript.request_begin_battle(self)
 
 
 # --- read-only queries -------------------------------------------------------

@@ -79,6 +79,10 @@ static func _entry(
 static func is_affordable(controller, skill: Dictionary) -> bool:
 	if controller.ap == null:
 		return false
+	# Nothing is castable before the battle starts: showing a lit skill bar during
+	# deployment invites a click that can only be refused.
+	if controller.phase == controller.BattlePhase.DEPLOY:
+		return false
 	if not controller.ap.can_spend(int(skill["cost"])):
 		return false
 	if str(skill.get("slot", "")) == "ultimate":
@@ -112,12 +116,17 @@ static func draw(canvas: CanvasItem, controller, skill_bar: Array, selected_skil
 		canvas.draw_rect(tip_rect, P.GOLD, false, 1.2)
 		canvas.draw_string(font, tip_rect.position + Vector2(12.0, 19.0), desc, HORIZONTAL_ALIGNMENT_LEFT, tip_rect.size.x - 24.0, 13, P.TEXT)
 
-	var can_end: bool = controller.phase == controller.BattlePhase.PLAYER
+	# §11.1: the same button carries the deployment confirmation, because it is
+	# the same verb at that moment - "I am done with this phase".
+	var deploying: bool = controller.phase == controller.BattlePhase.DEPLOY
+	var can_end: bool = controller.phase == controller.BattlePhase.PLAYER or (deploying and controller.all_deployed())
 	var end_color := P.BUTTON_BG if can_end else P.BUTTON_BG_DISABLED
+	var end_label := "确认部署" if deploying else "结束回合"
+	var end_hint := "[确认后开战]" if deploying else "[空格 / Enter]"
 	canvas.draw_rect(P.END_TURN_RECT, end_color, true)
 	canvas.draw_rect(P.END_TURN_RECT, P.BUTTON_BORDER if can_end else P.PANEL_BORDER_DISABLED, false, 2.0)
-	canvas.draw_string(font, P.END_TURN_RECT.position + Vector2(46.0, 44.0), "结束回合", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.BUTTON_TEXT if can_end else P.TEXT_DISABLED)
-	canvas.draw_string(font, P.END_TURN_RECT.position + Vector2(48.0, 68.0), "[空格 / Enter]", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.GOLD_PALE if can_end else P.TEXT_DISABLED)
+	canvas.draw_string(font, P.END_TURN_RECT.position + Vector2(46.0, 44.0), end_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, P.BUTTON_TEXT if can_end else P.TEXT_DISABLED)
+	canvas.draw_string(font, P.END_TURN_RECT.position + Vector2(48.0, 68.0), end_hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.GOLD_PALE if can_end else P.TEXT_DISABLED)
 
 
 static func _draw_skill(canvas: CanvasItem, font: Font, controller, skill_bar: Array, index: int, selected_skill: int) -> void:

@@ -27,6 +27,10 @@ extends Resource
 ## 春之结界 (§15.2): destructible nodes spawned around the boss. 0 for every
 ## fight that is not 千枝神将's.
 @export var ward_nodes: int = 0
+## Cells the player may place characters on before the fight starts (§11.1).
+## Empty means "the battlefield's default zone" - the southern three rows - so a
+## level only has to state this when its shape is unusual.
+@export var deploy_cells: Array[Vector2i] = []
 
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 

@@ -150,7 +150,10 @@ func _start_level(index: int) -> void:
 	pending_rewards.clear()
 	# A rejected setup leaves the previous encounter untouched, so say so instead
 	# of showing a fresh-looking screen that will not accept any action.
-	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items, level.ward_nodes):
+	# §11.1 applies to the spring run: its fights start with a deployment phase.
+	# The tutorial lessons keep the old direct start, because their opening beats
+	# teach a turn action ("move one tile") rather than a placement.
+	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items, level.ward_nodes, level.deploy_cells, spring_mode):
 		status_message = "关卡「%s」数据无效，未能开始。" % str(level.display_name_zh)
 		queue_redraw()
 		return
@@ -292,6 +295,8 @@ func _draw() -> void:
 
 func _effective_banner_message() -> String:
 	var level := _current_level()
+	if controller.phase == ControllerScript.BattlePhase.DEPLOY:
+		return "【部署阶段】点击南侧高亮格放置瑟弗林，确认后开战。部署不消耗行动点，也不计入回合。"
 	if level == null or controller.phase != ControllerScript.BattlePhase.PLAYER:
 		return status_message
 	var hero = controller.get_active_character()
@@ -443,12 +448,45 @@ func _cancel_target_selection() -> void:
 	queue_redraw()
 
 
+## §11.1: no AP, no turn, no enemy action - the only two verbs here are "put the
+## character somewhere in the zone" and "confirm".
+func _handle_deploy_tap(position: Vector2) -> void:
+	if Palette.END_TURN_RECT.has_point(position):
+		if controller.request_begin_battle():
+			status_message = "部署完成，正式开战。"
+		else:
+			status_message = "还有角色没有就位，无法开战。"
+		queue_redraw()
+		return
+	if Palette.CAM_LEFT_BTN.has_point(position):
+		_rotate_camera(-1)
+		return
+	if Palette.CAM_RIGHT_BTN.has_point(position):
+		_rotate_camera(1)
+		return
+	var cell := Palette.cell_at(position)
+	if not Palette.is_inside_board(cell, controller.grid_size):
+		return
+	if not controller.is_deploy_cell(cell):
+		status_message = "只能部署在南侧高亮区，不能进入敌方区域。"
+		queue_redraw()
+		return
+	if controller.request_deploy(cell):
+		status_message = "已就位。确认前可继续点击其他高亮格调整位置，然后点右下角「确认部署」。"
+	else:
+		status_message = "该格无法部署（障碍或已被占据）。"
+	queue_redraw()
+
+
 func _handle_tap(position: Vector2) -> void:
 	if inventory_open:
 		_handle_inventory_tap(position)
 		return
 	if controller.phase == ControllerScript.BattlePhase.FINISHED:
 		_handle_settlement_tap(position)
+		return
+	if controller.phase == ControllerScript.BattlePhase.DEPLOY:
+		_handle_deploy_tap(position)
 		return
 	if controller.phase != ControllerScript.BattlePhase.PLAYER:
 		return

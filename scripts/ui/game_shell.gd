@@ -1,6 +1,6 @@
 extends CanvasLayer
 
-signal quit_requested(saved: bool)
+const TITLE_PATH := "res://scenes/menu/main_menu.tscn"
 const PauseScript = preload("res://scripts/ui/pause_menu.gd")
 const TransitionScript = preload("res://scripts/ui/scene_transition.gd")
 const AudioScript = preload("res://scripts/ui/game_audio.gd")
@@ -9,7 +9,6 @@ var menu: PauseMenu
 var transition: SceneTransition
 var pause_button: Button
 var animations_enabled: bool = true
-var allow_quit: bool = true
 var is_paused: bool = false
 var stage: String = ""
 var phase_time: float = 0.0
@@ -93,9 +92,9 @@ func _on_action(action: String) -> void:
 		"resume": resume()
 		"about": menu.show_about()
 		"exit": menu.ask_exit()
-		"confirm_exit": _exit(false)
+		"confirm_exit": _return_to_title()
 		"save_exit":
-			if PlaySession.save(get_tree().current_scene): _exit(true)
+			if PlaySession.save(get_tree().current_scene): _return_to_title()
 			else: menu.note.text = "保存失败，当前旅程已保留在游戏中。请检查磁盘后重试。"
 		"music", "effects":
 			var enabled := not audio.music_enabled if action == "music" else not audio.effects_enabled
@@ -104,9 +103,25 @@ func _on_action(action: String) -> void:
 			audio.play_cue("ui")
 
 
-func _exit(saved: bool) -> void:
-	quit_requested.emit(saved)
-	if allow_quit: get_tree().quit()
+func _return_to_title() -> void:
+	resume()
+	var error := SceneTravel.change(get_tree(), TITLE_PATH, "返回标题")
+	if error != OK:
+		open_pause()
+		menu.note.text = "无法返回标题，当前旅程仍然保留。请稍后重试。"
+		return
+	# Returning to title keeps the process alive, so discard the scene handoffs
+	# that a desktop quit used to clear automatically. Never delete disk saves.
+	SpringBattleBridge.clear_pending()
+	SpringBattleBridge.last_result = {}
+	SpringBattleBridge.requested_mode = ""
+	SpringBattleBridge.tutorial_loadout_requested = false
+	SpringBattleBridge.starting_loadout.clear()
+	SpringBattleBridge.suspended_map = {}
+	SpringBattleBridge.restore_map = false
+	SpringBattleBridge.last_transition_message = ""
+	SpringRegionProgression.clear_pending_transition()
+	SessionSave.pending = {}
 
 
 func travel(path: String, title: String) -> Error:

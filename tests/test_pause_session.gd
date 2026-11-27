@@ -11,11 +11,11 @@ func _run() -> void:
 	_check(shell != null, "persistent shell is autoloaded in the real project")
 	if shell == null: return
 	shell.animations_enabled = false
-	shell.allow_quit = false
 	await _test_pause_freezes_enemy_and_all_buttons()
 	await _test_battle_roundtrip()
 	await _test_spring_and_map_roundtrip()
 	_test_invalid_save_and_failed_write()
+	await _test_return_to_title_actions()
 	await _test_transition_and_audio()
 	SessionSave.clear()
 	SessionSave.path_override = ""
@@ -47,20 +47,15 @@ func _test_pause_freezes_enemy_and_all_buttons() -> void:
 	_check(shell.menu.detail_text.text.contains("Godot") and shell.menu.detail_text.text.contains("ECHO"), "About contains actual project information")
 	shell.menu.buttons.back.pressed.emit()
 	_check(not shell.menu.detail.visible and paused, "About returns to the paused menu")
-	var exit_events: Array = []
-	var observer := func(saved: bool): exit_events.append(saved)
-	shell.quit_requested.connect(observer)
 	shell.menu.buttons.exit.pressed.emit()
-	_check(exit_events.is_empty() and shell.menu.confirm_exit, "Exit requires confirmation and does not quit early")
-	shell.menu.buttons.confirm.pressed.emit()
-	_check(exit_events == [false] and not FileAccess.file_exists(SessionSave.path()), "confirmed Exit requests a real unsaved quit")
+	_check(current_scene == view and paused and shell.menu.confirm_exit, "Exit requires confirmation before leaving the current scene")
+	_check(shell.menu.detail_text.text.contains("返回标题"), "exit confirmation explains the actual destination")
+	shell.menu.buttons.back.pressed.emit()
 	var save_path := SessionSave.path_override
 	SessionSave.path_override = "user://missing_pause_directory/ui.json"
 	shell.menu.buttons.save_exit.pressed.emit()
-	_check(exit_events == [false] and paused and shell.menu.note.text.contains("保存失败"), "a failed save never quits or unpauses the current battle")
+	_check(current_scene == view and paused and shell.menu.note.text.contains("保存失败"), "a failed save never leaves or unpauses the current battle")
 	SessionSave.path_override = save_path
-	shell.quit_requested.disconnect(observer)
-	shell.menu.buttons.back.pressed.emit()
 	shell.menu.buttons.resume.pressed.emit()
 	_check(not paused and not shell.menu.visible, "Continue unpauses and dismisses the modal")
 	view.queue_free()
@@ -81,12 +76,7 @@ func _test_battle_roundtrip() -> void:
 	shell.open_pause()
 	var snapshot := BattleSession.capture(view)
 	_check(SessionSave.valid(snapshot), "an in-progress enemy phase is a valid suspend point")
-	var exits: Array = []
-	var observer := func(saved: bool): exits.append(saved)
-	shell.quit_requested.connect(observer)
-	shell.menu.buttons.save_exit.pressed.emit()
-	_check(exits == [true] and FileAccess.file_exists(SessionSave.path()), "Save and Exit persists before requesting quit")
-	shell.quit_requested.disconnect(observer)
+	_check(SessionSave.write(snapshot), "the paused battle checkpoint is persisted")
 	var loaded := SessionSave.read()
 	_check(not loaded.is_empty(), "suspended battle can be read from JSON")
 	var title: Node = load("res://scenes/menu/main_menu.tscn").instantiate()
@@ -168,6 +158,61 @@ func _test_invalid_save_and_failed_write() -> void:
 	var typed: Variant = SessionCodec.decode(SessionCodec.encode({Vector2i(1, 2): [StringName("test"), Color.RED, 9223372036854775800]}))
 	_check(typed[Vector2i(1, 2)][2] == 9223372036854775800, "JSON roundtrip preserves 64-bit RNG integers and vector dictionary keys")
 	_check(SessionCodec.decode({"$": "v2i", "x": [], "y": 0}) == null, "invalid encoded coordinates are rejected without conversion errors")
+
+
+func _test_return_to_title_actions() -> void:
+	var old_save := {"scene": "map", "run": SpringRun.begin(7).to_dict()}
+	_check(SessionSave.write(old_save), "an earlier suspend slot exists before unsaved exit")
+	var before := FileAccess.get_file_as_string(SessionSave.path())
+	var run := SpringRun.begin(12)
+	for place in run.template.places:
+		if place.kind == SpringPlace.Kind.BATTLE:
+			SpringBattleBridge.prepare(run, place.payload, place.id)
+			break
+	var battle := BattleScene.instantiate()
+	root.add_child(battle)
+	current_scene = battle
+	shell.open_pause()
+	SpringBattleBridge.last_result = {"result": "victory"}
+	SpringBattleBridge.restore_map = true
+	shell.menu.buttons.exit.pressed.emit()
+	_check(current_scene == battle, "opening exit confirmation leaves the spring battle intact")
+	shell.menu.buttons.confirm.pressed.emit()
+	await scene_changed
+	_check(current_scene.scene_file_path == shell.TITLE_PATH, "confirmed Exit really changes to the title scene")
+	_check(not paused and not shell.is_paused and not shell.menu.visible, "the returned title is unpaused and interactive")
+	_check(FileAccess.get_file_as_string(SessionSave.path()) == before, "unsaved exit preserves the earlier checkpoint byte for byte")
+	_check(not SpringBattleBridge.has_pending() and not SpringBattleBridge.has_result(), "returning to title discards old encounter and result handoffs")
+	_check(not SpringBattleBridge.restore_map and SpringBattleBridge.suspended_map.is_empty(), "returning to title discards stale map restoration state")
+	_check(current_scene.entries[0].get("action") == "resume", "an earlier saved journey remains available on the title")
+	# Enter a tutorial after leaving a spring fight; it must not resume that fight.
+	_check(SceneTravel.change(self, SessionSave.BATTLE_PATH) == OK, "another mode can be started after exit")
+	await scene_changed
+	_check(not current_scene.spring_mode, "starting again cannot accidentally enter the previous spring encounter")
+	current_scene.controller.get_active_character().health -= 137
+	current_scene.controller.ap.spend(1)
+	shell.open_pause()
+	shell.menu.buttons.save_exit.pressed.emit()
+	await scene_changed
+	_check(current_scene.scene_file_path == shell.TITLE_PATH and not paused, "Save and Exit also returns to an interactive title")
+	_check(FileAccess.file_exists(SessionSave.path()) and current_scene.entries[0].get("action") == "resume", "the new checkpoint is immediately resumable without restarting the program")
+	current_scene.selected_option = 0
+	current_scene._activate_selected()
+	await scene_changed
+	_check(current_scene.controller.get_active_character().health == 3463 and current_scene.controller.ap.current == 2, "Continue Journey restores the newly saved health and AP in the same process")
+	_check(root.get_node("GameShell") == shell and shell.audio.music != null, "returning to title keeps the application and audio service running")
+	_check(not FileAccess.file_exists(SessionSave.path()), "resuming from title still consumes the saved slot")
+	shell.animations_enabled = true
+	shell.open_pause()
+	shell.menu.buttons.exit.pressed.emit()
+	shell.menu.buttons.confirm.pressed.emit()
+	_check(shell.stage == "closing" and paused, "returning to title uses the normal closing transition")
+	await scene_changed
+	await create_timer(0.75, true).timeout
+	_check(current_scene.scene_file_path == shell.TITLE_PATH and not paused and shell.stage.is_empty(), "animated title return completes and releases title input")
+	shell.animations_enabled = false
+	current_scene.queue_free()
+	await process_frame
 
 
 func _test_transition_and_audio() -> void:

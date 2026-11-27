@@ -118,10 +118,10 @@ static func pack_carry(run_state) -> Dictionary:
 
 ## Applies `last_result` to the run. Returns a player-facing summary.
 ##
-## Every branch keeps §16.1's promise: the place is finished either way (a lost
-## fight is greyed out and cannot be retried), a win keeps the map position and
-## the remaining stamina untouched, and only a win pays.
-static func settle(run) -> Dictionary:
+## Ordinary wins preserve the map position and exploration stamina. A boss win
+## closes the current floor, discards its remaining stamina, and returns a
+## progression request. The map decides whether the next region can actually load.
+static func settle(run, unlocked_region_ids: Array = [], next_region_scene_available: bool = false) -> Dictionary:
 	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false}
 	if not has_result():
 		return outcome

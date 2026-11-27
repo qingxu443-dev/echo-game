@@ -401,11 +401,13 @@ func _handle_tap(position: Vector2) -> void:
 	if not Palette.is_inside_board(cell, controller.grid_size):
 		return
 
-	# Clicking an intact Relic Chest explains the win-to-claim / enemy-steal rule
 	if controller.beacons.has(cell) and int(controller.beacons[cell].get("health", 0)) > 0:
-		status_message = "遗迹宝箱：保护至通关即可开启收进背包！若被怪拆毁，怪物会立刻获得增益。"
-		queue_redraw()
-		return
+		var b: Dictionary = controller.beacons[cell]
+		if str(b.get("kind", "")) == "ward_node":
+			if selected_skill >= 0: _use_skill_on(str(b["id"]))
+			else: status_message = "春之结界：为首领提供 +80 防御！请先选攻击技能再点击击破。"; queue_redraw()
+			return
+		status_message = "遗迹宝箱：保护至通关即可开启收进背包！若被怪拆毁，怪物会立刻获得增益。"; queue_redraw(); return
 
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]

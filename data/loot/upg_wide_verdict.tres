@@ -10,6 +10,7 @@ kind_zh = "技能升级"
 name = "铭文·大裁决域"
 desc = "使用：「绝对裁决」范围扩大至自身周围 2 格。"
 mod_id = &"wide_verdict"
+character_id = &"sevrin"
 enemy_buff_zh = "吸收铭文 · 满充能 & 攻+200"
 enemy_attack = 200
 enemy_charge = true

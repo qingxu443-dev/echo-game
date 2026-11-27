@@ -35,7 +35,7 @@ static func effective_message(controller, level, status_message: String) -> Stri
 	if level.level_id == &"lesson_charge" and controller.turn_number == 1:
 		var in_danger: bool = BoardThreatViewScript.is_cell_in_danger(controller, hero.cell)
 		if in_danger:
-			return "【引导 1/3】先锋正锁定你脚下红框蓄力！点击高亮青色格子移动 1 格即可无伤闪避。"
+			return "【引导 1/3】先锋正锁定你脚下红框蓄力！点击高亮绿色格子移动 1 格即可无伤闪避。"
 		if controller.damage_dealt <= 0:
 			return "【引导 2/3】漂亮！现在点击下方 [2] 裁决印记（或 [1] 誓刃），再点击先锋展开反击！"
 		return "【引导 3/3】点击右下角「结束回合」[空格]，观察敌方蓄力落空！"
@@ -43,7 +43,7 @@ static func effective_message(controller, level, status_message: String) -> Stri
 	if level.level_id == &"lesson_lane" and controller.turn_number == 1:
 		var in_danger: bool = BoardThreatViewScript.is_cell_in_danger(controller, hero.cell)
 		if in_danger:
-			return "【引导 1/2】神射手沿直线锁定了你！斜向移出青框，或贴近至 2 格内使其狙击哑火。"
+			return "【引导 1/2】神射手沿直线锁定了你！斜向移出蓝框，或贴近至 2 格内使其狙击哑火。"
 		return "【引导 2/2】已避开狙击锁格！趁机用技能反击，或点击「结束回合」推进。"
 
 	return status_message

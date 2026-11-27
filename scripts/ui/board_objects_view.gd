@@ -258,6 +258,13 @@ static func _draw_single_actor(canvas: CanvasItem, controller, actor_id: String,
 	if in_danger:
 		var dr_col := Color(0.98, 0.26, 0.24, 0.35 + 0.45 * danger_breath)
 		P.draw_iso_ellipse(canvas, base_pos + Vector2(0.0, 1.0), 30.0 + 3.0 * danger_breath, 16.0 + 1.5 * danger_breath, dr_col, false, 2.8)
+	if actor.team == "enemy":
+		if str(fx_state.get("acting_enemy", "")) == actor_id:
+			var act_p: float = 0.65 + 0.35 * sin(t * 9.0)
+			P.draw_iso_ellipse(canvas, base_pos + Vector2(0.0, 1.0), 32.0 + 4.0 * act_p, 17.5 + 2.0 * act_p, Color(1.0, 0.45, 0.28, 0.92), false, 3.2)
+			P.draw_iso_ellipse(canvas, base_pos + Vector2(0.0, 1.0), 25.0, 13.5, Color(1.0, 0.88, 0.50, 0.88), false, 2.0)
+		elif BoardThreatViewScript.is_actor_focused(controller, fx_state, actor_id):
+			P.draw_iso_ellipse(canvas, base_pos + Vector2(0.0, 1.0), 29.0, 15.5, P.GOLD_PALE, false, 2.6)
 	if actor.team == "player" and actor_id == controller.active_character_id:
 		P.draw_iso_ellipse(canvas, base_pos + Vector2(0.0, 1.0), 26.0, 14.0, P.RING_ACTIVE, false, 2.2)
 	_draw_floor_status_rings(canvas, controller, actor_id, actor, base_pos)
@@ -290,9 +297,10 @@ static func _draw_single_actor(canvas: CanvasItem, controller, actor_id: String,
 	else:
 		_draw_fallback_token(canvas, actor, foot_pos + Vector2(0.0, -24.0), flash)
 
-	# Compact HP + shield bar under feet & overhead mark badges
+	# Compact HP + shield bar under feet & overhead mark badges (aligned to token vs standee height)
 	_draw_compact_hp_bar(canvas, actor, base_pos + Vector2(0.0, 13.0))
-	_draw_overhead_badges(canvas, controller, actor_id, foot_pos + Vector2(0.0, -P.STANDEE_HEIGHT + 2.0))
+	var badge_y: float = (-P.STANDEE_HEIGHT + 2.0) if tex != null else -48.0
+	_draw_overhead_badges(canvas, controller, actor_id, foot_pos + Vector2(0.0, badge_y), t)
 
 
 static func _draw_fallback_token(canvas: CanvasItem, actor, center: Vector2, flash: float) -> void:
@@ -331,7 +339,7 @@ static func _draw_floor_status_rings(canvas: CanvasItem, controller, actor_id: S
 		P.draw_iso_ellipse(canvas, base_pos + Vector2(0.0, 1.0), 23.0, 12.0, P.RING_MARK, false, 2.5)
 
 
-static func _draw_overhead_badges(canvas: CanvasItem, controller, actor_id: String, top_pos: Vector2) -> void:
+static func _draw_overhead_badges(canvas: CanvasItem, controller, actor_id: String, top_pos: Vector2, t: float = 0.0) -> void:
 	var tags: Array[Dictionary] = []
 	if controller.statuses.has_status(actor_id, &"absolute_guard"):
 		tags.append({"text": "守", "color": P.RING_GUARD})
@@ -340,7 +348,11 @@ static func _draw_overhead_badges(canvas: CanvasItem, controller, actor_id: Stri
 	if controller.statuses.has_status(actor_id, &"sakura_petal_mark"):
 		tags.append({"text": "香", "color": P.PETAL_LABEL})
 	var actor = controller.get_actor(actor_id)
+	var counter_imminent := false
 	if actor != null and actor.team == "enemy":
+		var ord_txt: String = BoardThreatViewScript.intent_order_badge(controller, actor_id)
+		if not ord_txt.is_empty():
+			tags.append({"text": ord_txt, "color": Color("#ffe29a")})
 		if actor.armor_layers > 0:
 			tags.append({"text": "甲%d" % actor.armor_layers, "color": P.GOLD_PALE})
 		elif actor.armor_max > 0 and actor.armor_broken_until_turn >= controller.turn_number:
@@ -348,14 +360,22 @@ static func _draw_overhead_badges(canvas: CanvasItem, controller, actor_id: Stri
 		if actor.boss_phase >= 2:
 			tags.append({"text": "狂", "color": Color("#ff6b7a")})
 		if actor.melee_tolerance > 0:
-			tags.append({"text": "怒%d" % actor.melee_tolerance, "color": Color("#ffb347")})
+			counter_imminent = actor.melee_tolerance_max > 0 and actor.melee_tolerance >= actor.melee_tolerance_max - 1
+			if not counter_imminent:
+				tags.append({"text": "怒%d" % actor.melee_tolerance, "color": Color("#ffb347")})
+	if counter_imminent:
+		var pulse: float = 0.72 + 0.28 * sin(t * 7.0)
+		var pill := Rect2(top_pos.x - 42.0, top_pos.y - 30.0, 84.0, 17.0)
+		canvas.draw_rect(pill, Color(0.54, 0.14, 0.08, 0.92 * pulse), true)
+		canvas.draw_rect(pill, Color(1.0, 0.68, 0.28, 0.95), false, 1.3)
+		canvas.draw_string(ThemeDB.fallback_font, pill.position + Vector2(0.0, 12.5), "⚠ 再近战反击", HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 10, Color("#fff2dc"))
 	if tags.is_empty():
 		return
-	var start_x := top_pos.x - float(tags.size() - 1) * 10.0
+	var start_x := top_pos.x - float(tags.size() - 1) * 11.0
 	for i in range(tags.size()):
-		var p := Vector2(start_x + float(i) * 20.0, top_pos.y)
-		canvas.draw_circle(p + Vector2(0.0, -4.0), 9.0, Color(0.08, 0.09, 0.12, 0.85))
-		canvas.draw_string(ThemeDB.fallback_font, p + Vector2(-6.0, 1.0), str(tags[i]["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, tags[i]["color"])
+		var p := Vector2(start_x + float(i) * 22.0, top_pos.y)
+		canvas.draw_circle(p + Vector2(0.0, -4.0), 9.5, Color(0.08, 0.09, 0.12, 0.88))
+		canvas.draw_string(ThemeDB.fallback_font, p + Vector2(-6.5, 1.0), str(tags[i]["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tags[i]["color"])
 
 
 static func _draw_compact_hp_bar(canvas: CanvasItem, actor, pos: Vector2) -> void:

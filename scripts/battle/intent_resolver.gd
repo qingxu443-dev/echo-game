@@ -47,7 +47,7 @@ static func resolve_one_active(battle) -> bool:
 		if not actors.has(intent.source_actor_id) or not actors[intent.source_actor_id].is_alive():
 			intent.cancel("source_defeated")
 			continue
-		# Into-the-Breach reposition: the planner recorded the steps instead of
+		# Pre-attack reposition: the planner recorded the steps instead of
 		# moving the enemy itself, so apply them here before anything reads the
 		# source cell (taunt redirect measures distance from it).
 		if not intent.move_path.is_empty():

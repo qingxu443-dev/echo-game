@@ -1,7 +1,7 @@
 class_name HudView
 extends RefCounted
 
-## Into-the-Breach inspired clean battle HUD:
+## Clean battle HUD layout:
 ## - Top-left: compact stage title, turn counter, and visual AP pips.
 ## - Top-center: single-line interactive tutorial / status banner.
 ## - Bottom-left: hero portrait with HP & shield bar directly underneath.
@@ -13,6 +13,7 @@ const P = preload("res://scripts/ui/theme_palette.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 const BoardObjectsViewScript = preload("res://scripts/ui/board_objects_view.gd")
+const BoardThreatViewScript = preload("res://scripts/ui/board_threat_view.gd")
 const EnemySkillCatalogScript = preload("res://scripts/battle/enemy_skill_catalog.gd")
 
 const PORTRAIT_DIR: String = "res://assets/actors/portraits/"
@@ -36,6 +37,7 @@ static func draw_status(canvas: CanvasItem, controller, status_message: String, 
 	_draw_active_mods(canvas, font, controller)
 	_draw_guide_banner(canvas, font, status_message)
 	_draw_portrait_card(canvas, font, controller)
+	_draw_incoming_threat_card(canvas, font, controller, fx_state)
 	_draw_enemy_order_card(canvas, font, controller)
 	_draw_enemy_inspector_card(canvas, font, controller, fx_state)
 
@@ -116,7 +118,7 @@ static func _draw_guide_banner(canvas: CanvasItem, font: Font, message: String) 
 	_draw_wrapped(canvas, font, message, rect.position + Vector2(16.0, 22.0), rect.size.x - 28.0, 14, P.TEXT, 2)
 
 
-# --- bottom-left: hero portrait + bottom HP bar (Into the Breach style) -----
+# --- bottom-left: hero portrait + bottom HP bar -----------------------------
 
 static func _draw_portrait_card(canvas: CanvasItem, font: Font, controller) -> void:
 	var rect := P.PORTRAIT_CARD_RECT
@@ -183,6 +185,48 @@ static func _draw_portrait_card(canvas: CanvasItem, font: Font, controller) -> v
 
 
 # --- top-right: enemy turn order + hovered enemy skill inspector ------------
+
+static func _draw_incoming_threat_card(canvas: CanvasItem, font: Font, controller, fx_state: Dictionary) -> void:
+	if controller.phase != controller.BattlePhase.PLAYER:
+		return
+	var hero = controller.get_active_character()
+	if hero == null or not hero.is_alive():
+		return
+	var target_cell: Vector2i = hero.cell
+	var title_prefix := "当前站位将受击"
+	var summary := BoardThreatViewScript.incoming_threats_at(controller, hero.cell)
+	if fx_state.has("hover_cell"):
+		var hc: Vector2i = fx_state["hover_cell"]
+		if P.is_inside_board(hc, controller.grid_size) and hc != hero.cell:
+			var hover_sum := BoardThreatViewScript.incoming_threats_at(controller, hc)
+			if not (hover_sum["entries"] as Array).is_empty() or not str(hover_sum["caution"]).is_empty():
+				target_cell = hc
+				title_prefix = "悬停格将受击"
+				summary = hover_sum
+	var entries: Array = summary["entries"]
+	var caution: String = str(summary["caution"])
+	if entries.is_empty() and caution.is_empty():
+		return
+	var total_dmg: int = int(summary["total_dmg"])
+	var hit_count: int = int(summary["hit_count"])
+	var rows: int = entries.size() + (1 if not caution.is_empty() else 0)
+	var h: float = 34.0 + float(rows) * 19.0 + 8.0
+	var rect := Rect2(P.PORTRAIT_CARD_RECT.position.x, P.PORTRAIT_CARD_RECT.position.y - h - 8.0, P.PORTRAIT_CARD_RECT.size.x, h)
+	var lethal: bool = total_dmg > 0 and target_cell == hero.cell and total_dmg >= hero.health + hero.shield
+	var border := Color("#ff4d4f") if (hit_count > 0) else Color("#ffae52")
+	_draw_card(canvas, rect, Color(0.18, 0.08, 0.09, 0.96) if hit_count > 0 else Color(0.17, 0.13, 0.08, 0.96), border)
+	canvas.draw_rect(Rect2(rect.position, Vector2(4.0, rect.size.y)), border, true)
+	var hdr: String = "⚠ %s：-%d (%d击)" % [title_prefix, total_dmg, hit_count] if hit_count > 0 else "⚠ %s警戒" % ("当前站位" if target_cell == hero.cell else "悬停格")
+	if lethal:
+		hdr += " [致死!]"
+	canvas.draw_string(font, rect.position + Vector2(12.0, 21.0), hdr, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 18.0, 12, Color("#ffe9d6"))
+	var y: float = rect.position.y + 40.0
+	for e in entries:
+		canvas.draw_string(font, Vector2(rect.position.x + 14.0, y), str(e["text"]), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 24.0, 12, e["color"])
+		y += 19.0
+	if not caution.is_empty():
+		canvas.draw_string(font, Vector2(rect.position.x + 14.0, y), caution, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 24.0, 11, Color("#ffd18a"))
+
 
 static func _draw_enemy_order_card(canvas: CanvasItem, font: Font, controller) -> void:
 	var rect := P.ORDER_CARD_RECT
@@ -419,7 +463,7 @@ static func action_description(action_id: String) -> String:
 		"aimed_shot":
 			return "【满充能技】沿正交或对角直线穿透 3 格重狙！走出射界，或击退偏移其瞄准线。"
 		"light_shot":
-			return "沿正交或对角直线单格点射，走离青框即可躲避。"
+			return "沿正交或对角直线单格点射，走离蓝框即可躲避。"
 		"ground_pulse":
 			return "【满充能技】锁定十字 5 格紫框爆破！撤出全部紫格即可躲避。"
 		"echo_bolt":
@@ -439,7 +483,7 @@ static func action_description(action_id: String) -> String:
 		"locked_shot":
 			return "锁命箭已上弦：追踪被标记的目标，走出射程或借障碍断线才会落空。"
 		"shadow_raid":
-			return "【满充能技】沿青色路径突进最多 3 格，落点相邻后斩击；离开红色落点即可让它挥空。"
+			return "【满充能技】沿银白路径突进最多 3 格，落点相邻后斩击；离开红色落点即可让它挥空。"
 		"rot_curse":
 			return "【满充能技】剥离目标 100 防御，持续到下一敌方阶段结束；不叠加，只会刷新时长。"
 		"wait":

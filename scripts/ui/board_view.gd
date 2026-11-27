@@ -174,12 +174,32 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 	var skill: Dictionary = skill_bar[selected_skill]
 	var mode := str(skill["mode"])
 	if mode == "actor":
+		var hero = controller.get_active_character()
+		var sid := str(skill["id"])
 		for actor_id in controller.actors:
-			if not can_target(controller, skill_bar, str(skill["id"]), str(actor_id)):
+			if not can_target(controller, skill_bar, sid, str(actor_id)):
 				continue
-			var pts := P.cell_diamond(controller.actors[actor_id].cell, inset)
+			var enemy = controller.actors[actor_id]
+			var pts := P.cell_diamond(enemy.cell, inset)
 			canvas.draw_colored_polygon(pts, Color(P.RING_TARGET.r, P.RING_TARGET.g, P.RING_TARGET.b, 0.22))
 			P.draw_polyline_closed(canvas, pts, P.GOLD_PALE, 2.5)
+			var will_melee: bool = hero != null and (GridRulesScript.manhattan_distance(hero.cell, enemy.cell) == 1 or sid == "sakura_flowing_wind")
+			if will_melee and enemy.melee_tolerance_max > 0 and enemy.melee_tolerance + 1 >= enemy.melee_tolerance_max:
+				var tip_pos := P.cell_center(enemy.cell) + Vector2(-46.0, -P.STANDEE_HEIGHT - 28.0)
+				var pill := Rect2(tip_pos, Vector2(92.0, 18.0))
+				canvas.draw_rect(pill, Color(0.62, 0.12, 0.10, 0.94), true)
+				canvas.draw_rect(pill, Color("#ffae52"), false, 1.4)
+				canvas.draw_string(ThemeDB.fallback_font, pill.position + Vector2(0.0, 13.0), "⚠ 命中触发反击!", HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 10, Color("#fff5e0"))
+		var skill_def = SkillRegistryScript.get_skill(StringName(sid))
+		if skill_def != null:
+			for b_cell in controller.beacons:
+				var b: Dictionary = controller.beacons[b_cell]
+				if str(b.get("kind", "")) != "ward_node" or int(b.get("health", 0)) <= 0:
+					continue
+				if CharacterSkillRuntimeScript.can_aim_ward_node(controller, skill_def, b_cell):
+					var wpts := P.cell_diamond(b_cell, inset)
+					canvas.draw_colored_polygon(wpts, Color(0.37, 0.92, 0.72, 0.28))
+					P.draw_polyline_closed(canvas, wpts, Color("#9effdf"), 2.6)
 		return
 	if mode == "ally":
 		for actor_id in controller.actors:

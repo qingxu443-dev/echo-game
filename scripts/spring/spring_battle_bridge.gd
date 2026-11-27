@@ -18,7 +18,6 @@ extends RefCounted
 
 const BATTLE_SCENE_PATH: String = "res://scenes/main/main.tscn"
 const MAP_SCENE_PATH: String = "res://scenes/spring/spring_map.tscn"
-const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
 
 ## §16.1: a chest that survives the fight pays 10 花钿.
 const CHEST_COINS: int = 10
@@ -145,7 +144,11 @@ static func settle(run) -> Dictionary:
 	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false}
 	if not has_result():
 		return outcome
-	var result: Dictionary = consume_result()
+	return settle_result(run, consume_result())
+
+
+static func settle_result(run, result: Dictionary) -> Dictionary:
+	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false}
 	var kind: String = str(result.get("kind", KIND_BATTLE))
 	var place_id := StringName(str(result.get("place", "")))
 	var won: bool = str(result.get("result", "")) == "victory"
@@ -161,7 +164,6 @@ static func settle(run) -> Dictionary:
 
 	if not won:
 		var pity_shards: int = 20
-		AtelierStashScript.award_shards(pity_shards)
 		outcome["atelier_shards"] = pity_shards
 		outcome["message"] = "这一处失守了（带回 %d 工坊残晶）。" % pity_shards
 		if run.revive_used:
@@ -175,7 +177,6 @@ static func settle(run) -> Dictionary:
 		return outcome
 
 	var win_shards: int = 80 if kind == KIND_BOSS else (55 if kind == KIND_ELITE else 35)
-	AtelierStashScript.award_shards(win_shards)
 	outcome["atelier_shards"] = win_shards
 	run.battles_won += 1
 	var chests: int = int(result.get("chests_saved", 0))

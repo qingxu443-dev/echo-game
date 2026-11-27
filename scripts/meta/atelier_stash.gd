@@ -70,15 +70,24 @@ static func _default_state() -> Dictionary:
 
 
 static func load_state(path: String = SAVE_PATH) -> Dictionary:
+	var state := read_state(path)
+	return _default_state() if state.is_empty() else state
+
+
+## An empty result indicates an existing file could not be safely read.
+static func read_state(path: String) -> Dictionary:
 	var state := _default_state()
 	if not FileAccess.file_exists(path):
 		return state
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return state
+		return {}
 	var parsed = JSON.parse_string(file.get_as_text())
-	if not (parsed is Dictionary):
-		return state
+	file.close()
+	if not (parsed is Dictionary) or not (parsed.get("loadout", []) is Array):
+		return {}
+	if typeof(parsed.get("shards", STARTING_SHARDS)) not in [TYPE_INT, TYPE_FLOAT]:
+		return {}
 	state["shards"] = maxi(0, int(parsed.get("shards", STARTING_SHARDS)))
 	var loadout: Array[String] = []
 	var saved_loadout = parsed.get("loadout", [])
@@ -93,6 +102,8 @@ static func load_state(path: String = SAVE_PATH) -> Dictionary:
 static func save_state(state: Dictionary, path: String = SAVE_PATH) -> bool:
 	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
 		return true
+	if SpringSaveTransaction.is_pending(path):
+		return false
 	return SaveFile.write_json(path, state)
 
 
@@ -177,7 +188,16 @@ static func award_shards(amount: int, path: String = SAVE_PATH) -> int:
 static func take_loadout_items(path: String = SAVE_PATH) -> Array[Dictionary]:
 	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
 		return []
-	var state := load_state(path)
+	var state := read_state(path)
+	var items := packed_items(state)
+	if not items.is_empty():
+		state["loadout"] = []
+		if not save_state(state, path):
+			return []
+	return items
+
+
+static func packed_items(state: Dictionary) -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	for lid in state.get("loadout", []):
 		var r := recipe_by_id(str(lid))
@@ -190,8 +210,4 @@ static func take_loadout_items(path: String = SAVE_PATH) -> Array[Dictionary]:
 		p["enemy_heal"] = 0
 		p["enemy_charge"] = false
 		items.append(p)
-	if not items.is_empty():
-		state["loadout"] = []
-		if not save_state(state, path):
-			return []
 	return items

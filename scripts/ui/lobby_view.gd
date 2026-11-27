@@ -1,11 +1,5 @@
 extends Control
 
-## Atelier-style twilight sanctuary idle hub for ECHO.
-##
-## Features a dedicated full-bleed warm sunset atelier illustration with gentle
-## breathing parallax, streaming window light, interactive room hotspots
-## (Sevrin, workbench map, leaned sword & shield), a quiet auto-fading dialogue
-## ribbon, and the prominent bottom-right "选择地图" expedition trigger.
 
 const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
 const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
@@ -82,14 +76,16 @@ func _ready() -> void:
 	chapter_portraits["tutorial"] = _load_texture("res://assets/actors/portraits/sevrin.png")
 	chapter_portraits["spring"] = _load_texture("res://assets/actors/portraits/sakura.png")
 	_init_motes()
-	atelier_state = AtelierStashScript.load_state()
 	refresh_save_summary()
 	_show_dialogue("瑟弗林", SEVRIN_LINES[0], 6.0)
 	queue_redraw()
 
-
 func refresh_save_summary() -> void:
 	spring_resume_info.clear()
+	if not SpringSaveTransaction.recover(SpringRun.SAVE_PATH, AtelierStash.SAVE_PATH):
+		status_notice = "出征存档尚未恢复，请检查存储后重试。"
+		return
+	atelier_state = AtelierStashScript.load_state()
 	var restored := SpringRun.load_from_file(SpringRun.SAVE_PATH)
 	if restored != null and not restored.exploration.finished:
 		spring_resume_info = {
@@ -180,9 +176,9 @@ func spring_hard_button_rect() -> Rect2:
 # --- public state helpers ----------------------------------------------------
 
 func open_map_selector() -> void:
+	status_notice = ""
 	refresh_save_summary()
 	map_selector_open = true
-	status_notice = ""
 	queue_redraw()
 
 
@@ -211,6 +207,10 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 	var target_path: String = str(entry.get("scene_path", ""))
 	if target_path.is_empty() or not ResourceLoader.exists(target_path):
 		status_notice = "目标地图场景不可用。"
+		queue_redraw()
+		return false
+	if SpringSaveTransaction.is_pending(AtelierStash.SAVE_PATH):
+		status_notice = "出征存档尚未恢复，请重新打开地图选择。"
 		queue_redraw()
 		return false
 	var tree := get_tree()

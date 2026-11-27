@@ -54,7 +54,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `spring_map_factory.gd` | 203 | 三套模板的文档数据（Boss 坐标、战斗 id、固定事件）与确定性布局 | 文档未给逐格坐标的部分由 `LAYOUT_ORDER` 推出，属**草案**；作者给出正式布局后替换此表即可 |
 | `exploration_state.gd` | 165 | 探索体力与移动：曼哈顿成本、原子移动、恰好耗尽保留交互窗口、主动结束作废余量 | 不碰战斗 AP；不认地点内容 |
 | `spring_run.gd` | 580 | 本局：模板 + 探索 + 资源（花钿 / 补给 / 四时花露 / 残页 / 遗物）+ 存档序列化与待决事项 | 与 `run_state.gd` 隔离（§4 禁止两模式共用局内资源）；文档未定的数值不预设 |
-| `spring_map_view.gd` | 754 | 5×5 地图界面、资源栏、路径预览、结束探索确认 | 全部自绘；点击只预览，确认后才移动；困难模式委托路线浮层 |
+| `spring_run_storage.gd` | 28 | 组织春之境出征与战后结算的保存 | 工坊和本局快照经事务层提交 |
+| `spring_map_view.gd` | 755 | 5×5 地图界面、资源栏、路径预览、结束探索确认 | 全部自绘；点击只预览，确认后才移动；困难模式委托路线浮层 |
 | `spring_route_plan.gd` | 224 | 春之境困难模式定轨状态：绘线节点、体力校验、强制尾部为 Boss、锁轨游标与存档序列化 | 纯规则与状态，无 UI 依赖；旧存档无此字段自动默认普通模式 |
 | `spring_route_overlay.gd` | 312 | 春之境困难模式地图路线绘制（连线/箭头/站序/王格提示）与战前绘线/定轨推进底栏交互 | 独立表现辅助层，保证 `spring_map_view.gd` 不突破存量行数上限 |
 | `scripts/spring/spring_ending.gd` | 80 | 春之境留白式结局文案数据（可测试），表现层只绘制 | 暂不锁定结局，玩家陪伴樱决定 |
@@ -66,7 +67,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `spring_shop_view.gd` | 220 | 商店浮层：买入 / 出售 / 服务三页、翻页与刷新 | 只报告点击，不扣钱；行矩形与命中判定共用同一函数 |
 | `spring_relic_catalog.gd` | 66 | 四件遗物（§5.5 来源，文档未点名具体遗物）与战斗属性加成 | 只做扁平属性加成：条件触发型需要尚不存在的 hook 系统，故不定义 |
 | `spring_collectible_catalog.gd` | 115 | 六件藏品与稀有度、可用池（普通 / 精英 / Boss） | 效果限于本局能兑现的资源与属性；精英池排除史诗（§14） |
-| `spring_battle_bridge.gd` | 278 | 地图 ↔ 战斗的场景间握手与战后结算（§11.2 / §11.3 / §14 / §15.4 / §16.1） | 静态字段跨场景传递；结算规则在此，不在界面层 |
+| `spring_battle_bridge.gd` | 279 | 地图 ↔ 战斗的场景间握手与战后结算（§11.2 / §11.3 / §14 / §15.4 / §16.1） | 静态字段跨场景传递；结算规则在此，不在界面层 |
 
 ### 战斗规则（`scripts/battle/`）
 
@@ -160,13 +161,14 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 
 | 模块 | 行数 | 职责 | 关键约束 |
 |---|---|---|---|
-| `atelier_stash.gd` | 197 | 工坊残晶、六种配方、购买退款、出征打包和局外存档 | 独立于春之境行商和战斗战利品 |
+| `atelier_stash.gd` | 213 | 工坊残晶、六种配方、购买退款、出征打包和局外存档 | 独立于春之境行商和战斗战利品 |
 
 ### 共享存储与历史入口
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
 | `save_file.gd` | 18 | 同目录临时文件写入 JSON 并替换目标；失败保留上一个文件 |
+| `spring_save_transaction.gd` | 45 | 记录两份已计算的存档并在中断后重写，恢复期间阻止其他工坊写入 |
 | `main.gd` | 7 | 历史 Node2D 样例脚本；场景启动路径以 `project.godot` 为准 |
 
 ## 审计范围、发现与处理
@@ -188,7 +190,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 ### 后续优化
 
 1. **把流程从绘制脚本移到场景自己的协调层**。先从 `spring_map_view.gd` 的场景切换、自动存档和弹窗编排入手，通过信号和场景注入传递交互。继续让控制器持有战斗权威状态，渲染消费状态和事件。 [Godot 场景组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/scene_organization.html)
-2. **给跨文件的记账增加可恢复的事务记录**。目前每份 JSON 独立替换，程序若恰好在工坊扣除补给或发残晶、春之境检查点写入之间中止，两个文件可能不一致。单独设计事务 id 与幂等恢复，并加强旧存档的嵌套字段校验，避免把带错字段类型的档案误当作空白新档。 [Godot 本地文件 API](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html)
+2. **给跨文件的记账增加可恢复的事务记录**。春之境出征和战后残晶已有可重放的双存档日志。后续补齐教学出征的确认边界和旧档嵌套字段校验。 [Godot 本地文件 API](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html)
 3. **把相互依赖的内容按功能收拢**。从小场景与其私有脚本开始，保留共享的角色、敌人和装备 Resource 目录。素材工具的依赖锁定、资源路径与 Windows 打包冒烟可独立验证；当前没有 Android 导出配置及真机结果。 [Godot 项目组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/project_organization.html)
 
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。

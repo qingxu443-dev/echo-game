@@ -22,6 +22,51 @@ func _run() -> void:
 	_test_bad_payloads_are_refused()
 	_test_json_file_round_trip()
 	_test_templates_rebuild_identically()
+	_test_old_versions_migrate_forward()
+	_test_newer_version_is_refused()
+	_test_migration_table_has_no_gaps()
+
+
+## 迁移必须逐版走完，而不是靠「读不到就用默认值」蒙混。v2 的
+## carry_max_health 是瑟弗林时代的 3600 上限，落到樱身上会让她双倍开局。
+func _test_old_versions_migrate_forward() -> void:
+	var base := SpringRun.begin(3).to_dict()
+
+	var v2: Dictionary = base.duplicate(true)
+	v2["version"] = 2
+	v2["hero"] = {"health": 1500, "bonus_max_health": 0, "carry_max_health": 300}
+	var from_v2 := SpringRun.from_dict(v2)
+	_check(from_v2 != null, "v2 存档仍能加载")
+	_check(from_v2 != null and from_v2.carry_max_health == 0, "v2 的 carry_max_health 被丢弃（瑟弗林上限不适用于樱）")
+	_check(from_v2 != null and from_v2.hero_health == 1500, "v2 的当前血量原样保留，不因迁移被重置")
+
+	var v1: Dictionary = base.duplicate(true)
+	v1["version"] = 1
+	v1.erase("hero")
+	var from_v1 := SpringRun.from_dict(v1)
+	_check(from_v1 != null, "v1 存档仍能加载")
+	_check(from_v1 != null and from_v1.hero_health == from_v1.effective_max_health(), "v1 没有 hero 段时按满血开局")
+
+	var v3: Dictionary = base.duplicate(true)
+	v3["version"] = 3
+	v3["hero"] = {"health": 1200, "bonus_max_health": 0, "carry_max_health": 300}
+	var from_v3 := SpringRun.from_dict(v3)
+	_check(from_v3 != null and from_v3.carry_max_health == 300, "已经是 v3 的档不做二次改写")
+
+
+## 比本程序新的档必须拒绝：读得动不代表读得对，静默降级会丢字段。
+func _test_newer_version_is_refused() -> void:
+	var future := SpringRun.begin(4).to_dict()
+	future["version"] = SpringRun.SAVE_VERSION + 1
+	_check(SpringRun.from_dict(future) == null, "未来版本存档被拒绝，而不是勉强读取")
+
+
+## 迁移表必须覆盖每一个中间版本，否则 1 → 3 会半路卡住（并且只在老玩家
+## 身上出现，本地测试永远看不见）。
+func _test_migration_table_has_no_gaps() -> void:
+	for version in range(1, SpringRun.SAVE_VERSION):
+		_check(SpringRun.MIGRATIONS.has(version), "v%d → v%d 有迁移函数" % [version, version + 1])
+	_check(not SpringRun.MIGRATIONS.has(SpringRun.SAVE_VERSION), "当前版本不需要再迁移")
 
 
 func _test_round_trip_keeps_the_board() -> void:

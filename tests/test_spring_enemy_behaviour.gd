@@ -49,6 +49,7 @@ func _run() -> void:
 	_test_ranged_boss_shoots_across_its_own_nodes()
 	_test_ward_stance_shield_scales_with_nodes()
 	_test_ward_stance_shield_expires()
+	_test_planning_is_idempotent()
 	_test_move_steps_must_be_positive()
 
 
@@ -56,6 +57,23 @@ func _run() -> void:
 ## the enemy is looking at the hero, not at a relic objective it would rather
 ## attack - the default spawn puts two beacons down and they would steal the
 ## target from this scenario.
+## 规划是只读的：同一局面连算两次必须得到同样的意图。
+## 这条以前只是注释里的承诺——旧实现会在 plan() 里写 enemy.cell，重复调用
+## 就会把敌人走两次，预告和实际结果对不上。
+func _test_planning_is_idempotent() -> void:
+	var battle = _spawn("crimson_sword_guard", Vector2i(2, 2), Vector2i(3, 2))
+	var first: Array = PlannerScript.plan(battle)
+	var second: Array = PlannerScript.plan(battle)
+	_check(first.size() == second.size(), "两次规划得到同样数量的意图")
+	if first.size() != second.size():
+		return
+	for i in range(first.size()):
+		_check(first[i].action_id == second[i].action_id, "第 %d 条意图的 action 相同" % i)
+		_check(first[i].target_cell == second[i].target_cell, "第 %d 条意图的目标格相同" % i)
+		_check(first[i].damage == second[i].damage, "第 %d 条意图的伤害相同" % i)
+	_check(battle.actors["crimson_sword_guard_00"].cell == Vector2i(3, 2), "规划没有挪动敌人")
+
+
 func _spawn(archetype: String, hero_cell: Vector2i, enemy_cell: Vector2i):
 	var battle = ControllerScript.new()
 	root.add_child(battle)

@@ -21,6 +21,19 @@ extends RefCounted
 const BASELINE_PATH := "docs/engineering/BASELINE.md"
 const ARCHITECTURE_PATH := "docs/engineering/ARCHITECTURE.md"
 
+## 单个脚本的行数上限。ARCHITECTURE 的行数表只保证「文档没撒谎」——它会把
+## 846 行如实记成 846，然后放行。battle_view.gd 就是这样长到 846 行的。
+const MAX_MODULE_LINES := 600
+
+## 已经超标的存量文件：值 = 当前行数，只许减不许增。
+## 加代码让它变红；拆到 600 行以内后请把条目删掉——留着会变成永久豁免，
+## 而永久豁免和没有守卫是一回事。
+const MODULE_LINE_DEBT := {
+	"battle_view.gd": 846,
+	"spring_map_view.gd": 766,
+	"battle_controller.gd": 628,
+}
+
 const TOTAL_SCAN_FILES := [
 	"README.md",
 	"docs/engineering/ARCHITECTURE.md",
@@ -114,6 +127,26 @@ static func _script_index() -> Dictionary:
 		for child in dir.get_directories():
 			pending.append(folder.path_join(child))
 	return index
+
+
+## 行数预算。空数组表示每个脚本都在 600 行以内，或已在存量清单里且没有变长。
+##
+## 三种失败：新文件超过上限、存量文件又长了、存量文件已经达标但还挂在清单上。
+## 最后一条是刻意的：清单必须持续收缩，否则它就是一张写着「允许腐烂」的纸条。
+static func check_module_line_limits() -> Array[String]:
+	var problems: Array[String] = []
+	var index := _script_index()
+	for file_name in index:
+		var actual := count_lines(read_text(index[file_name]))
+		var debt := int(MODULE_LINE_DEBT.get(file_name, 0))
+		if debt > 0:
+			if actual > debt:
+				problems.append("%s grew to %d lines (ceiling %d) - split it before adding more" % [file_name, actual, debt])
+			elif actual <= MAX_MODULE_LINES:
+				problems.append("%s is down to %d lines; remove it from MODULE_LINE_DEBT" % [file_name, actual])
+		elif actual > MAX_MODULE_LINES:
+			problems.append("%s is %d lines, over the %d limit - split it" % [file_name, actual, MAX_MODULE_LINES])
+	return problems
 
 
 ## Each row of ARCHITECTURE.md's module table against the file it names.
@@ -224,6 +257,17 @@ static func report() -> bool:
 		for problem in sizes:
 			print("module-sizes: ", problem)
 		print("module-sizes: %d row(s) disagree with the files; run tests/run_all.sh --fix" % sizes.size())
+		ok = false
+
+	# 真正的膨胀闸门。上面那条只保证文档没撒谎：文件长到 846 行它也会如实
+	# 记录成 846，然后放行。这条才拦。
+	var limits := check_module_line_limits()
+	if limits.is_empty():
+		print("module-lines: ok (limit %d)" % MAX_MODULE_LINES)
+	else:
+		for problem in limits:
+			print("module-lines: ", problem)
+		print("module-lines: %d file(s) over budget" % limits.size())
 		ok = false
 
 	var shape := check_table_shape()

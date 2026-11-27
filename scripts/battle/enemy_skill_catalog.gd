@@ -50,6 +50,7 @@ static func _ensure_loaded() -> void:
 	_register(&"light_shot", "点射", DefinitionScript.PAYLOAD_DAMAGE, 0.75, "physical", 2, 6, false, 2)
 	_register(&"ground_pulse", "裂地脉冲", DefinitionScript.PAYLOAD_DAMAGE, 1.15, "magical", 2, 4, false, 1)
 	_register(&"echo_bolt", "回声弹", DefinitionScript.PAYLOAD_DAMAGE, 0.7, "magical", 2, 4, false, 1)
+	_register(&"wait", "待机观察", DefinitionScript.PAYLOAD_NONE, 0.0, "physical", 0, 0, false, 99)
 
 	# 精英专属（§14）。
 	_register(&"ward_ally", "古木壁垒", DefinitionScript.PAYLOAD_SHIELD, 0.0, "physical", 0, 2, true, 0)

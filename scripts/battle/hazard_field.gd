@@ -92,6 +92,7 @@ static func expire(battle) -> int:
 ## here, and the per-turn ledger makes the second call in the same turn a no-op -
 ## the document allows at most one trigger per character per player turn, not one
 ## per tile and not one per way of getting there.
+## CONTRACT: _test_one_trigger_per_character_per_turn
 static func trigger_for(battle, actor) -> int:
 	if actor == null or not actor.is_alive():
 		return 0

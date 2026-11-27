@@ -1,6 +1,8 @@
 class_name SpringBattleBridge
 extends RefCounted
 
+const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
+
 ## Carries one fight between the map scene and the battle scene.
 ##
 ## The two scenes never share an object: the map writes `pending`, the battle
@@ -35,6 +37,7 @@ static var pending: Dictionary = {}
 static var last_result: Dictionary = {}
 ## Optional mode handoff from the Lobby ("normal" / "hard" / "" for resume).
 static var requested_mode: String = ""
+static var last_transition_message: String = ""
 ## Starting consumables packed at the Atelier hub for the upcoming expedition.
 static var starting_loadout: Array[Dictionary] = []
 
@@ -147,8 +150,9 @@ static func settle(run) -> Dictionary:
 	return settle_result(run, consume_result())
 
 
-static func settle_result(run, result: Dictionary) -> Dictionary:
-	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false}
+static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = [], next_region_scene_available: bool = false) -> Dictionary:
+	last_transition_message = ""
+	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false, "region_transition": {}}
 	var kind: String = str(result.get("kind", KIND_BATTLE))
 	var place_id := StringName(str(result.get("place", "")))
 	var won: bool = str(result.get("result", "")) == "victory"
@@ -215,9 +219,22 @@ static func settle_result(run, result: Dictionary) -> Dictionary:
 			else:
 				run.add_coins(60)
 				outcome["message"] = "击败了首领。藏品已收集齐全，换得 60 花钿。"
-			# §3: 春之境 ends here; 夏之境 is not unlocked in this build.
+			# §3: the next region requires both a persistent unlock and a real scene.
+			var transition: Dictionary = RegionProgressionScript.resolve_next(
+				RegionProgressionScript.REGION_SPRING,
+				unlocked_region_ids,
+				next_region_scene_available
+			)
+			outcome["region_transition"] = transition
+			match str(transition.get("status", "locked")):
+				"available":
+					outcome["message"] += " 下一层：%s，正在前往。" % str(transition.get("next_region_name", ""))
+				"content_unavailable":
+					outcome["message"] += " %s已解锁，但区域内容尚未开放，本次探索结束。" % str(transition.get("next_region_name", "下一层"))
+				_:
+					outcome["message"] += " 下一层：%s尚未解锁，当前探索结束。" % str(transition.get("next_region_name", "后续区域"))
 			run.exploration.finish("cleared")
-			outcome["finished_run"] = true
+			outcome["finished_run"] = not bool(transition.get("can_enter", false))
 		_:
 			pass
 
@@ -232,6 +249,8 @@ static func settle_result(run, result: Dictionary) -> Dictionary:
 		outcome["message"] = "；".join(parts) + "。"
 	else:
 		outcome["message"] += "（+%d 工坊残晶）" % win_shards
+	if not (outcome.get("region_transition", {}) as Dictionary).is_empty() and bool(outcome.get("finished_run", false)):
+		last_transition_message = str(outcome.get("message", ""))
 	return outcome
 
 

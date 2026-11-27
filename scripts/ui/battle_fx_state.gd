@@ -15,6 +15,7 @@ extends RefCounted
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const Palette = preload("res://scripts/ui/theme_palette.gd")
+const BoardThreatViewScript = preload("res://scripts/ui/board_threat_view.gd")
 
 var time: float = 0.0
 var actor_visual_pos: Dictionary = {}
@@ -25,6 +26,7 @@ var floating_popups: Array = []
 var impact_flashes: Array = []
 var enemy_step_timer: float = 0.0
 var enemy_phase_finishing: bool = false
+var acting_enemy_id: String = ""
 
 
 ## 新遭遇开始：清空所有瞬态 FX 并重置角色视觉位置到当前格。
@@ -37,6 +39,7 @@ func reset_for_encounter(controller) -> void:
 	impact_flashes.clear()
 	enemy_step_timer = 0.0
 	enemy_phase_finishing = false
+	acting_enemy_id = ""
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]
 		actor_visual_pos[String(actor_id)] = Palette.cell_center(actor.cell)
@@ -116,14 +119,21 @@ func step_enemy_phase(delta: float, controller) -> String:
 		return ""
 	if enemy_phase_finishing:
 		enemy_phase_finishing = false
+		acting_enemy_id = ""
 		controller.finish_enemy_phase_stepped()
 		if controller.phase == ControllerScript.BattlePhase.PLAYER:
 			return "敌方攻势结束，轮到你的回合！"
 	else:
+		acting_enemy_id = ""
+		for it in controller.intents:
+			if it.state == 0:
+				acting_enemy_id = it.source_actor_id
+				break
 		var ran: bool = controller.resolve_next_enemy_intent()
 		if ran:
-			enemy_step_timer = 0.42
+			enemy_step_timer = 0.56
 		else:
+			acting_enemy_id = ""
 			enemy_phase_finishing = true
 			enemy_step_timer = 0.28
 	return ""
@@ -148,6 +158,7 @@ func snapshot(hover_cell: Vector2i) -> Dictionary:
 	return {
 		"time": time,
 		"hover_cell": hover_cell,
+		"acting_enemy": acting_enemy_id,
 		"actor_pos": actor_visual_pos,
 		"hit_flash": actor_hit_flash,
 		"lunge": actor_lunge,
@@ -172,6 +183,12 @@ func on_event(
 			if not mover_id.is_empty() and mover != null:
 				var from_pos: Vector2 = actor_visual_pos.get(mover_id, Palette.cell_center(mover.cell))
 				actor_hop_state[mover_id] = {"from": from_pos, "age": 0.0, "duration": 0.18}
+			BoardThreatViewScript.push_event_callout(controller, event, floating_popups, impact_flashes)
+			return true
+		"enemy_action_resolved", "counter_resolved", "boss_enraged":
+			var callout: String = BoardThreatViewScript.push_event_callout(controller, event, floating_popups, impact_flashes)
+			if not callout.is_empty():
+				out_status.append(callout)
 			return true
 		"damage_applied":
 			trigger_damage_fx(event, controller)

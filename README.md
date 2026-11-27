@@ -119,11 +119,14 @@ tests/run_all.sh --fix      # PowerShell: .\tests\run_all.ps1 -Fix
 suites=<实际套件数> assertions=<实际断言数> failures=0 broken=0
 doc-numbers: ok (floor <下限>)
 doc-suites: ok (floor <下限>)
+count-copies: ok (pointers only)
 module-sizes: ok (no copied line counts; module-lines enforces the limit)
 module-lines: ok (limit 600)
 table-shape: ok
 field-readers: ok
 contracts: ok
+doc-links: ok
+doc-index: ok
 ```
 
 ---

@@ -18,6 +18,7 @@ extends RefCounted
 
 const BATTLE_SCENE_PATH: String = "res://scenes/main/main.tscn"
 const MAP_SCENE_PATH: String = "res://scenes/spring/spring_map.tscn"
+const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
 
 ## §16.1: a chest that survives the fight pays 10 花钿.
 const CHEST_COINS: int = 10
@@ -122,7 +123,7 @@ static func pack_carry(run_state) -> Dictionary:
 ## fight is greyed out and cannot be retried), a win keeps the map position and
 ## the remaining stamina untouched, and only a win pays.
 static func settle(run) -> Dictionary:
-	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false}
+	var outcome := {"message": "", "battle": &"", "finished_run": false, "reward_choices": [], "needs_revive": false, "region_transition": {}}
 	if not has_result():
 		return outcome
 	var result: Dictionary = consume_result()
@@ -186,7 +187,17 @@ static func settle(run) -> Dictionary:
 			else:
 				run.add_coins(60)
 				outcome["message"] = "击败了首领。藏品已收集齐全，换得 60 花钿。"
-			# §3: 春之境 ends here; 夏之境 is not unlocked in this build.
+			# A boss victory requests the next region. This build only unlocks 春之境,
+			# so 夏之境 is reported as locked and the current exploration closes cleanly.
+			var transition: Dictionary = RegionProgressionScript.resolve_next(
+				RegionProgressionScript.REGION_SPRING,
+				[RegionProgressionScript.REGION_SPRING]
+			)
+			outcome["region_transition"] = transition
+			if bool(transition.get("can_enter", false)):
+				outcome["message"] += " 下一层：%s。" % str(transition.get("next_region_name", ""))
+			else:
+				outcome["message"] += " 下一层：%s尚未解锁，当前探索结束。" % str(transition.get("next_region_name", "后续区域"))
 			run.exploration.finish("cleared")
 			outcome["finished_run"] = true
 		_:

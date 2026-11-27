@@ -303,7 +303,7 @@ func _draw_finished() -> void:
 	var ending: Dictionary = EndingScript.ending_for(run.exploration.finish_reason, run.event_log)
 	var lines: Array = ending.get("lines", [])
 	var has_detail: bool = not ending_detail.is_empty()
-	var panel_h: float = 148.0 + 24.0 * float(lines.size()) + (44.0 if has_detail else 0.0)
+	var panel_h: float = 148.0 + 24.0 * float(lines.size())
 	var panel := Rect2(390.0, 250.0, 500.0, panel_h)
 	draw_rect(panel, P.OVERLAY_BG, true)
 	draw_rect(panel, P.GOLD, false, 2.0)

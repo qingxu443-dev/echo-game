@@ -51,8 +51,18 @@ static func _draw_turn_and_ap(canvas: CanvasItem, font: Font, controller) -> voi
 	canvas.draw_string(font, rect.position + Vector2(14.0, 56.0), "回合 %02d" % controller.turn_number, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, P.TEXT_STRONG)
 
 	var ap_label_pos := rect.position + Vector2(106.0, 55.0)
-	var b_alive: int = controller.alive_beacons().size()
-	var b_total: int = controller.beacons.size()
+	# 春之结界 nodes live in the same table as the relic chests (that is how the
+	# battle layer holds a cell), but they are not loot and must not be counted as
+	# chests the player can still save.
+	var b_alive: int = 0
+	var b_total: int = 0
+	for cell in controller.beacons:
+		var beacon: Dictionary = controller.beacons[cell]
+		if str(beacon.get("kind", "")) == "ward_node":
+			continue
+		b_total += 1
+		if int(beacon.get("health", 0)) > 0:
+			b_alive += 1
 	canvas.draw_string(font, ap_label_pos, "遗迹宝箱 %d/%d" % [b_alive, b_total], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.GOLD_PALE if b_alive > 1 else P.WARN)
 
 	var pip_start := rect.position + Vector2(14.0, 74.0)

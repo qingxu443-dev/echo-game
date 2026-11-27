@@ -212,7 +212,7 @@ static func _draw_ward_node(canvas: CanvasItem, controller, cell: Vector2i, node
 	var bar_h: float = 5.0
 	var rect := Rect2(pos.x - bar_w * 0.5, pos.y, bar_w, bar_h)
 	canvas.draw_rect(rect.grow(1.0), P.HP_BG, true)
-	var ratio: float = clampf(float(node["health"]) / float(maxi(1, int(node["max_health"]))), 0.0, 1.0)
+	var ratio: float = clampf(float(node.get("health", 0)) / float(maxi(1, int(node.get("max_health", 1)))), 0.0, 1.0)
 	if ratio > 0.0:
 		canvas.draw_rect(Rect2(rect.position, Vector2(bar_w * ratio, bar_h)), Color("#5fd8b0"), true)
 

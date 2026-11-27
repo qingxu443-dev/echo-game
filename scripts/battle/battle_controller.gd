@@ -313,6 +313,10 @@ func collect_remaining_chests() -> Array[Dictionary]:
 	var claimed: Array[Dictionary] = []
 	for cell in beacons:
 		var b: Dictionary = beacons[cell]
+		# 结界节点 are not chests: they carry no loot and must not be reported as
+		# "saved" in the settlement summary.
+		if str(b.get("kind", "")) == "ward_node":
+			continue
 		if int(b.get("health", 0)) > 0 and not bool(b.get("opened", false)):
 			b["health"] = 0
 			b["opened"] = true

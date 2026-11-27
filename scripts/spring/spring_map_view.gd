@@ -53,6 +53,11 @@ var atelier_save_path := AtelierStash.SAVE_PATH
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
+	var suspended := SessionSave.consume("map")
+	if not suspended.is_empty() and PlaySession.restore_map(self, suspended): SessionSave.clear()
+	if BridgeScript.restore_map:
+		run = SpringRun.from_dict(BridgeScript.suspended_map)
+		BridgeScript.restore_map = false
 	var req_mode: String = BridgeScript.consume_requested_mode()
 	if SpringSaveTransaction.is_pending(atelier_save_path):
 		if not SpringSaveTransaction.recover(save_path, atelier_save_path):
@@ -139,7 +144,6 @@ func _compute_fit() -> void:
 	if _scale <= 0.0:
 		_scale = 1.0
 	_offset = (size - VIEW * _scale) * 0.5
-
 
 func _draw() -> void:
 	_compute_fit()
@@ -253,7 +257,6 @@ func _draw_selection() -> void:
 	var hint: String = "前往 · %d 体力" % cost if affordable else "体力不足 · 需要 %d 点" % cost
 	draw_string(font, Vector2(rect.position.x, rect.position.y - 8.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.GOLD_PALE if affordable else Color("#c98a7a"))
 
-
 func _draw_bottom_bar() -> void:
 	draw_rect(Rect2(Vector2(0.0, BOTTOM_BAR_Y), Vector2(VIEW.x, VIEW.y - BOTTOM_BAR_Y)), Color(0.07, 0.09, 0.10, 0.94), true)
 	draw_line(Vector2(0.0, BOTTOM_BAR_Y), Vector2(VIEW.x, BOTTOM_BAR_Y), P.GOLD * Color(1, 1, 1, 0.35), 1.0)
@@ -273,7 +276,6 @@ func _draw_bottom_bar() -> void:
 		var label: String = "进入 · %s" % run.title_of(place)
 		_draw_button(Rect2(612.0, 648.0, 196.0, 44.0), label, true)
 
-
 func _draw_button(rect: Rect2, label: String, enabled: bool) -> void:
 	var bg: Color = P.BUTTON_BG if enabled else P.PANEL_DISABLED
 	var border: Color = P.BUTTON_BORDER if enabled else P.PANEL_BORDER_DISABLED
@@ -282,7 +284,6 @@ func _draw_button(rect: Rect2, label: String, enabled: bool) -> void:
 	draw_rect(rect, border, false, 1.4)
 	var font := ThemeDB.fallback_font
 	draw_string(font, rect.position + Vector2(20.0, 28.0), label, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 30.0, 15, text)
-
 
 func _draw_confirm() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
@@ -294,7 +295,6 @@ func _draw_confirm() -> void:
 	draw_string(font, panel.position + Vector2(28.0, 82.0), "剩余体力 %d 点将作废，不转移至下一区域。" % run.exploration.stamina, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 13, P.TEXT_BODY)
 	_draw_button(CONFIRM_YES, "确认结束", true)
 	_draw_button(CONFIRM_NO, "取消", true)
-
 
 func _draw_finished() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
@@ -315,7 +315,6 @@ func _draw_finished() -> void:
 	draw_string(font, panel.position + Vector2(28.0, panel_h - 30.0), footer, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - 56.0, 12, P.TEXT_MUTED)
 	_draw_button(RETURN_BTN, "返回大厅", true)
 
-
 func _cell_fill(place: SpringPlace, is_here: bool) -> Color:
 	if place == null:
 		return Color(0.12, 0.14, 0.14, 0.9) if not is_here else Color(0.18, 0.19, 0.15, 0.95)
@@ -333,14 +332,12 @@ func _cell_fill(place: SpringPlace, is_here: bool) -> Color:
 		_:
 			return Color(0.17, 0.17, 0.17, 0.95)
 
-
 func _cell_border(place: SpringPlace, is_here: bool) -> Color:
 	if is_here:
 		return P.GOLD
 	if place == null:
 		return Color(0.20, 0.22, 0.22)
 	return _glyph_color(place.kind) * Color(1, 1, 1, 0.55)
-
 
 func _glyph_color(kind: int) -> Color:
 	match kind:
@@ -358,14 +355,11 @@ func _glyph_color(kind: int) -> Color:
 			return P.TEXT_FAINT
 	return P.TEXT_BODY
 
-
 func _place_label(cell: Vector2i) -> String:
 	var place := run.template.place_at(cell)
 	if place == null:
 		return "空地 (%d,%d)" % [cell.x, cell.y]
 	return run.title_of(place)
-
-
 
 func _gui_input(event: InputEvent) -> void:
 	if RouteOverlayScript.handle_gui_event(self, run, event):
@@ -380,7 +374,7 @@ func _gui_input(event: InputEvent) -> void:
 	var point := _to_view(mouse.position)
 	if run == null:
 		if RETURN_BTN.has_point(point):
-			get_tree().change_scene_to_file(MENU_SCENE_PATH)
+			SceneTravel.change(get_tree(), MENU_SCENE_PATH)
 		return
 	if event_open:
 		_handle_event_tap(point)
@@ -417,7 +411,7 @@ func _gui_input(event: InputEvent) -> void:
 		if RETURN_BTN.has_point(point):
 			# The run is over, so the save has nothing left to resume (§5.3).
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
-			var error := get_tree().change_scene_to_file(MENU_SCENE_PATH)
+			var error := SceneTravel.change(get_tree(), MENU_SCENE_PATH)
 			if error != OK:
 				push_error("Unable to return to the main menu. Error: %s" % error)
 		queue_redraw()
@@ -449,7 +443,6 @@ func _gui_input(event: InputEvent) -> void:
 	queue_redraw()
 	accept_event()
 
-
 func _try_move() -> void:
 	if not run.template.is_inside(selected_cell):
 		status_message = "先在地图上选择一个地点。"
@@ -463,13 +456,11 @@ func _try_move() -> void:
 	status_message = "抵达 %s · 剩余体力 %d" % [_place_label(run.exploration.position), run.exploration.stamina]
 	_save()
 
-
 func _save() -> bool:
 	if run.save_to_file(save_path):
 		return true
 	status_message = "春之境存档写入失败。"
 	return false
-
 
 func _enter_here() -> void:
 	var place := run.exploration.place_here()
@@ -492,8 +483,6 @@ func _enter_here() -> void:
 		SpringPlace.Kind.HIDDEN:
 			_open_event(place)
 
-
-
 func _start_battle(place: SpringPlace, kind: String) -> void:
 	if place.payload == &"":
 		status_message = "「%s」没有配置遭遇。" % run.title_of(place)
@@ -504,11 +493,10 @@ func _start_battle(place: SpringPlace, kind: String) -> void:
 	if not _save():
 		BridgeScript.clear_pending()
 		return
-	var error := get_tree().change_scene_to_file(BridgeScript.BATTLE_SCENE_PATH)
+	var error := SceneTravel.change(get_tree(), BridgeScript.BATTLE_SCENE_PATH, "踏入春之境战场")
 	if error != OK:
 		BridgeScript.clear_pending()
 		push_error("无法进入战斗场景。Error: %s" % error)
-
 
 func _open_event(place: SpringPlace) -> void:
 	var event_id := _event_id_for(place)
@@ -518,7 +506,6 @@ func _open_event(place: SpringPlace) -> void:
 	event_place = place
 	event_result = {}
 	event_open = true
-
 
 func _event_id_for(place: SpringPlace) -> StringName:
 	if place == null:
@@ -532,14 +519,12 @@ func _event_id_for(place: SpringPlace) -> StringName:
 		return &"hidden_hoard"
 	return place.payload
 
-
 func _open_shop() -> void:
 	run.enter_shop()
 	shop_open = true
 	shop_tab = 0
 	shop_sell_page = 0
 	shop_message = ""
-
 
 func _apply_returned_battle() -> void:
 	if run == null or not BridgeScript.has_result():
@@ -570,7 +555,7 @@ func _apply_returned_battle() -> void:
 		return
 	if bool(transition.get("can_enter", false)):
 		RegionProgressionScript.set_pending_transition(run, transition)
-		var error := get_tree().change_scene_to_file(next_scene_path)
+		var error := SceneTravel.change(get_tree(), next_scene_path)
 		if error == OK:
 			return
 		RegionProgressionScript.clear_pending_transition()
@@ -589,8 +574,6 @@ func _reveal_hidden_place() -> void:
 			return
 	status_message += " 地图上已经没有能藏东西的地方了。"
 
-
-
 func _draw_reward_choices() -> void:
 	var font := ThemeDB.fallback_font
 	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
@@ -608,11 +591,8 @@ func _draw_reward_choices() -> void:
 		draw_string(font, rect.position + Vector2(18.0, 56.0), CollectibleCatalogScript.rarity_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.CYAN)
 		draw_string(font, rect.position + Vector2(18.0, 84.0), CollectibleCatalogScript.desc_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 36.0, 13, P.TEXT_BODY)
 
-
 func reward_card_rect(index: int) -> Rect2:
 	return Rect2(216.0 + float(index) * 300.0, 260.0, 280.0, 180.0)
-
-
 
 func _draw_revive_prompt() -> void:
 	var font := ThemeDB.fallback_font
@@ -626,8 +606,6 @@ func _draw_revive_prompt() -> void:
 	_draw_button(REVIVE_YES, "续行", run.supplies >= BridgeScript.CONTINUE_SUPPLY_COST)
 	_draw_button(REVIVE_NO, "结束本局", true)
 
-
-
 func _handle_event_tap(point: Vector2) -> void:
 	var event_id := _event_id_for(event_place)
 	var hit: Dictionary = EventViewScript.hit(point, EventCatalogScript.option_count(event_id), not event_result.is_empty())
@@ -638,7 +616,6 @@ func _handle_event_tap(point: Vector2) -> void:
 			_close_event()
 		_:
 			pass
-
 
 func _choose_event_option(event_id: StringName, index: int) -> void:
 	var result: Dictionary = EventCatalogScript.resolve(run, event_id, index)
@@ -652,7 +629,6 @@ func _choose_event_option(event_id: StringName, index: int) -> void:
 		_reveal_hidden_place()
 	_save()
 
-
 func _close_event() -> void:
 	var battle_id := StringName(str(event_result.get("battle", "")))
 	if battle_id != &"" and event_place != null:
@@ -665,7 +641,7 @@ func _close_event() -> void:
 			if not _save():
 				BridgeScript.clear_pending()
 				return
-			var error := get_tree().change_scene_to_file(BridgeScript.BATTLE_SCENE_PATH)
+			var error := SceneTravel.change(get_tree(), BridgeScript.BATTLE_SCENE_PATH, "踏入春之境战场")
 			if error != OK:
 				BridgeScript.clear_pending()
 				status_message = "无法进入战斗场景。Error: %s" % error
@@ -677,7 +653,6 @@ func _close_event() -> void:
 	run.pending_event.clear()
 	status_message = "「%s」已了结。" % (run.title_of(event_place) if event_place != null else "事件")
 	_save()
-
 
 func _handle_shop_tap(point: Vector2) -> void:
 	var hit: Dictionary = ShopViewScript.hit(point, run.shop, run, shop_tab, shop_sell_page)
@@ -710,7 +685,6 @@ func _handle_shop_tap(point: Vector2) -> void:
 		_:
 			pass
 
-
 ## §7.2: the shop keeps its stock between visits, so leaving only drops the
 ## pending price effect and the overlay.
 func _close_shop() -> void:
@@ -718,7 +692,6 @@ func _close_shop() -> void:
 	shop_open = false
 	status_message = "离开了春日行商。"
 	_save()
-
 
 func _handle_reward_tap(point: Vector2) -> void:
 	for index in range(run.reward_choices.size()):
@@ -735,7 +708,6 @@ func _handle_reward_tap(point: Vector2) -> void:
 		_save()
 		return
 
-
 func _handle_revive_tap(point: Vector2) -> void:
 	if REVIVE_YES.has_point(point):
 		var outcome: Dictionary = BridgeScript.continue_run(run)
@@ -749,7 +721,6 @@ func _handle_revive_tap(point: Vector2) -> void:
 		run.revive_prompt = false
 		run.exploration.finish("defeat")
 		_save()
-
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if run == null or not (event is InputEventKey):

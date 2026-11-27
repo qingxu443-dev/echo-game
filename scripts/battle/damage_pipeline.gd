@@ -59,15 +59,15 @@ static func apply(
 	# works the same way.
 	if was_hit and is_public_intent and actors.has(source_actor_id) and actors[source_actor_id].team == "enemy":
 		if statuses.has_status(target_actor_id, &"absolute_guard") and not resolving_intent_id.is_empty():
-			battle.absolute_guard_hit_intents[resolving_intent_id] = true
+			battle.ledger.absolute_guard_hit_intents[resolving_intent_id] = true
 		if battle.has_passive(target_actor_id, &"oath_vow"):
 			# One action grants one stack per carrier: the key names the carrier
 			# as well as the action, so a multi-target intent that lands on two
 			# passive carriers still grants each of them their single stack, and
 			# a multi-segment action still grants a lone carrier only one.
 			var intent_key: String = "%s:%s" % [resolving_intent_id, target_actor_id] if not resolving_intent_id.is_empty() else "%d:%s:%s:%s" % [battle.turn_number, source_actor_id, action_id, target_actor_id]
-			if not battle.oath_vow_triggered_intents.has(intent_key):
-				battle.oath_vow_triggered_intents[intent_key] = true
+			if not battle.ledger.oath_vow_triggered_intents.has(intent_key):
+				battle.ledger.oath_vow_triggered_intents[intent_key] = true
 				var current_vow_stacks: int = battle.get_oath_vow_stacks(target_actor_id)
 				if current_vow_stacks < 3:
 					statuses.apply_status(&"oath_vow", source_actor_id, target_actor_id, 1, 3, -1, &"", &"add")

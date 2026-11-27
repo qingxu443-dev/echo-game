@@ -177,7 +177,7 @@ static func oath_shield(battle, target_actor_id: String = "") -> bool:
 	var reviving: bool = target.is_downed()
 	if target.team != "player" or not (target.is_alive() or reviving):
 		return false
-	if reviving and battle.oath_shield_revived.has(resolved_target_id):
+	if reviving and battle.ledger.oath_shield_revived.has(resolved_target_id):
 		return false
 	var ally_range: int = maxi(skill.max_range, 2)
 	if resolved_target_id != caster.actor_id and GridRulesScript.manhattan_distance(caster.cell, target.cell) > ally_range:
@@ -195,13 +195,13 @@ static func oath_shield(battle, target_actor_id: String = "") -> bool:
 		return false
 	if reviving:
 		target.revive(raw_shield)
-		battle.oath_shield_revived[resolved_target_id] = true
+		battle.ledger.oath_shield_revived[resolved_target_id] = true
 		battle._emit_event("member_revived", caster_id, resolved_target_id, "skill=oath_shield restored=%d" % raw_shield)
 	for shielded_id in shielded_ids:
 		var shielded = actors[shielded_id]
 		var previous_shield: int = shielded.shield
 		var final_shield: int = shielded.grant_shield(raw_shield)
-		battle.oath_shield_expiry_turn[shielded_id] = battle.turn_number + 1
+		battle.ledger.oath_shield_expiry_turn[shielded_id] = battle.turn_number + 1
 		battle._emit_event(
 			"oath_shield_applied",
 			caster_id,

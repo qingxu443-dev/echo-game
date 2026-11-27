@@ -539,8 +539,8 @@ static func _check_echo_return(battle, caster, target, multiplier: float = ECHO_
 
 	# §19: the first echo return of a turn is worth one more stack. Tagged as its
 	# own reason so the log does not read as a second action stack.
-	if int(battle.echo_return_gain_turn.get(caster.actor_id, -1)) != battle.turn_number:
-		battle.echo_return_gain_turn[caster.actor_id] = battle.turn_number
+	if int(battle.ledger.echo_return_gain_turn.get(caster.actor_id, -1)) != battle.turn_number:
+		battle.ledger.echo_return_gain_turn[caster.actor_id] = battle.turn_number
 		gain_intent_from_action(battle, caster, INTENT_PER_ACTION_EVENT, "echo")
 	battle._emit_event("counter_resolved", caster.actor_id, target.actor_id, "skill=sakura_echo_return multiplier=%.2f raw=%d killed=%s" % [multiplier, raw_damage, str(killed)])
 	return killed
@@ -551,16 +551,16 @@ static func _check_echo_return(battle, caster, target, multiplier: float = ECHO_
 static func gain_intent_from_action(battle, caster, amount: int = INTENT_PER_ACTION_EVENT, reason: String = "action") -> void:
 	if caster == null or not caster.has_resource():
 		return
-	if int(battle.resource_gain_turn.get(caster.actor_id, -1)) != battle.turn_number:
-		battle.resource_gain_turn[caster.actor_id] = battle.turn_number
-		battle.resource_gain_count[caster.actor_id] = 0
-	var used: int = int(battle.resource_gain_count.get(caster.actor_id, 0))
+	if int(battle.ledger.resource_gain_turn.get(caster.actor_id, -1)) != battle.turn_number:
+		battle.ledger.resource_gain_turn[caster.actor_id] = battle.turn_number
+		battle.ledger.resource_gain_count[caster.actor_id] = 0
+	var used: int = int(battle.ledger.resource_gain_count.get(caster.actor_id, 0))
 	if used >= INTENT_ACTION_BUDGET:
 		return
 	var granted: int = mini(amount, INTENT_ACTION_BUDGET - used)
 	var before: int = caster.resource_current
 	caster.gain_resource(granted)
-	battle.resource_gain_count[caster.actor_id] = used + granted
+	battle.ledger.resource_gain_count[caster.actor_id] = used + granted
 	# The budget is spent by the attempt, but a full bar absorbs the stack - so the
 	# event only fires when the number actually moved. Reporting "gained" for a
 	# grant the ceiling swallowed made a capped kill look like it had paid.

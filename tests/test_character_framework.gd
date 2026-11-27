@@ -811,8 +811,8 @@ func _test_kills_pay_intent_inside_the_budget() -> void:
 	var capped_enemy = capped.get_actor("vanguard_00")
 	capped_sakura.resource_current = 1
 	capped_enemy.health = 1
-	capped.resource_gain_turn["sakura"] = capped.turn_number
-	capped.resource_gain_count["sakura"] = 2
+	capped.ledger.resource_gain_turn["sakura"] = capped.turn_number
+	capped.ledger.resource_gain_count["sakura"] = 2
 	var capped_gains: Array = []
 	capped.battle_event.connect(func(event):
 		if event["type"] == "resource_gained":

@@ -60,9 +60,6 @@ var dropped_loot: Dictionary = {}
 ## "owner_id", "expires_turn"}. They never hold a cell - movement and line of
 ## sight read `blocked_cells`, not this table - so a hazard can only ever hurt.
 var hazards: Dictionary = {}
-## Per-character ledger for "at most one hazard trigger per player turn":
-## actor_id -> turn_number of the last trigger.
-var hazard_trigger_turn: Dictionary = {}
 ## 11.1 部署阶段: the cells the player may place characters on, the roster order
 ## they are placed in, and how many have been placed. Empty when the encounter
 ## skips deployment.
@@ -77,32 +74,15 @@ var battle_result: String = ""
 var damage_dealt: int = 0
 var damage_taken: int = 0
 var enemies_defeated: int = 0
-## summon_id -> the player turn it was last used on. Absent means "never used".
-var summon_last_used_turn: Dictionary = {}
 var statuses: BattleStatusCollection = StatusCollectionScript.new()
-## actor_id -> player turn number after which the oath shield expires.
-var oath_shield_expiry_turn: Dictionary = {}
-## Party members already revived by Oath Shield this encounter (§12: the
-## revival count is defined by the skill, once per member per encounter).
-var oath_shield_revived: Dictionary = {}
-## Enemy intent IDs already counted by Oath Vow; prevents multi-hit actions stacking repeatedly.
-var oath_vow_triggered_intents: Dictionary = {}
-## Intent IDs whose public attack action successfully hit Sevrin during Absolute Guard.
-var absolute_guard_hit_intents: Dictionary = {}
-## Enemy actor IDs that have already been countered during the current player turn.
-var absolute_guard_countered_enemies: Dictionary = {}
 ## Which party member the player is currently commanding. Skills resolve their
 ## caster from here, so adding a character never means hardcoding an actor id.
 var active_character_id: String = ""
-## Per-character bookkeeping for class resources: which turn the action budget was
-## last reset, how much of it is spent, and whether the first echo return of the
-## turn has already paid out.
-var resource_gain_turn: Dictionary = {}
-var resource_gain_count: Dictionary = {}
-var echo_return_gain_turn: Dictionary = {}
+## 单场战斗的机制记账（护盾 / 誓约 / 绝对防御 / 职业资源 / 召唤 / 地格 / 免费移动）。
+## 字段与键语义见 BattleLedger；controller 自身不再平铺这些字典。
+var ledger: BattleLedger = BattleLedger.new()
 ## Optional roguelite RunState attached by BattleView (persists HP & mods across levels).
 var run_state: RunStateScript = null
-var free_move_used_turn: int = -1
 
 
 func _ready() -> void:
@@ -498,7 +478,7 @@ func request_player_move(path: Array[Vector2i]) -> bool:
 	var mover = get_active_character()
 	if phase != BattlePhase.PLAYER or mover == null:
 		return false
-	var free_stride: bool = run_state != null and run_state.has_mod(&"echo_stride") and free_move_used_turn != turn_number
+	var free_stride: bool = run_state != null and run_state.has_mod(&"echo_stride") and ledger.free_move_used_turn != turn_number
 	var move_cost: int = 0 if free_stride else 1
 	if not mover.is_alive() or not ap.can_spend(move_cost):
 		return false
@@ -508,7 +488,7 @@ func request_player_move(path: Array[Vector2i]) -> bool:
 	if move_cost > 0 and not ap.spend(move_cost):
 		return false
 	if free_stride:
-		free_move_used_turn = turn_number
+		ledger.free_move_used_turn = turn_number
 	mover.cell = path[path.size() - 1]
 	pickup_dropped_loot_at(mover.cell)
 	# 凋零 / 残春 punish walking onto a tile, on top of whatever the player spent

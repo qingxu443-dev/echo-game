@@ -77,12 +77,12 @@ jobs:
       - name: Run suites
         run: |
           set -euo pipefail
-          EXPECTED=$(grep -oP '\| 断言总数 \| \*\*\K[0-9]+' docs/engineering/BASELINE.md || true)
+          EXPECTED=$(grep -oP '"assertions"\s*:\s*\K[0-9]+' tests/framework/baseline.json || true)
           if [ -z "${EXPECTED:-}" ]; then
-            echo "::error::could not read 断言总数 from docs/engineering/BASELINE.md"
+            echo "::error::could not read assertions floor from tests/framework/baseline.json"
             exit 1
           fi
-          echo "BASELINE.md declares exactly $EXPECTED assertions"
+          echo "baseline.json declares a floor of $EXPECTED assertions"
           # Invoked through bash so the run does not depend on the executable bit
           # surviving a checkout on any platform.
           GODOT="$GODOT_BIN" EXPECTED_ASSERTIONS="$EXPECTED" bash ./tests/run_all.sh

@@ -20,6 +20,7 @@ ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 
 * **5×5 地图探索**：3 套固定结构模板，每套 11 个地点（4 场普通战、1 场精英、1 名 Boss、3 个固定事件、1 个随机事件、1 家春日行商）及 0–1 个隐藏地点；探索消耗 **10 点体力**（按曼哈顿距离扣除）。
 * **20 个敌方遭遇定义**：包含 12 场普通战、5 场精英战与 3 名 Boss（**凋樱剑主** / **千枝神将** / **春痕回响**）。三套地图的主路线共引用其中 18 个，主控角色为**樱**。
 * **事件、行商与本局存档**：10 个可交互事件与隐秘之地、春日行商三页交易与刷新、战败续行机制；本局进度持久化于 `user://spring_run.json`，恢复不重抽。
+* **Boss 楼层推进**：Boss 胜利后结束春之境；后续区域必须同时满足持久解锁与场景存在才允许交接。当前夏之境场景尚未交付，即使已解锁也会安全结束，不会跳转到不存在的场景。
 
 ### 3. 教学遗迹（3 关快速上手）
 * 由主控角色**瑟弗林**引导完成三课教学（`蓄力规避` → `射线走位` → `多敌混编`），用于快速掌握移动、位移击退、视线与敌方充能节奏。
@@ -87,7 +88,7 @@ godot --headless --path . --export-release "Windows Desktop" build/ECHO_Windows_
 
 ## 自动化测试与工程守卫
 
-项目当前基线为 **37 个套件、2677 条断言、0 失败**（明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)）。首次克隆需先执行一次 `godot --headless --path . --import` 生成资源缓存，随后一条命令运行全部套件与 7 项守卫：
+基线是**覆盖下限**，由 [`tests/framework/baseline.json`](tests/framework/baseline.json) 单独声明；当前套件数与断言数以运行输出为准，逐套件明细见 [`docs/engineering/BASELINE.md`](docs/engineering/BASELINE.md)。新增测试不需要改任何共享文档。
 
 ```bash
 # macOS / Linux / Git Bash
@@ -107,10 +108,10 @@ tests/run_all.sh --fix      # PowerShell: .\tests\run_all.ps1 -Fix
 正常通过示例（退出码 `0`）：
 
 ```text
-suites=37 assertions=2677 failures=0 broken=0
-doc-numbers: ok (2677)
-doc-suites: ok (37)
-module-sizes: ok (79 rows)
+suites=<实际套件数> assertions=<实际断言数> failures=0 broken=0
+doc-numbers: ok (floor <下限>)
+doc-suites: ok (floor <下限>)
+module-sizes: ok (no copied line counts; module-lines enforces the limit)
 module-lines: ok (limit 600)
 table-shape: ok
 field-readers: ok
@@ -148,5 +149,5 @@ contracts: ok
 │   ├── meta/            # 黄昏补给商行残晶存档与局外配置
 │   ├── spring/          # 未尽之春地图、事件、行商、遭遇与本局存档
 │   └── ui/              # 2.5D 棋盘视图、预告层、HUD、商店与大厅界面
-└── tests/               # 37 个自动化测试套件与文档/规范守卫
+└── tests/               # 自动化测试套件与文档/规范守卫
 ```

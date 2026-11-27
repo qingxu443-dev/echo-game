@@ -74,6 +74,12 @@ func _run() -> void:
 			print(_row(name, "%3d ok" % result.assertions))
 		else:
 			print(_row(name, "%3d FAIL(%d)" % [result.assertions, result.failures]))
+			# The parent runner captures each suite's output; surface failed
+			# assertion labels so CI logs explain the regression instead of only
+			# reporting a failure count.
+			for line in text.split("\n"):
+				if line.contains("FAIL:"):
+					print("  " + line.strip_edges())
 
 	print("-----")
 	print("suites=%d assertions=%d failures=%d broken=%d" % [suites.size(), total, failures, broken])
@@ -114,6 +120,8 @@ func _fix_and_exit() -> void:
 		quit(1)
 		return
 	print("module-sizes: rewrote %d row(s) to match the files" % changed)
+	var copies := DocChecks.fix_count_copies()
+	print("count-copies: rewrote %d line(s) to pointers" % copies)
 	quit(0)
 
 

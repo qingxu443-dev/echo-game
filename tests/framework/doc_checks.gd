@@ -49,23 +49,7 @@ const SKIP_MARKERS := ["更早", "历史", "归档", "archive", "修复前", "�
 
 ## A single suite's own count is correct without matching the total.
 static var _suite_reference: RegEx = _compile("`test_[a-z_]+\\.gd`|tests/[a-z_]+\\.gd")
-static var _total_re: RegEx = _compile("\\| 断言总数 \\| \\*\\*(\\d+)\\*\\*")
-static var _count_patterns: Array[RegEx] = [
-	_compile("(\\d+)\\s*条断言"),
-	_compile("(\\d+)\\s*断言"),
-	_compile("assertions=(\\d+)"),
-]
 static var _module_row_re: RegEx = _compile("^\\| `([\\w./]+\\.gd)` \\| (\\d+) \\|")
-
-## 套件数也需要单一来源。BASELINE.md 的「套件数」行是权威值；正文里凡声明
-## 当前套件数的地方都要跟它一致。历史/归档行照旧由 SKIP_MARKERS 豁免。
-static var _suite_total_re: RegEx = _compile("\\| 套件数 \\| (\\d+) \\|")
-static var _suite_count_patterns: Array[RegEx] = [
-	_compile("suites=(\\d+)"),
-	_compile("(\\d+)\\s*个套件"),
-	_compile("(\\d+)\\s*套件"),
-	_compile("测试套件[：:]\\s*(\\d+)\\s*个"),
-]
 
 
 static func _compile(pattern: String) -> RegEx:
@@ -104,47 +88,6 @@ static func expected_assertions() -> int:
 
 static func expected_suite_count() -> int:
 	return int(_baseline_numbers().get("suites", 0))
-
-
-## 与断言数同构：正文里每一处「当前套件数」都必须等于 BASELINE 的权威值。
-## 复用同一套跳过规则，避免把历史快照和单套件引用误判为漂移。
-static func check_suite_count_copies(expected: int) -> Array[String]:
-	var problems: Array[String] = []
-	for path in TOTAL_SCAN_FILES:
-		var text := read_text(path)
-		if text.is_empty():
-			continue
-		for line in text.split("\n"):
-			if _is_skipped(line):
-				continue
-			var seen := {}
-			for re in _suite_count_patterns:
-				for match in re.search_all(line):
-					seen[int(match.get_string(1))] = true
-			for number in seen.keys():
-				if number != expected:
-					problems.append("%s says %d suites, baseline says %d" % [path, number, expected])
-	return problems
-
-
-## Every stale copy of the total, one line per offending file and number.
-static func check_assertion_copies(expected: int) -> Array[String]:
-	var problems: Array[String] = []
-	for path in TOTAL_SCAN_FILES:
-		var text := read_text(path)
-		if text.is_empty():
-			continue
-		for line in text.split("\n"):
-			if _is_skipped(line):
-				continue
-			var seen := {}
-			for re in _count_patterns:
-				for match in re.search_all(line):
-					seen[int(match.get_string(1))] = true
-			for number in seen.keys():
-				if number != expected:
-					problems.append("%s says %d, baseline says %d" % [path, number, expected])
-	return problems
 
 
 static func _is_skipped(line: String) -> bool:
@@ -382,6 +325,78 @@ static func _read_all_suite_text() -> String:
 static var _export_field_re: RegEx = _compile("@export(?:_multiline)? var (\\w+)")
 
 
+## 旧分支会把断言/套件数字抄进散文文档；main 用的是指针写法。两套文本在
+## 同一行上相撞，就是 PR #74 那类文档冲突——根因不是合并技术，是守卫曾经
+## 逼着每个分支去改同一批数字。
+##
+## 这里让 `run_all.sh --fix` 把任何分支的旧副本归一化成同一组占位符：任何人
+## 在自己的分支上跑一次，文本就与 main 完全一致，冲突从源头消失。引用历史
+## 与逐套件明细的行（_is_skipped）保持原样——它们本来就不是当前计数副本。
+static var COUNT_CONVERGENCE := [
+	[_compile("assertions=\\d+"), "assertions=<实际断言数>"],
+	[_compile("suites=\\d+"), "suites=<实际套件数>"],
+	[_compile("floor \\d+"), "floor <下限>"],
+	[_compile("\\d+(?=\\s*条断言)"), "<实际断言数>"],
+	[_compile("\\d+(?=\\s*(?:个测试套件|测试套件|个套件|套件))"), "<实际套件数>"],
+	[_compile("[一二三四五六七八九十百]+(?=\\s*条断言)"), "<实际断言数>"],
+	[_compile("[一二三四五六七八九十百]+(?=\\s*(?:个)?(?:测试套件|套件))"), "<实际套件数>"],
+]
+
+## 单行归一化：纯函数，`--fix` 和测试共用同一份逻辑，测试才能证明"任何分支
+## 跑完 --fix 得到的字面完全相同"。历史行与逐套件明细（_is_skipped）原样返回。
+static func converge_line(line: String) -> String:
+	if _is_skipped(line):
+		return line
+	var updated := line
+	for pair in COUNT_CONVERGENCE:
+		var re: RegEx = pair[0]
+		updated = re.sub(updated, String(pair[1]), true)
+	return updated
+
+
+static func fix_count_copies() -> int:
+	var changed := 0
+	for path in TOTAL_SCAN_FILES:
+		var text := read_text(path)
+		if text.is_empty():
+			continue
+		var lines: Array[String] = []
+		for line in text.split("\n"):
+			var updated := converge_line(line)
+			if updated != line:
+				changed += 1
+			lines.append(updated)
+		var joined := "\n".join(lines)
+		if joined != text:
+			var f := FileAccess.open("res://" + path, FileAccess.WRITE)
+			if f != null:
+				f.store_string(joined)
+				f.close()
+	return changed
+
+
+## 与 fix_count_copies() 配对的闸门：计数器只许写成指针。
+##
+## 数字副本是并行分支的冲突源——两个分支各自把同一行改成自己的数，合并必冲突，
+## 最后合并的那个赢，另一个变成撒谎。指针写法（`<实际断言数>`）在每个分支上都是
+## 同一串字，git 能自动合并。`--fix` 负责收敛，这条负责让没收敛的变红。
+static func check_count_copies() -> Array[String]:
+	var problems: Array[String] = []
+	for path in TOTAL_SCAN_FILES:
+		var text := read_text(path)
+		if text.is_empty():
+			continue
+		for line in text.split("\n"):
+			if _is_skipped(line):
+				continue
+			for pair in COUNT_CONVERGENCE:
+				var re: RegEx = pair[0]
+				if re.search(line) != null:
+					problems.append("%s repeats a live count: %s" % [path, line.strip_edges()])
+					break
+	return problems
+
+
 static func report() -> bool:
 	var ok := true
 	var expected := expected_assertions()
@@ -397,6 +412,15 @@ static func report() -> bool:
 		ok = false
 	else:
 		print("doc-suites: ok (floor %d)" % suite_count)
+
+	var copies := check_count_copies()
+	if copies.is_empty():
+		print("count-copies: ok (pointers only)")
+	else:
+		for problem in copies:
+			print("count-copies: ", problem)
+		print("count-copies: %d line(s) repeat a live count; run tests/run_all.sh --fix" % copies.size())
+		ok = false
 
 	var sizes := check_module_sizes()
 	if sizes.is_empty():

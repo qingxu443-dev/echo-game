@@ -49,6 +49,7 @@ var shop_open: bool = false
 var shop_tab: int = 0
 var shop_sell_page: int = 0
 var shop_message: String = ""
+var collectible_open: bool = false
 var save_path := SpringRun.SAVE_PATH
 var atelier_save_path := AtelierStash.SAVE_PATH
 
@@ -136,6 +137,8 @@ func _draw() -> void:
 		ShopViewScript.draw(self, run.shop, run, shop_tab, shop_sell_page, shop_message)
 	elif not run.reward_choices.is_empty():
 		_draw_reward_choices()
+	elif collectible_open:
+		_draw_collectibles()
 	elif run.revive_prompt:
 		_draw_revive_prompt()
 
@@ -177,11 +180,14 @@ func _draw_top_bar() -> void:
 	draw_string(font, Vector2(680.0, 32.0), "补给", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
 	draw_string(font, Vector2(680.0, 58.0), str(run.supplies), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_STRONG)
 	draw_string(font, Vector2(780.0, 32.0), "四时花露", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
-	draw_string(font, Vector2(780.0, 58.0), "%d / %d" % [run.dew_total(), run.dew_cap], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_BODY)
+	draw_string(font, Vector2(780.0, 58.0), "%d / %d" % [run.dew_total(), run.effective_dew_cap()], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_BODY)
 	draw_string(font, Vector2(900.0, 32.0), "记忆残页", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
 	draw_string(font, Vector2(900.0, 58.0), str(run.memory_pages), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_BODY)
 	draw_string(font, Vector2(1020.0, 32.0), "遗物", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
 	draw_string(font, Vector2(1020.0, 58.0), str(run.relics.size()), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_BODY)
+	draw_rect(COLLECTIBLES_BTN, P.BUTTON_BG, true)
+	draw_rect(COLLECTIBLES_BTN, P.BUTTON_BORDER, false, 1.2)
+	draw_string(font, COLLECTIBLES_BTN.position + Vector2(14.0, 32.0), "藏品", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.BUTTON_TEXT)
 
 func _draw_grid() -> void:
 	var font := ThemeDB.fallback_font
@@ -341,6 +347,11 @@ func _gui_input(event: InputEvent) -> void:
 		if RETURN_BTN.has_point(point):
 			SceneTravel.change(get_tree(), MENU_SCENE_PATH)
 		return
+	if collectible_open:
+		_handle_collectible_tap(point)
+		queue_redraw()
+		accept_event()
+		return
 	if event_open:
 		_handle_event_tap(point)
 		queue_redraw()
@@ -383,6 +394,11 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 		return
 
+	if COLLECTIBLES_BTN.has_point(point):
+		collectible_open = true
+		queue_redraw()
+		accept_event()
+		return
 	if END_BTN.has_point(point):
 		confirm_end = true
 		queue_redraw()

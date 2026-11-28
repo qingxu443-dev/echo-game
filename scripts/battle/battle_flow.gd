@@ -122,6 +122,10 @@ static func start_encounter(
 		var sheet: CharacterDefinition = CharacterCatalogScript.get_definition(character_id)
 		var unit = BattleActorScript.new(character_id, "player", spawn_cells[index], sheet.max_health, String(sheet.character_id), sheet.attack, sheet.defense, sheet.magic_resistance)
 		unit.character_id = sheet.character_id
+		unit.portrait_path = sheet.portrait_path
+		unit.full_illustration_path = sheet.full_illustration_path
+		unit.battlefield_sprite_path = sheet.battlefield_sprite_path
+		unit.battlefield_sprite_back_path = sheet.battlefield_sprite_back_path
 		unit.glyph = sheet.glyph
 		unit.display_name_zh = sheet.display_name_zh
 		unit.role_label_zh = sheet.role_label_zh

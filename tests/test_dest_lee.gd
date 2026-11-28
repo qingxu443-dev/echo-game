@@ -66,7 +66,10 @@ func _dot()->void:
 	_check(zh-z.health==Math.calculate_raw_damage(lee.attack,0.40),"two stack DOT is 40% ATK")
 	b.queue_free()
 func _city_burn()->void:
-	var b=_battle(["dest_lee"],[],[Vector2i(3,1),Vector2i(4,1)])
+	var roster:Array[String]=["dest_lee"]
+	var allies:Array[Vector2i]=[]
+	var enemies:Array[Vector2i]=[Vector2i(3,1),Vector2i(4,1)]
+	var b=_battle(roster,allies,enemies)
 	var a=b.get_actor("vanguard_00")
 	var z=b.get_actor("vanguard_01")
 	a.magic_resistance=0
@@ -80,7 +83,10 @@ func _city_burn()->void:
 	_check(not b.statuses.has_status(a.actor_id,IGNITION),"direct target ignition cleared")
 	b.queue_free()
 func _death_embers()->void:
-	var b=_battle(["dest_lee","sakura"],[Vector2i(1,2)],[Vector2i(2,2),Vector2i(3,2),Vector2i(6,6)])
+	var roster:Array[String]=["dest_lee","sakura"]
+	var allies:Array[Vector2i]=[Vector2i(1,2)]
+	var enemies:Array[Vector2i]=[Vector2i(2,2),Vector2i(3,2),Vector2i(6,6)]
+	var b=_battle(roster,allies,enemies)
 	b.set_active_character("sakura")
 	var dead=b.get_actor("vanguard_00")
 	var near=b.get_actor("vanguard_01")

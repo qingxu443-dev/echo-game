@@ -9,6 +9,8 @@ const VIEW := Vector2(1280.0, 720.0)
 const RETURN_BUTTON := Rect2(1000.0, 632.0, 232.0, 54.0)
 const MAP_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
 
+var run_path: String = SpringRunScript.SAVE_PATH
+var atelier_path: String = AtelierStash.SAVE_PATH
 var run: SpringRun
 var record: Dictionary = {}
 var outcome: Dictionary = {}
@@ -22,7 +24,7 @@ func _ready() -> void:
 
 
 func _load_or_prepare() -> void:
-	run = SpringRunScript.load_from_file(SpringRunScript.SAVE_PATH)
+	run = SpringRunScript.load_from_file(run_path)
 	if run == null:
 		status_message = "无法读取春之境存档。原始战果未被覆盖，请返回后重试。"
 		queue_redraw()
@@ -73,14 +75,14 @@ func _prepare_once() -> void:
 	}
 	run.pending_battle_settlement = record
 	prepared = true
-	if not run.save_to_file(SpringRunScript.SAVE_PATH):
+	if not run.save_to_file(run_path):
 		status_message = "结算内容已生成，但存档写入失败。请点击下方按钮重试保存；奖励不会重复抽取。"
 	queue_redraw()
 
 
 func _confirm_and_return() -> void:
 	if run == null or record.is_empty():
-		get_tree().change_scene_to_file(MAP_SCENE_PATH)
+		_change_scene(MAP_SCENE_PATH)
 		return
 	if not prepared:
 		_prepare_once()
@@ -92,13 +94,13 @@ func _confirm_and_return() -> void:
 		queue_redraw()
 		return
 	var shards := int(outcome.get("atelier_shards", 0))
-	if not StorageScript.settle(run, SpringRunScript.SAVE_PATH, AtelierStash.SAVE_PATH, shards, settlement_id):
+	if not StorageScript.settle(run, run_path, atelier_path, shards, settlement_id):
 		status_message = "战后奖励存档未完成。当前结算记录仍被保留，请重试。"
 		queue_redraw()
 		return
 	var previous_record := run.pending_battle_settlement.duplicate(true)
 	run.pending_battle_settlement = {}
-	if not run.save_to_file(SpringRunScript.SAVE_PATH):
+	if not run.save_to_file(run_path):
 		run.pending_battle_settlement = previous_record
 		status_message = "奖励已安全入账，但结算标记清理失败。再次点击不会重复领取。"
 		queue_redraw()
@@ -109,11 +111,15 @@ func _confirm_and_return() -> void:
 		RegionProgressionScript.set_pending_transition(run, transition)
 		var next_path := RegionProgressionScript.scene_path_for(RegionProgressionScript.REGION_SUMMER)
 		if not next_path.is_empty() and ResourceLoader.exists(next_path):
-			var next_error := get_tree().change_scene_to_file(next_path)
+			var next_error := _change_scene(next_path)
 			if next_error == OK:
 				return
 			RegionProgressionScript.clear_pending_transition()
-	get_tree().change_scene_to_file(MAP_SCENE_PATH)
+	_change_scene(MAP_SCENE_PATH)
+
+
+func _change_scene(path: String) -> Error:
+	return get_tree().change_scene_to_file(path)
 
 
 func _gui_input(event: InputEvent) -> void:

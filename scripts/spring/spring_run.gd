@@ -448,6 +448,10 @@ static func from_dict(data: Dictionary) -> SpringRun:
 		push_warning("SpringRun.from_dict: invalid field %s" % invalid)
 		return null
 	data = data.duplicate(true)
+	if data.has("battle_carry"): data.battle_carry = PartyLoadout.canonical_json_carry(data.battle_carry)
+	var settlement: Dictionary = data.get("pending_battle_settlement", {})
+	if settlement.get("result", {}).has("carry"):
+		settlement.result.carry = PartyLoadout.canonical_json_carry(settlement.result.carry)
 	# 先把旧档推到当前版本，再读任何字段。迁移表放在文件末尾，加版本时只加
 	# 一行；以前是一串 `if version < N` 散在读字段的逻辑中间，第三个版本
 	# 进来时已经很难看出「哪一段属于哪一次升级」。

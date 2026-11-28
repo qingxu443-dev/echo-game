@@ -158,6 +158,21 @@ static func apply_payload(run_state, payload: Dictionary) -> void:
 		run_state.backpack.append((item as Dictionary).duplicate(true))
 
 
+## Restore the prepared party snapshot after encounter actors have been created.
+## CONTRACT: _test_party_vitals_enter_the_battle_scene
+static func restore_party_vitals(battle, payload: Dictionary) -> void:
+	var saved: Dictionary = payload.get("party_vitals", {})
+	for character_id in saved:
+		var actor = battle.actors.get(str(character_id))
+		var vitals: Dictionary = saved[character_id]
+		if actor == null or actor.team != "player":
+			continue
+		actor.max_health = maxi(1, int(vitals.get("max_health", actor.max_health)))
+		actor.health = clampi(int(vitals.get("health", actor.health)), 0, actor.max_health)
+		actor._is_downed = actor.health <= 0
+		actor._is_defeated = false
+
+
 ## Packs what the battle left behind so it can be written onto the run.
 static func pack_carry(run_state) -> Dictionary:
 	return {

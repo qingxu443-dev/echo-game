@@ -17,8 +17,8 @@ func _run() -> void:
 	_test_tutorial_roster_remains_fixed()
 	_test_v3_saves_migrate_without_losing_progress()
 	_test_spring_snapshots_selected_party_and_health()
+	await _test_party_vitals_enter_the_battle_scene()
 	_cleanup()
-	_report()
 
 func _test_three_persistent_teams() -> void:
 	var state := SquadStoreScript.load_state(TEST_SAVE_PATH)
@@ -92,6 +92,26 @@ func _test_spring_snapshots_selected_party_and_health() -> void:
 	_check(restored.party_character_ids == ["sevrin", "sakura"], "the selected party survives save and reload")
 	_check(int(restored.party_vitals.sakura.health) == 900, "individual member health survives save and reload")
 	SpringBattleBridgeScript.clear_pending()
+
+func _test_party_vitals_enter_the_battle_scene() -> void:
+	var run := SpringRunScript.begin(29)
+	run.party_character_ids.assign(["sevrin", "sakura", "dest_lee"])
+	run.party_vitals = {
+		"sevrin": {"health": 1800, "max_health": 3600},
+		"sakura": {"health": 0, "max_health": 1800},
+		"dest_lee": {"health": 800, "max_health": 2400},
+	}
+	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare a wounded three-member party")
+	var view = load("res://scenes/main/main.tscn").instantiate()
+	root.add_child(view)
+	_check(view.spring_mode and view.controller.phase == BattleController.BattlePhase.DEPLOY, "normal battle scene enters deployment with the prepared party")
+	_check(view.controller.actors.sevrin.health == 1800 and view.controller.actors.sevrin.max_health == 3600, "lead retains wounded health on entry")
+	_check(view.controller.actors.sakura.health == 0 and view.controller.actors.sakura.is_downed(), "a downed member is not healed by scene setup")
+	_check(view.controller.actors.dest_lee.health == 800 and view.controller.actors.dest_lee.max_health == 2400, "the new character retains individual vitality")
+	view.queue_free()
+	SpringBattleBridgeScript.clear_pending()
+	await process_frame
+
 
 func _cleanup() -> void:
 	var absolute := ProjectSettings.globalize_path(TEST_SAVE_PATH)

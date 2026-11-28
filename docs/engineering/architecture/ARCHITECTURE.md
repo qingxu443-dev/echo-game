@@ -1,8 +1,8 @@
 # ECHO 工程架构与全量审计报告
 
-ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗林的三关教学遗迹，或进入樱的「春之境」普通与困难探索。两种模式共用等距战斗和局外补给商行，各自持有局内状态。
+ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗林的三关教学遗迹，或经「春之境」章节页进入普通与困难探索。营地可编排瑟弗林、樱和德斯特·李，春之境最多三人出战，教学保持固定阵容。两种模式共用等距战斗和局外补给商行，各自持有局内状态。
 
-现状更新于 2026-11-28，包含主线 PR #93/#94/#95/#96/#97/#100 及本批职责收敛。旧审计发现保留定位与处理记录，当前未决项单列在后。Windows 人工验收由项目测试者完成，Android 暂缓，Boss 败北特殊规则保留待裁决。
+现状更新于 2026-11-28，包含 main `702c2c2` 的角色/编队/章节更新、PR #108 暂停预检及本批事务内容校验与职责收敛。旧审计发现保留定位与处理记录，当前未决项单列在后。Windows 人工验收由项目测试者完成，Android 暂缓，Boss 败北特殊规则保留待裁决。
 
 ## 技术栈与运行
 
@@ -10,7 +10,7 @@ ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗
 |---|---|
 | 游戏运行时 | Godot **4.7.2 Standard**、GDScript、2D Canvas 与 GL Compatibility；等距网格呈现 2.5D，默认视口 1280×720 |
 | 场景与内容 | `.tscn` 场景、`.tres` 自定义 Resource、显式内容目录、随资源提交的 `.uid` 和导入元数据；无需 .NET 或运行时插件 |
-| 本地数据 | `user://spring_run.json` 记录春之境进度，`user://atelier_stash.json` 记录局外残晶和打包栏。教学关的局内背包在 `RunState` 内存中 |
+| 本地数据 | `user://spring_run.json` 记录春之境进度，`user://atelier_stash.json` 记录局外残晶和打包栏，`user://squad_loadouts.json` 记录编队。教学关的局内背包在 `RunState` 内存中 |
 | 自动化 | Godot 无头 GDScript 套件；PowerShell、Bash 与 Windows 批处理入口；GitHub Actions 在 Ubuntu 和 Windows 采用同版引擎 |
 | 发行与资产 | Windows Desktop x86_64 预设内嵌 PCK，`tools/build_windows.ps1` 执行回归、导出、包体和启动检查；可选素材工具使用 `tools/requirements.txt` 锁定的 Python 依赖，真实素材双次输出已验证 |
 
@@ -26,7 +26,7 @@ ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗
 project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
                                               ├─ 黄昏补给商行 → AtelierStash → SaveFile
                                               ├─ 教学遗迹 → scenes/main/main.tscn → RunState
-                                              └─ scenes/spring/spring_map.tscn → SpringRun → SaveFile
+                                              └─ spring_theme.tscn → spring_map.tscn → SpringRun → SaveFile
                                                          ↕ SpringBattleBridge
                                                    scenes/main/main.tscn
                                                          ↓
@@ -38,6 +38,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 - **战斗**。场景从教学关卡资源或春之境遭遇定义生成战场。控制器接受移动、攻击、技能和结束回合请求，核对格位、射程、视线、状态与 AP。敌方充能随玩家行动推进；意图规划生成可预览的动作，结算器按顺序执行并复验。伤害经防御、抗性、护盾和状态结算，最终以事件驱动表现。战术机制还包含容忍反击、破甲、击杀返 AP、Boss 狂暴与结界、危险地格。
 - **春之境**。地图由种子选定模板与随机事件，移动消耗探索体力。事件、行商和战斗共享本局资源。战斗经桥接传递遭遇、生命与装备背包，返回后更新节点、发奖励或要求续行。Boss 胜利后按持久解锁和场景存在性决定是否进入下一层。存档恢复原地图、事件、行商库存、路线与未完成的选择。中断正在进行的战斗时，地图从战前检查点恢复。
 - **工坊**。跨局残晶用于购买、打包或退款。教学出征通过桥接传入补给，春之境新局从工坊领用并立即存档。恢复已有春之境时保留工坊新打包的物品。春之境地图内的行商使用局内资源。
+- **编队与章节**。SquadLoadoutStore 保存三套最多三人的编队，角色界面读面板与技能目录。春之境出征把所选编队快照写入单局，桥接传递每名队员生命，暂停恢复沿用战前阵容；教学不读取编队。章节页只读现有藏品/遗物/敌人目录与剧情片段，浏览不创建探索，也不提供永久发现记录。
 - **数据和资源**。`data/characters`、`enemies`、`levels`、`loot`、`summons` 供各目录加载。技能、春之境事件与地图模板也有编译进 GDScript 的显式目录。`assets/` 存放立绘、头像、背景、素材源图及导入配置。
 - **工程边界**。`tests/` 负责引擎内回归和守卫，`docs/design/` 记录设计，`docs/engineering/` 记录现状和验证入口，`docs/archive/` 保留历史。以 [逐套件基线](../quality/BASELINE.md) 核对明细与变更记录，覆盖下限在 `tests/framework/baseline.json`。
 
@@ -57,6 +58,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `exploration_state.gd` | 探索体力与移动：曼哈顿成本、原子移动、恰好耗尽保留交互窗口、主动结束作废余量 | 不碰战斗 AP；不认地点内容 |
 | `spring_run.gd` | 本局：模板 + 探索 + 资源（花钿 / 补给 / 四时花露 / 残页 / 遗物）+ 存档序列化与待决事项 | 与 `run_state.gd` 隔离（§4 禁止两模式共用局内资源）；文档未定的数值不预设 |
 | `spring_run_storage.gd` | 组织春之境出征与战后结算的保存 | 工坊和本局快照经事务层提交 |
+| `spring_run_migration.gd` | 单局版本逐版迁移，v4 增加阵容、领队面板与队员生命 | 旧局不强制采用新编队；迁移默认值由调用方提供，避免循环依赖 |
+| `spring_theme_view.gd` | 章节入口、模式确认、目录图鉴与剧情回顾 | 浏览只读目录，不创建单局；地图场景公共路径保持兼容 |
 | `spring_save_validation.gd` | 校验存档字段、坐标、资源与待处理选择 | 拒绝不可安全恢复的数据并保留原档 |
 | `spring_map_view.gd` | 5×5 地图界面、资源栏、路径预览、结束探索确认与 Boss 结算交接 | 全部自绘；点击只预览，确认后才移动；困难模式委托路线浮层 |
 | `spring_map_flow.gd` | 地图初始化/恢复、保存、进战/回图、待决事件、领奖、续行与行商调度 | 场景注入存档路径与切换 Callable；保存失败不出发，缺失遭遇保留事件待决 |
@@ -108,6 +111,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `skill_definition.gd` | 技能纯数据规格（Resource） | 不含执行逻辑 |
 | `oathkeeper_v2_skill_catalog.gd` | **当前生效**的守誓者 V2 技能数据 + 被动不屈誓约 | 数值待实战验证；UI 技能栏由此生成 |
 | `sakura_skill_catalog.gd` | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | 春之境出战；教学遗迹使用瑟弗林 |
+| `dest_lee_skill_catalog.gd` / `dest_lee_skill_effects.gd` | 德斯特·李的技能参数、引燃、爆炸连锁与菱形范围结算 | 经公共技能运行时和伤害管线执行；连锁状态由 BattleLedger 持有 |
 | `enemy_definition.gd` | 敌人属性档案 Resource | 数值外置于 `data/enemies/*.tres` |
 | `enemy_catalog.gd` | 从显式资源清单加载敌人和动作优先级 | 敌人动作由招式目录校验 |
 | `enemy_actor_factory.gd` | 从 EnemyDefinition 生成实际敌人属性与招式字段 | 初始生成和 Boss 二阶段援军共享四项属性倍率；技能固定伤害不缩放，援军生命覆盖值先覆盖再乘倍率 |
@@ -137,7 +141,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `summon_catalog.gd` | 通灵名册及 id 路由 | 内容资源显式注册 |
 | `summon_service.gd` | 通灵的可用性、现身格与冷却 | 数值全部来自 `SummonDefinition` |
 
-角色面板声明技能 id；技能目录定义玩法参数；`CharacterSkillRuntime` 按技能归属查找执行器。樱使用剑意与极意，瑟弗林使用终极能量。通灵请求经 `SummonService` 处理。
+角色面板声明技能 id；技能目录定义玩法参数；`CharacterSkillRuntime` 按技能归属查找执行器。樱使用剑意与极意，瑟弗林和德斯特·李使用各自上限的终极能量，德斯特·李还有敌方引燃状态及连锁账本。通灵请求经 `SummonService` 处理。
 
 ### 单位（`scripts/actors/`）
 
@@ -167,6 +171,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `input_router.gd` | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
 | `main_menu.gd` | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；两个选项（进入大厅 / 退出） |
 | `lobby_view.gd` | 黄昏营地大厅：看板立绘互动、未尽之春断点状态展示，以及右下角「工坊整备」「选择地图」按钮与全屏连线章节选择 |
+| `lobby_roster_nav.gd` / `roster_manager_overlay.gd` | 营地的角色/编队入口、面板技能详情和三套编队编辑；持久化委托 SquadLoadoutStore |
 | `atelier_prep_overlay.gd` | 黄昏补给商行界面：残晶余额、六种补给、按余额购买/退款与打包 |
 
 ### 局外工坊（`scripts/meta/`）
@@ -174,6 +179,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | 模块 | 职责 | 关键约束 |
 |---|---|---|
 | `atelier_stash.gd` | 工坊残晶、六种配方、购买退款、出征打包和局外存档 | 独立于春之境行商和战斗战利品 |
+| `squad_loadout_store.gd` | 三套编队的保存、活动队与成员约束 | 每队最多三人；教学不读取该文件，单局开始后使用阵容快照 |
 | `battle_rewards.gd` | 按教学/春之境模式分派战后局外结算 | 教学奖励由账本标记一次性，保存失败可重试；春之境由桥接事务记账 |
 
 ### 共享存储与历史入口

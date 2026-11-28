@@ -201,6 +201,15 @@ func _build_characters(root: VBoxContainer) -> void:
 	var intro_box := VBoxContainer.new()
 	intro_box.add_theme_constant_override("separation", 5)
 	intro.add_child(intro_box)
+	if not definition.full_illustration_path.is_empty() and ResourceLoader.exists(definition.full_illustration_path, "Texture2D"):
+		var illustration := TextureRect.new()
+		illustration.name = "CharacterFullIllustration"
+		illustration.texture = load(definition.full_illustration_path) as Texture2D
+		illustration.custom_minimum_size = Vector2(220, 300)
+		illustration.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		illustration.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		illustration.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		intro_box.add_child(illustration)
 	var name := Label.new()
 	name.text = "%s  ·  %s" % [definition.display_name_zh, definition.role_label_zh]
 	name.add_theme_font_size_override("font_size", 21)

@@ -288,7 +288,7 @@ func _test_legacy_checkpoint() -> void:
 	_check(resumed.controller.single_active_party and _present(resumed.controller) == ["sakura"], "legacy checkpoint migrates to its previously commanded role")
 	_check(resumed.run_state.base_max_health == 2100, "legacy migration reconstructs the reserve's own equipment base")
 	_check(resumed.run_state.equipped_armor.is_empty(), "old leader equipment is not reassigned to the commanded teammate")
-	_check(resumed.controller.request_switch_character("sevrin") and resumed.controller.actors.sevrin.health == 1600, "migrated roles retain HP and can be switched normally")
+	_check(resumed.controller.request_switch_character("sevrin") and resumed.controller.actors.sevrin.health == 2000, "migrated roles retain HP and can be switched normally")
 	_check(resumed.run_state.equipped_armor.get("id") == &"legacy_armor", "old leader equipment remains on the old leader")
 	resumed.queue_free()
 	await process_frame

@@ -99,8 +99,8 @@ func _test_v2_judgment_mark_amplifies_and_consumes_on_next_hit() -> void:
 	var health_after_mark: int = enemy.health
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "follow-up Oathblade strikes the marked enemy")
 	var follow_up_dmg: int = health_after_mark - enemy.health
-	# Base Oathblade vs 450 DEF is 793; with +30% vulnerability mark it is > 793.
-	_check(follow_up_dmg > 793, "marked enemy takes amplified damage on the next hit")
+	# Base Oathblade vs 450 DEF is 448; with +30% vulnerability mark it is > 448.
+	_check(follow_up_dmg > 448, "marked enemy takes amplified damage on the next hit")
 	_check(not battle.statuses.has_status("vanguard_00", &"oathkeeper_mark"), "vulnerability mark is consumed when triggered")
 	battle.queue_free()
 
@@ -185,7 +185,7 @@ func _test_one_action_grants_vow_per_carrier() -> void:
 	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 1)], [], archetypes), "vow-per-carrier encounter starts")
 	battle.beacons.clear()
 	battle.intents = IntentPlannerScript.plan(battle)
-	var fellow = ActorScript.new("fellow", "player", Vector2i(1, 2), 3600, "support", 1150, 350, 250)
+	var fellow = ActorScript.new("fellow", "player", Vector2i(1, 2), 3200, "support", 650, 360, 230)
 	fellow.character_id = &"sevrin"
 	battle.actors["fellow"] = fellow
 
@@ -201,9 +201,9 @@ func _test_one_action_grants_vow_per_carrier() -> void:
 ## deleting the wall branch left every suite green. Three outcomes are separable
 ## by damage, which is what makes them worth asserting separately.
 ##
-## Oathblade is 100% ATK: floor(1150 * 1000 / 1450) = 793 against the vanguard's
+## Oathblade is 100% ATK: floor(650 * 1000 / 1450) = 448 against the vanguard's
 ## 450 defence. A collision adds 450 true damage, which ignores that defence - so
-## a colliding push deals 1243 and a clean one deals 793.
+## a colliding push deals 898 and a clean one deals 448.
 func _test_oathblade_knockback_collisions() -> void:
 	# Wall: the target has nowhere to go, so it takes the collision and stays put.
 	var wall = ControllerScript.new()
@@ -241,7 +241,7 @@ func _test_oathblade_knockback_collisions() -> void:
 	var open_enemy = open.get_actor("vanguard_00")
 	var open_before: int = open_enemy.health
 	_check(open.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into open ground")
-	_check(open_before - open_enemy.health == 793, "a clean push deals only the strike")
+	_check(open_before - open_enemy.health == 448, "a clean push deals only the strike")
 	_check(open_enemy.cell == Vector2i(3, 1), "a clean push moves the target one cell")
 	open.queue_free()
 

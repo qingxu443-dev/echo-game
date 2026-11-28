@@ -244,6 +244,10 @@ func begin_expedition() -> bool:
 		queue_redraw()
 		return false
 	var requested := "" if active_run else selected_mode
+	return transition_to_map(requested)
+
+
+func transition_to_map(requested: String) -> bool:
 	var error: Error
 	if scene_change.is_valid():
 		error = scene_change.call(get_tree(), MAP_SCENE_PATH, "踏入春之境")
@@ -268,7 +272,7 @@ func _enemy_row_rect(index: int) -> Rect2:
 
 func _category_rect(index: int, enemy: bool = false) -> Rect2:
 	var labels := ["普通", "精英", "首领"] if enemy else ["全部", "藏品", "遗物"]
-	return _r(66 + float(index) * 124.0, 142, 112, 34)
+	return _r(850 + float(index) * 124.0, 142, 112, 34)
 
 
 func _move_selection(direction: int) -> void:

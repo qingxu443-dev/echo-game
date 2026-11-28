@@ -11,13 +11,13 @@ func install(view: Control) -> void:
 	overlay = OverlayScript.new()
 	view.add_child(overlay)
 
-func _roster_rect(view: Control) -> Rect2:
+func _roster_rect(view) -> Rect2:
 	return Rect2(936.0 * view._sx(), 68.0 * view._sy(), 150.0 * view._sx(), 38.0 * view._sy())
 
-func _squads_rect(view: Control) -> Rect2:
+func _squads_rect(view) -> Rect2:
 	return Rect2(1096.0 * view._sx(), 68.0 * view._sy(), 156.0 * view._sx(), 38.0 * view._sy())
 
-func update_hover(view: Control, point: Vector2) -> void:
+func update_hover(view, point: Vector2) -> void:
 	if overlay != null and overlay.visible:
 		return
 	var next_roster := _roster_rect(view).has_point(point)
@@ -34,7 +34,7 @@ func handle_key(event: InputEvent) -> bool:
 		overlay.hide()
 	return true
 
-func handle_click(view: Control, point: Vector2) -> bool:
+func handle_click(view, point: Vector2) -> bool:
 	if overlay != null and overlay.visible:
 		return true
 	if _roster_rect(view).has_point(point):
@@ -45,7 +45,7 @@ func handle_click(view: Control, point: Vector2) -> bool:
 		return true
 	return false
 
-func draw(view: Control, font: Font, sx: float, sy: float) -> void:
+func draw(view, font: Font, sx: float, sy: float) -> void:
 	var compact_labels := view.size.x < 700.0
 	var entries := [
 		{"rect": _roster_rect(view), "label": "角色" if compact_labels else "角色总览", "hover": hover_roster},

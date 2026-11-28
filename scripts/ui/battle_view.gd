@@ -19,6 +19,7 @@ const InventoryViewScript = preload("res://scripts/ui/inventory_view.gd")
 const SpringBattleBridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
+const SpringSettlementHandoffScript = preload("res://scripts/spring/spring_battle_settlement_handoff.gd")
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
 ## Number keys 1–5 mirror the visible order, and nothing is selected by default.
@@ -85,17 +86,15 @@ func _begin_spring_fight() -> void:
 	var definition := SpringEncounterCatalogScript.build(encounter_id, party_ids)
 	if definition == null:
 		push_error("春之境：遭遇 %s 无法构建，直接返回地图。" % String(encounter_id))
-		SpringBattleBridgeScript.last_result = {
+		var fallback_result := {
 			"result": "defeat",
 			"kind": str(payload.get("kind", SpringBattleBridgeScript.KIND_BATTLE)),
 			"place": str(payload.get("place", "")),
 			"hero_health": int(payload.get("hero_health", 1)),
 			"hero_max_health": int(payload.get("hero_max_health", 1)),
+			"seed": int(payload.get("hero_health", 1)),
 		}
-		SpringBattleBridgeScript.clear_pending()
-		var error := SceneTravel.change(get_tree(), SpringBattleBridgeScript.MAP_SCENE_PATH)
-		if error != OK:
-			push_error("无法返回春之境。Error: %s" % error)
+		_open_spring_settlement(fallback_result)
 		return
 	levels = [definition]
 	run_state = RunStateScript.new()
@@ -113,11 +112,7 @@ func _begin_spring_fight() -> void:
 
 ## Hands the outcome back to the map scene. Called from the settlement button.
 func _spring_run_lead():
-	var payload: Dictionary = SpringBattleBridgeScript.pending
-	var party_ids: Array = payload.get("character_ids", [SpringRunScript.HERO_CHARACTER_ID])
-	if party_ids.is_empty():
-		return controller.get_active_character()
-	return controller.actors.get(str(party_ids[0]))
+	return SpringSettlementHandoffScript.run_lead(self)
 
 func _restore_spring_party_vitals(payload: Dictionary) -> void:
 	SpringBattleBridgeScript.restore_party_vitals(controller, payload)
@@ -142,11 +137,18 @@ func _return_to_map() -> void:
 		"loot": pending_rewards.duplicate(true),
 		"seed": run_state.loot_seed,
 	}
+	if spring_mode:
+		_open_spring_settlement(result)
+		return
 	SpringBattleBridgeScript.last_result = result
 	SpringBattleBridgeScript.clear_pending()
 	var error := SceneTravel.change(get_tree(), SpringBattleBridgeScript.MAP_SCENE_PATH)
 	if error != OK:
 		push_error("无法返回春之境。Error: %s" % error)
+
+
+func _open_spring_settlement(result: Dictionary) -> void:
+	SpringSettlementHandoffScript.open(self, result)
 
 func _begin_fresh_run() -> void:
 	run_state.reset()

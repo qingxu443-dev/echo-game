@@ -3,6 +3,7 @@ extends RefCounted
 
 const SaveMigrationScript = preload("res://scripts/spring/spring_run_migration.gd")
 const MIGRATIONS = SaveMigrationScript.MIGRATIONS
+const CollectibleRulesScript = preload("res://scripts/spring/spring_run_collectible_rules.gd")
 
 ## One 春之境 expedition: the board, the explorer on it, and the resources that
 ## survive from place to place (设计汇总 2026-11-26 §4, §5, §16.2).
@@ -17,7 +18,7 @@ const MIGRATIONS = SaveMigrationScript.MIGRATIONS
 ## content, which is what "尚未确定" means in practice.
 
 const SAVE_PATH := "user://spring_run.json"
-const SAVE_VERSION: int = 4
+const SAVE_VERSION: int = 5
 
 ## The hero's battle-side baseline, mirroring `data/characters/sakura.tres`.
 ## §2 makes 樱 the narrative lead of 春之境, and this mode now fights as her
@@ -52,6 +53,12 @@ var dew: Dictionary = {"spring": 0, "summer": 0, "autumn": 0, "winter": 0}
 var dew_cap: int = 0
 var memory_pages: int = 0
 var relics: Array[StringName] = []
+## Stack counts for manually activated collectibles; passive collectibles remain unique.
+var collectible_consumables: Dictionary = {}
+## Durable battle settlement hand-off, retained until the player confirms the result.
+var pending_battle_settlement: Dictionary = {}
+## Idempotency ledger for battle reward transactions.
+var settled_battle_ids: Array[String] = []
 
 ## §11.2: health carries from fight to fight and is never restored by winning.
 ## The bonus is what relics and epic collectibles add for the rest of the run.
@@ -147,10 +154,14 @@ func dew_total() -> int:
 
 ## §5.4: when the storage is full the player must be told, never silently
 ## dropped. Returning false is that signal.
+func effective_dew_cap() -> int:
+	return CollectibleRulesScript.effective_dew_cap(self)
+
+
 func add_dew(kind: String, amount: int) -> bool:
 	if amount <= 0 or not dew.has(kind):
 		return false
-	if dew_total() + amount > dew_cap:
+	if dew_total() + amount > effective_dew_cap():
 		return false
 	dew[kind] = int(dew[kind]) + amount
 	return true
@@ -182,16 +193,19 @@ func add_memory_pages(amount: int) -> void:
 	memory_pages = maxi(0, memory_pages + amount)
 
 
-func add_relic(relic_id: StringName) -> void:
-	if relic_id == &"":
-		return
-	relics.append(relic_id)
+func add_relic(relic_id: StringName) -> bool:
+	return CollectibleRulesScript.add_relic(self, relic_id)
+
+
+func grant_random_relic(rng: RandomNumberGenerator) -> StringName:
+	return CollectibleRulesScript.grant_random_relic(self, rng)
 
 
 # --- hero vitals (§11.2) -----------------------------------------------------
 
 func effective_max_health() -> int:
-	return maxi(1, maxi(hero_base_max_health + bonus_max_health, carry_max_health))
+	var relic_bonus: int = SpringRelicCatalog.total_bonus(relics, "max_health")
+	return maxi(1, maxi(hero_base_max_health + bonus_max_health + relic_bonus, carry_max_health))
 
 
 ## Returns how much was actually restored, so the caller can say "回复 37 点"
@@ -231,79 +245,35 @@ func add_bonus_max_health(amount: int) -> void:
 # --- collectibles (§6.1) -----------------------------------------------------
 
 func has_collectible(collectible_id: StringName) -> bool:
-	return collectibles.has(collectible_id)
+	return CollectibleRulesScript.has_collectible(self, collectible_id)
 
 
-## §6.1: no duplicates, ever. Returns false when the player already owns it.
 func grant_collectible(collectible_id: StringName) -> bool:
-	if collectible_id == &"" or collectibles.has(collectible_id):
-		return false
-	if not SpringCollectibleCatalog.has_collectible(collectible_id):
-		return false
-	collectibles.append(collectible_id)
-	return true
+	return CollectibleRulesScript.grant_collectible(self, collectible_id)
 
 
-## Draws one the player does not own yet. Returns &"" when the pool is exhausted;
-## the caller then falls back to a resource reward so the option is never dead
-## (§6.1 closing rule).
 func grant_random_collectible(rng: RandomNumberGenerator, source: String = "event") -> StringName:
-	var candidates: Array[String] = []
-	for candidate_id in SpringCollectibleCatalog.candidates_for(source):
-		if not collectibles.has(StringName(candidate_id)):
-			candidates.append(candidate_id)
-	if candidates.is_empty():
-		return &""
-	var picked: StringName = StringName(candidates[rng.randi_range(0, candidates.size() - 1)])
-	if not grant_collectible(picked):
-		return &""
-	return picked
+	return CollectibleRulesScript.grant_random_collectible(self, rng, source)
 
 
-## §7.4 / 神秘收藏家: handing one over removes the newest, which is the one the
-## player just saw in the log.
 func consume_collectible() -> StringName:
-	if collectibles.is_empty():
-		return &""
-	return collectibles.pop_back()
+	return CollectibleRulesScript.consume_collectible(self)
 
 
 func collectible_name(collectible_id: StringName) -> String:
-	return SpringCollectibleCatalog.name_of(collectible_id)
+	return CollectibleRulesScript.collectible_name(collectible_id)
 
 
 func relic_name(relic_id: StringName) -> String:
-	return SpringRelicCatalog.name_of(relic_id)
+	return CollectibleRulesScript.relic_name(relic_id)
 
 
-## Applies a collectible's effect. Resource kinds land immediately; the two that
-## need the map (a reveal) and the run (a stat) set state the map/bridge reads.
 func apply_collectible_effect(collectible_id: StringName) -> Dictionary:
-	var effect: Dictionary = SpringCollectibleCatalog.effect_of(collectible_id)
-	var result := {"ok": false, "message": ""}
-	if effect.is_empty():
-		return result
-	match str(effect.get("kind", "")):
-		"coins":
-			add_coins(int(effect.get("amount", 0)))
-		"supplies":
-			add_supplies(int(effect.get("amount", 0)))
-		"pages":
-			add_memory_pages(int(effect.get("amount", 0)))
-		"dew":
-			var dew_kind: String = str(effect.get("dew_kind", "spring"))
-			if not add_dew(dew_kind, int(effect.get("amount", 0))):
-				result["message"] = "四时花露已满，这一份没能收下。"
-				return result
-		"max_health":
-			add_bonus_max_health(int(effect.get("amount", 0)))
-		"reveal_hidden":
-			pending_hidden_reveal = true
-		_:
-			return result
-	result["ok"] = true
-	result["message"] = SpringCollectibleCatalog.desc_of(collectible_id)
-	return result
+	return CollectibleRulesScript.apply_collectible_effect(self, collectible_id)
+
+
+func use_collectible(collectible_id: StringName) -> Dictionary:
+	return CollectibleRulesScript.use_collectible(self, collectible_id)
 
 
 # --- battle carry (§11.2) ----------------------------------------------------
@@ -341,14 +311,14 @@ func battle_payload() -> Dictionary:
 ## Writes back what the fight left behind. Health is clamped to the run's max,
 ## because gear sold or lost mid-fight can shrink the ceiling.
 func apply_battle_payload(payload: Dictionary) -> void:
-	if payload.has("hero_health"):
-		hero_health = clampi(int(payload["hero_health"]), 1, effective_max_health())
 	if payload.has("hero_max_health"):
 		carry_max_health = maxi(0, int(payload["hero_max_health"]))
-	if payload.has("carry"):
-		battle_carry = (payload["carry"] as Dictionary).duplicate(true)
 	if payload.has("bonus_max_health"):
 		bonus_max_health = maxi(0, int(payload["bonus_max_health"]))
+	if payload.has("carry"):
+		battle_carry = (payload["carry"] as Dictionary).duplicate(true)
+	if payload.has("hero_health"):
+		hero_health = clampi(int(payload["hero_health"]), 1, effective_max_health())
 
 
 # --- shop (§7.3) -------------------------------------------------------------
@@ -427,6 +397,7 @@ func to_dict() -> Dictionary:
 			"dew_cap": dew_cap,
 			"memory_pages": memory_pages,
 			"relics": relics.duplicate(),
+			"collectible_consumables": collectible_consumables.duplicate(true),
 		},
 		"hero": {
 			"health": hero_health,
@@ -456,6 +427,8 @@ func to_dict() -> Dictionary:
 		"route_plan": {} if route_plan == null else route_plan.to_dict(),
 		"party_character_ids": party_character_ids.duplicate(),
 		"party_vitals": party_vitals.duplicate(true),
+		"pending_battle_settlement": pending_battle_settlement.duplicate(true),
+		"settled_battle_ids": settled_battle_ids.duplicate(),
 	}
 
 
@@ -520,7 +493,16 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	run.memory_pages = int(resources.get("memory_pages", 0))
 	run.relics = []
 	for relic_id in resources.get("relics", []):
-		run.relics.append(StringName(relic_id))
+		var relic_key := StringName(relic_id)
+		if not run.relics.has(relic_key):
+			run.relics.append(relic_key)
+	run.collectible_consumables = {}
+	var saved_consumables: Dictionary = resources.get("collectible_consumables", {})
+	for item_id in saved_consumables:
+		var item_key := StringName(item_id)
+		var item_count: int = int(saved_consumables[item_id])
+		if SpringCollectibleCatalog.is_consumable(item_key) and item_count > 0:
+			run.collectible_consumables[String(item_key)] = item_count
 
 	# Everything below arrived with save version 2. A version-1 file simply has no
 	# such keys, and each default matches what version 1 meant, so old saves load.
@@ -561,6 +543,9 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	for character_id in data.get("party_character_ids", []):
 		run.party_character_ids.append(str(character_id))
 	run.party_vitals = data.get("party_vitals", {}).duplicate(true)
+	run.pending_battle_settlement = data.get("pending_battle_settlement", {}).duplicate(true)
+	for battle_id in data.get("settled_battle_ids", []):
+		run.settled_battle_ids.append(str(battle_id))
 	return run
 
 

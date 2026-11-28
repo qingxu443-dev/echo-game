@@ -28,16 +28,25 @@ func initialize(view) -> void:
 		req_mode = ""
 	if view.run == null:
 		if not BridgeScript.has_result() and req_mode in ["hard", "normal"]:
-			view.start_new_run(int(Time.get_unix_time_from_system()) % 100000, req_mode == "hard")
+			var pending_run := SpringRun.load_from_file(view.save_path)
+			if pending_run != null and not pending_run.pending_battle_settlement.is_empty():
+				view.run = pending_run
+			else:
+				view.start_new_run(int(Time.get_unix_time_from_system()) % 100000, req_mode == "hard")
 		else:
 			var restored := SpringRun.load_from_file(view.save_path)
-			if restored != null and (BridgeScript.has_result() or not restored.exploration.finished):
+			if restored != null and (BridgeScript.has_result() or not restored.pending_battle_settlement.is_empty() or not restored.exploration.finished):
 				view.run = restored
 				view.status_message = "已恢复本局：模板 %d · 剩余体力 %d。" % [view.run.template_id, view.run.exploration.stamina]
 			elif not BridgeScript.has_result():
 				view.start_new_run(int(Time.get_unix_time_from_system()) % 100000, false)
 			else:
 				view.status_message = "战前存档无法读取，保留待结算结果。"
+	if view.run != null and not view.run.pending_battle_settlement.is_empty():
+		var settlement_error := change_scene(view, "res://scenes/spring/spring_battle_settlement.tscn", "战斗结算")
+		if settlement_error != OK:
+			view.status_message = "待结算战果已保留，但结算界面载入失败。Error: %s" % settlement_error
+		return
 	view._apply_returned_battle()
 	if view.run == null:
 		return
@@ -130,7 +139,8 @@ func choose_event_option(view, event_id: StringName, index: int) -> void:
 	view.event_result = result
 	view.run.pending_event = {"place": String(view.event_place.id), "result": result}
 	view.run.event_log[String(event_id)] = {"option": index, "log": result.get("log", [])}
-	if bool(result.get("reveal_hidden", false)):
+	if bool(result.get("reveal_hidden", false)) or view.run.pending_hidden_reveal:
+		view.run.pending_hidden_reveal = false
 		view._reveal_hidden_place()
 	view._save()
 
@@ -155,9 +165,16 @@ func handle_reward_tap(view, point: Vector2) -> void:
 		if not view.reward_card_rect(index).has_point(point):
 			continue
 		var collectible_id: StringName = view.run.reward_choices[index]
-		view.run.grant_collectible(collectible_id)
-		var applied: Dictionary = view.run.apply_collectible_effect(collectible_id)
-		view.status_message = "获得藏品「%s」：%s" % [view.run.collectible_name(collectible_id), str(applied.get("message", ""))]
+		if not view.run.grant_collectible(collectible_id):
+			view.status_message = "这件藏品已不再可领取。"
+			view.run.reward_choices.clear()
+			view._save()
+			return
+		var effect_note: String = "已收纳，可在藏品栏中选择使用。"
+		if not SpringCollectibleCatalog.is_consumable(collectible_id):
+			var applied: Dictionary = view.run.apply_collectible_effect(collectible_id)
+			effect_note = str(applied.get("message", "效果已结算。"))
+		view.status_message = "获得藏品「%s」：%s" % [view.run.collectible_name(collectible_id), effect_note]
 		view.run.reward_choices.clear()
 		if view.run.pending_hidden_reveal:
 			view.run.pending_hidden_reveal = false

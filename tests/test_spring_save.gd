@@ -15,6 +15,7 @@ const TEST_PATH := "user://spring_run_save_test.json"
 
 func _run() -> void:
 	_test_round_trip_keeps_the_board()
+	_test_pending_settlement_round_trip()
 	_test_random_event_is_not_redrawn()
 	_test_resources_round_trip()
 	_test_progress_round_trip()
@@ -47,6 +48,18 @@ func _test_old_versions_migrate_forward() -> void:
 	var from_v1 := SpringRun.from_dict(v1)
 	_check(from_v1 != null, "v1 存档仍能加载")
 	_check(from_v1 != null and from_v1.hero_health == from_v1.effective_max_health(), "v1 没有 hero 段时按满血开局")
+
+	var v4: Dictionary = base.duplicate(true)
+	v4["version"] = 4
+	v4["resources"].erase("collectible_consumables")
+	var from_v4 := SpringRun.from_dict(v4)
+	_check(from_v4 != null and from_v4.collectible_consumables.is_empty(), "v4 saves without a consumable field migrate with an empty inventory")
+	var preview_v4: Dictionary = base.duplicate(true)
+	preview_v4["version"] = 4
+	preview_v4["resources"]["collectible_consumables"] = {"col_field_ration": 2}
+	var from_preview_v4 := SpringRun.from_dict(preview_v4)
+	_check(from_preview_v4 != null and int(from_preview_v4.collectible_consumables.get("col_field_ration", 0)) == 2,
+		"v4 preview saves keep existing active-consumable stacks")
 
 	var v3: Dictionary = base.duplicate(true)
 	v3["version"] = 3
@@ -84,6 +97,29 @@ func _test_round_trip_keeps_the_board() -> void:
 		_check(restored.template.places.size() == run.template.places.size(), "seed %d keeps every place" % seed_value)
 
 
+func _test_pending_settlement_round_trip() -> void:
+	var run := SpringRun.begin(11)
+	run.pending_battle_settlement = {
+		"id": "battle-resume-001",
+		"phase": "pending",
+		"result": {"result": "victory", "kind": "battle", "place": "battle_1"},
+	}
+	var restored := SpringRun.from_dict(run.to_dict())
+	_check(restored != null, "a run with a pending battle result restores")
+	_check(restored != null and str(restored.pending_battle_settlement.get("id", "")) == "battle-resume-001",
+		"the pending settlement id survives save/load")
+	_check(restored != null and str(restored.pending_battle_settlement.get("phase", "")) == "pending",
+		"the pending phase survives save/load")
+	var path := "user://spring_pending_start_guard_%d.json" % OS.get_process_id()
+	_check(run.save_to_file(path), "persist a pending battle result")
+	_check(SpringRunStorage.start(12, true, path, path + ".wallet") == null,
+		"a new expedition cannot overwrite an unclaimed battle result")
+	var still_pending := SpringRun.load_from_file(path)
+	_check(still_pending != null and str(still_pending.pending_battle_settlement.get("id", "")) == "battle-resume-001",
+		"the original pending result remains intact after a refused new run")
+	DirAccess.remove_absolute(path)
+
+
 func _test_random_event_is_not_redrawn() -> void:
 	for seed_value in range(0, 12):
 		var run := SpringRun.begin(seed_value)
@@ -119,8 +155,8 @@ func _test_resources_round_trip() -> void:
 	run.add_dew("spring", 3)
 	run.add_dew("winter", 2)
 	run.memory_pages = 4
-	run.add_relic(&"relic_petal")
-	run.add_relic(&"relic_echo")
+	run.add_relic(&"relic_spring_charm")
+	run.add_relic(&"relic_old_hairpin")
 
 	var restored := SpringRun.from_dict(run.to_dict())
 	_check(restored.coins == 47, "coins survive a save")
@@ -129,7 +165,7 @@ func _test_resources_round_trip() -> void:
 	_check(int(restored.dew["spring"]) == 3 and int(restored.dew["winter"]) == 2, "each 花露 keeps its own count")
 	_check(restored.dew_total() == 5, "the 花露 total is still the sum of the four")
 	_check(restored.memory_pages == 4, "记忆残页 survive a save")
-	_check(restored.relics.size() == 2 and restored.relics[1] == &"relic_echo", "relics keep their order")
+	_check(restored.relics.size() == 2 and restored.relics[1] == &"relic_old_hairpin", "relics keep their order")
 
 
 func _test_progress_round_trip() -> void:

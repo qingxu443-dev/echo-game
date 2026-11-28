@@ -8,6 +8,7 @@ const MIGRATIONS := {
 	1: "_migrate_v1_to_v2",
 	2: "_migrate_v2_to_v3",
 	3: "_migrate_v3_to_v4",
+	4: "_migrate_v4_to_v5",
 }
 
 
@@ -61,3 +62,12 @@ static func _migrate_v3_to_v4(data: Dictionary, defaults: Dictionary) -> Diction
 	return result
 
 
+
+
+static func _migrate_v4_to_v5(data: Dictionary, _defaults: Dictionary) -> Dictionary:
+	var result: Dictionary = data.duplicate(true)
+	var resources: Dictionary = result.get("resources", {})
+	if not resources.has("collectible_consumables"):
+		resources["collectible_consumables"] = {}
+	result["resources"] = resources
+	return result

@@ -334,6 +334,7 @@ const EVENTS := {
 				"effects": [
 					{"kind": EFFECT_COINS, "amount": 40},
 					{"kind": EFFECT_COLLECTIBLE, "count": 1},
+					{"kind": EFFECT_RELIC, "random": true},
 				],
 			},
 			{
@@ -442,7 +443,10 @@ static func can_afford(run, event_id: StringName, index: int) -> bool:
 				if run.supplies < need:
 					return false
 			"collectible":
-				if run.collectibles.size() < need:
+				var owned_count: int = run.collectibles.size()
+				for stack_count in run.collectible_consumables.values():
+					owned_count += int(stack_count)
+				if owned_count < need:
 					return false
 	return true
 
@@ -544,16 +548,26 @@ static func _apply(run, effect: Dictionary, rng: RandomNumberGenerator, log: Arr
 			for _i in range(wanted):
 				var gained: StringName = run.grant_random_collectible(rng)
 				if gained != &"":
-					log.append("获得藏品「%s」。" % run.collectible_name(gained))
+					var effect_note: String = "已收纳，可在藏品栏中选择使用。"
+					if not SpringCollectibleCatalog.is_consumable(gained):
+						var applied: Dictionary = run.apply_collectible_effect(gained)
+						effect_note = str(applied.get("message", "效果已结算。"))
+					log.append("获得藏品「%s」：%s" % [run.collectible_name(gained), effect_note])
 				else:
 					var fallback_coins: int = 20
 					run.add_coins(fallback_coins)
 					log.append("藏品已收集齐全，换得 %d 花钿。" % fallback_coins)
 		EFFECT_RELIC:
 			var relic_id: StringName = StringName(str(effect.get("relic_id", "")))
-			if relic_id != &"":
+			if bool(effect.get("random", false)):
+				relic_id = run.grant_random_relic(rng)
+			elif relic_id != &"":
 				run.add_relic(relic_id)
+			if relic_id != &"":
 				log.append("获得遗物「%s」。" % run.relic_name(relic_id))
+			else:
+				run.add_coins(40)
+				log.append("遗物已收集齐全，换得 40 花钿。")
 		EFFECT_BATTLE:
 			var encounter: StringName = StringName(str(effect.get("encounter", "")))
 			if encounter != &"":

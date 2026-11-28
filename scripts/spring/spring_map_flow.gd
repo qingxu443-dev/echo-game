@@ -130,7 +130,8 @@ func choose_event_option(view, event_id: StringName, index: int) -> void:
 	view.event_result = result
 	view.run.pending_event = {"place": String(view.event_place.id), "result": result}
 	view.run.event_log[String(event_id)] = {"option": index, "log": result.get("log", [])}
-	if bool(result.get("reveal_hidden", false)):
+	if bool(result.get("reveal_hidden", false)) or view.run.pending_hidden_reveal:
+		view.run.pending_hidden_reveal = false
 		view._reveal_hidden_place()
 	view._save()
 

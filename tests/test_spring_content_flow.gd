@@ -53,7 +53,7 @@ func _result(overrides: Dictionary) -> Dictionary:
 		"place": "battle_1",
 		# 樱的档案是 1800 血（§2 把她定为这个模式的主角）。
 		"hero_health": 1200,
-		"hero_max_health": 1800,
+		"hero_max_health": 2100,
 		"carry": {"mods": [], "equipped_weapon": {}, "equipped_armor": {}, "backpack": []},
 		"chests_saved": 0,
 		"loot": [],
@@ -360,7 +360,7 @@ func _test_baseline_matches_the_hero_sheet() -> void:
 
 ## §2: 樱 is the lead of this mode. Before this change the spring run built its
 ## encounter with the *default* character, so the mode was played as 瑟弗林 with
-## her 3600 HP and oath kit while the narrative kept calling the lead 樱.
+## her former 3600 HP and oath kit while the narrative kept calling the lead 樱.
 func _test_the_spring_hero_fights_as_herself() -> void:
 	var battle = ControllerScript.new()
 	root.add_child(battle)
@@ -370,7 +370,7 @@ func _test_the_spring_hero_fights_as_herself() -> void:
 	_check(placed, "a spring encounter accepts the spring hero")
 	var hero = battle.get_active_character()
 	_check(hero != null and hero.character_id == &"sakura", "the deployed hero is 樱", "id=%s" % (String(hero.character_id) if hero != null else "none"))
-	_check(hero.max_health == 1800, "she fights with her own health pool", "max=%d" % hero.max_health)
+	_check(hero.max_health == 2100, "she fights with her own health pool", "max=%d" % hero.max_health)
 
 	# Her kit, not Sevrin's: 穿花 is a 樱 skill and must resolve; 誓刃 is not hers
 	# and must be refused even though the executor exists.

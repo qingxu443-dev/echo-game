@@ -599,7 +599,7 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	run.relics = []
 	for relic_id in resources.get("relics", []):
 		var relic_key := StringName(relic_id)
-		if SpringRelicCatalog.has_relic(relic_key) and not run.relics.has(relic_key):
+		if not run.relics.has(relic_key):
 			run.relics.append(relic_key)
 	run.collectible_consumables = {}
 	var saved_consumables: Dictionary = resources.get("collectible_consumables", {})

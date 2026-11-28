@@ -70,6 +70,8 @@ var intents: Array = []
 var event_sequence: int = 0
 var turn_number: int = 0
 var battle_result: String = ""
+## Encounter-wide scaling also applies to units summoned after initial setup.
+var enemy_stat_multiplier: float = 1.0
 ## Settlement tallies for the end-of-battle panel. Reset on every encounter.
 var damage_dealt: int = 0
 var damage_taken: int = 0

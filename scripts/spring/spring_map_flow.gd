@@ -28,7 +28,11 @@ func initialize(view) -> void:
 		req_mode = ""
 	if view.run == null:
 		if not BridgeScript.has_result() and req_mode in ["hard", "normal"]:
-			view.start_new_run(int(Time.get_unix_time_from_system()) % 100000, req_mode == "hard")
+			var pending_run := SpringRun.load_from_file(view.save_path)
+			if pending_run != null and not pending_run.pending_battle_settlement.is_empty():
+				view.run = pending_run
+			else:
+				view.start_new_run(int(Time.get_unix_time_from_system()) % 100000, req_mode == "hard")
 		else:
 			var restored := SpringRun.load_from_file(view.save_path)
 			if restored != null and (BridgeScript.has_result() or not restored.pending_battle_settlement.is_empty() or not restored.exploration.finished):

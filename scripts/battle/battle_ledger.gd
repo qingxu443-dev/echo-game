@@ -65,9 +65,9 @@ func reset_for_encounter() -> void:
 	dest_lee_chain_hit_targets.clear()
 
 
-## 每个玩家回合开始时只清"每回合一次"的账本；跨回合账本保持不变。
+## 反击去重现在按 intent_id 在意图解析阶段完成；保留空回合钩子以兼容 BattleFlow。
 func reset_for_player_turn() -> void:
-	absolute_guard_countered_enemies.clear()
+	pass
 
 
 ## 只读快照，供测试与未来的 UI 诊断使用；返回的是新字典，不共享内部引用。

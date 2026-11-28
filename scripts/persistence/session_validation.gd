@@ -19,6 +19,11 @@ static func battle_fields_error(data: Dictionary) -> String:
 			if not row is Dictionary: return str(entry[0]) + ": expected Dictionary rows"
 			error = SessionCodec.fields_error(entry[1], row)
 			if not error.is_empty(): return str(entry[0]) + "." + error
+			if entry[0] == "actors":
+				for stat in row.get("fragment_bonuses", {}):
+					var amount: Variant = row.fragment_bonuses[stat]
+					if not stat in FragmentCatalog.STAT_KEYS or not _number(amount) or amount < 0:
+						return "fragment_bonuses: invalid captured stat"
 	for key in ["level", "camera", "loot_seed", "loot_state", "pressure_sequence"]:
 		if not data.get(key, 0) is int: return key + ": expected int"
 	if not data.get("spring_mode", false) is bool: return "spring_mode: expected bool"

@@ -70,9 +70,9 @@ static func draw(canvas: CanvasItem, run_state, hero, page: int = 0) -> void:
 	var hp_now: int = hero.health if hero != null else run_state.hero_health
 	var hp_max: int = hero.max_health if hero != null else run_state.effective_max_health()
 	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 56.0), "生命  %d / %d" % [hp_now, hp_max], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.HP_PLAYER)
-	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 82.0), "攻击  %d" % run_state.effective_attack(), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.GOLD_PALE)
-	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 108.0), "防御  %d" % run_state.effective_defense(), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_BODY)
-	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 134.0), "魔抗  %d   撞击 %d" % [run_state.effective_magic_resistance(), run_state.collision_damage()], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.CYAN)
+	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 82.0), "攻击  %d" % (hero.attack if hero != null else run_state.effective_attack()), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.GOLD_PALE)
+	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 108.0), "防御  %d" % (hero.defense if hero != null else run_state.effective_defense()), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_BODY)
+	canvas.draw_string(font, stat_rect.position + Vector2(14.0, 134.0), "魔抗  %d   撞击 %d" % [hero.magic_resistance if hero != null else run_state.effective_magic_resistance(), run_state.collision_damage()], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.CYAN)
 
 	# Right column: Backpack items
 	var count: int = run_state.backpack.size()

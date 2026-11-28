@@ -277,15 +277,18 @@ func use_backpack_item(index: int, battle, actor) -> String:
 
 func _recompute_stats(actor, old_max: int) -> void:
 	var new_max: int = effective_max_health()
+	if actor != null:
+		new_max = maxi(1, actor.fragment_scaled("health", new_max))
+		old_max = maxi(1, actor.fragment_scaled("health", old_max))
 	var delta_hp: int = new_max - old_max
 	hero_max_health = new_max
 	if actor != null:
 		actor.max_health = new_max
 		if actor.health > 0:
 			actor.health = clampi(actor.health + delta_hp, 1, new_max)
-		actor.attack = effective_attack()
-		actor.defense = effective_defense()
-		actor.magic_resistance = effective_magic_resistance()
+		actor.attack = actor.fragment_scaled("attack", effective_attack())
+		actor.defense = actor.fragment_scaled("defense", effective_defense())
+		actor.magic_resistance = actor.fragment_scaled("magic_resistance", effective_magic_resistance())
 		hero_health = actor.health
 	else:
 		if hero_health > 0:

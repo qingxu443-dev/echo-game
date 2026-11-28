@@ -21,3 +21,5 @@ python -m venv .godot/sprite-venv
 ```
 
 `generate_pause_audio.py` 使用 Python 标准库生成现有音效，不需要额外第三方包。检查、构建工具的日志和生成物放入 `.godot` 或 `build`，不混入源码提交。
+
+Godot 在 Windows 上生成的 `.import` 元数据同样使用 LF，仓库以 `.gitattributes` 显式固定，避免新检出在导入后因 CRLF/LF 转换产生假脏文件。该规则只统一行尾，不改导入参数或素材内容。

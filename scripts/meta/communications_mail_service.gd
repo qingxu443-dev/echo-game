@@ -3,8 +3,8 @@ extends RefCounted
 
 const SAVE_PATH := "user://communications_mailbox.json"
 const JOURNAL_PATH := "user://communications_claim.transaction"
-const VERSION := 1
-const LOCAL_ACCOUNT_ID := "local-player"
+const VERSION := MailboxValidation.VERSION
+const LOCAL_ACCOUNT_ID := MailboxValidation.ACCOUNT_ID
 const DEFAULT_SLOT_ID := "default"
 const FragmentCatalogScript = preload("res://scripts/fragments/fragment_catalog.gd")
 const FragmentStoreScript = preload("res://scripts/fragments/fragment_store.gd")
@@ -84,7 +84,7 @@ static func _ensure_directory(path: String) -> bool:
 	return DirAccess.make_dir_recursive_absolute(directory) == OK or DirAccess.dir_exists_absolute(directory)
 
 
-static func recover_transaction() -> bool:
+static func recover_transaction(expected_mailbox_path: String = SAVE_PATH) -> bool:
 	if not FileAccess.file_exists(journal_path()):
 		return true
 	var file := FileAccess.open(journal_path(), FileAccess.READ)
@@ -92,7 +92,7 @@ static func recover_transaction() -> bool:
 		return false
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
-	if not parsed is Dictionary or int(parsed.get("version", 0)) != 1:
+	if not parsed is Dictionary or not MailboxValidation.whole(parsed.get("version")) or parsed.version != 1:
 		return false
 	var mailbox_path := str(parsed.get("mailbox_path", ""))
 	var store_path := str(parsed.get("store_path", ""))
@@ -100,6 +100,17 @@ static func recover_transaction() -> bool:
 	var store_data: Variant = parsed.get("store", null)
 	if mailbox_path.is_empty() or store_path.is_empty() or not mailbox_data is Dictionary or not store_data is Dictionary:
 		return false
+	if mailbox_path != expected_mailbox_path or store_path == mailbox_path: return false
+	var allowed_store := false
+	for slot in available_save_slots():
+		if store_path == fragment_path_for_slot(str(slot.get("id", ""))): allowed_store = true
+	if not allowed_store or not MailboxValidation.valid(mailbox_data): return false
+	var store := FragmentStoreScript.from_dict(store_data)
+	if store == null: return false
+	for receipt in mailbox_data.get("claim_ledger", {}).values():
+		if fragment_path_for_slot(receipt.target_slot_id) != store_path: continue
+		for instance_id in receipt.instance_ids:
+			if store.module_by_id(instance_id).is_empty(): return false
 	if not _ensure_directory(store_path):
 		return false
 	if not SaveFileScript.write_json(store_path, store_data):
@@ -110,7 +121,7 @@ static func recover_transaction() -> bool:
 
 
 static func load_mailbox(path: String = SAVE_PATH) -> Dictionary:
-	if not recover_transaction():
+	if not recover_transaction(path):
 		return {}
 	if not FileAccess.file_exists(path):
 		var seeded := _default_mailbox()
@@ -123,11 +134,7 @@ static func load_mailbox(path: String = SAVE_PATH) -> Dictionary:
 		return {}
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
-	if not parsed is Dictionary or int(parsed.get("version", 0)) != VERSION:
-		return {}
-	if str(parsed.get("account_id", "")) != LOCAL_ACCOUNT_ID or not parsed.get("mails", []) is Array:
-		return {}
-	if not parsed.get("claim_ledger", {}) is Dictionary:
+	if not parsed is Dictionary or not MailboxValidation.valid(parsed):
 		return {}
 	if not parsed.has("claim_ledger"):
 		parsed["claim_ledger"] = {}
@@ -135,10 +142,9 @@ static func load_mailbox(path: String = SAVE_PATH) -> Dictionary:
 
 
 static func save_mailbox(mailbox: Dictionary, path: String = SAVE_PATH) -> bool:
+	if not MailboxValidation.valid(mailbox): return false
 	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
 		return true
-	if not mailbox.get("mails", []) is Array or not mailbox.get("claim_ledger", {}) is Dictionary or str(mailbox.get("account_id", "")) != LOCAL_ACCOUNT_ID:
-		return false
 	return SaveFileScript.write_json(path, mailbox)
 
 
@@ -247,8 +253,15 @@ static func _generate_attachment(attachment: Dictionary, rng: RandomNumberGenera
 
 
 static func claim_attachment(mailbox: Dictionary, mail_id: String, attachment_id: String, target_slot_id: String = DEFAULT_SLOT_ID, ordinary_main_stats: Array[String] = [], path: String = SAVE_PATH, seed_override: int = -1) -> Dictionary:
-	if not recover_transaction():
+	if not MailboxValidation.valid(mailbox): return {"ok": false, "message": "邮件数据校验失败，原存档已保留。"}
+	if not recover_transaction(path):
 		return {"ok": false, "message": "上一次奖励交易尚未恢复，请稍后重试。"}
+	# Recovery may have committed a receipt absent from the caller's old view.
+	if FileAccess.file_exists(path):
+		var durable := load_mailbox(path)
+		if durable.is_empty(): return {"ok": false, "message": "邮件存档不可读取，原存档已保留。"}
+		mailbox.clear()
+		mailbox.merge(durable, true)
 	var claim_key := "%s:%s" % [mail_id, attachment_id]
 	var claim_ledger: Dictionary = mailbox.get("claim_ledger", {})
 	if claim_ledger.has(claim_key):
@@ -275,7 +288,7 @@ static func claim_attachment(mailbox: Dictionary, mail_id: String, attachment_id
 		break
 	if mail_index < 0 or attachment_index < 0:
 		return {"ok": false, "message": "找不到邮件附件。"}
-	var mail: Dictionary = mailbox.mails[mail_index]
+	var mail: Dictionary = mailbox.mails[mail_index].duplicate(true)
 	var attachment: Dictionary = mail.attachments[attachment_index]
 	if bool(attachment.get("claimed", false)):
 		return {"ok": false, "message": "这份附件已经领取，不能重复发放。"}
@@ -326,7 +339,7 @@ static func claim_attachment(mailbox: Dictionary, mail_id: String, attachment_id
 	}
 	if not SaveFileScript.write_json(journal_path(), journal):
 		return {"ok": false, "message": "奖励交易记录写入失败，未发放奖励。"}
-	if not recover_transaction():
+	if not recover_transaction(path):
 		return {"ok": false, "message": "奖励正在等待安全恢复，请勿重复操作。"}
 	mailbox.clear()
 	mailbox.merge(next_mailbox, true)

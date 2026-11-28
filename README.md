@@ -168,6 +168,8 @@ doc-index: ok
 
 ## 仓库结构
 
+最近存档专项：[2026-11-29 存档审计与暂停保存修复](docs/engineering/quality/SAVE_AUDIT_2026-11-29.md)，含持久化模块关系、原因、回归与尚存边界。测试规模以 [工程基线](docs/engineering/quality/BASELINE.md) 和机器下限为准。
+
 ```text
 ├── assets/              # 2.5D 角色与怪物立绘、大头头像、大厅背景与 UI 图标
 ├── data/

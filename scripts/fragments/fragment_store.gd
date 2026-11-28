@@ -37,8 +37,15 @@ static func load_store(path: String = "") -> FragmentStore:
 		return null
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
-	if not parsed is Dictionary or int(parsed.get("version", 0)) != VERSION:
+	return from_dict(parsed, path) if parsed is Dictionary else null
+
+
+## The same preflight protects disk reads and pending mail transaction images.
+static func from_dict(parsed: Dictionary, path: String = "") -> FragmentStore:
+	if not _whole(parsed.get("version")) or parsed.version != VERSION or not _whole(parsed.get("revision", 0)):
 		return null
+	var store := FragmentStore.new()
+	store.path_override = path
 	if not parsed.get("modules", []) is Array or not parsed.get("equipped", {}) is Dictionary:
 		return null
 	store.modules = []
@@ -47,10 +54,14 @@ static func load_store(path: String = "") -> FragmentStore:
 			return null
 		store.modules.append(item.duplicate(true))
 	store.equipped_by_character = parsed.get("equipped", {}).duplicate(true)
-	store.revision = maxi(0, int(parsed.get("revision", 0)))
+	store.revision = int(parsed.get("revision", 0))
 	if not store.validate_equipment():
 		return null
 	return store
+
+
+static func _whole(value: Variant) -> bool:
+	return (value is int or value is float) and is_finite(float(value)) and value >= 0 and value < 9.223372036854775e18 and float(value) == floorf(float(value))
 
 
 func to_dict() -> Dictionary:

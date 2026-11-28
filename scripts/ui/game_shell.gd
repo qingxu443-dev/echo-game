@@ -95,7 +95,7 @@ func _on_action(action: String) -> void:
 		"confirm_exit": _return_to_title()
 		"save_exit":
 			if PlaySession.save(get_tree().current_scene): _return_to_title()
-			else: menu.note.text = "保存失败，当前旅程已保留在游戏中。请检查磁盘后重试。"
+			else: menu.note.text = "保存失败：" + PlaySession.last_error
 		"music", "effects":
 			var enabled := not audio.music_enabled if action == "music" else not audio.effects_enabled
 			if not audio.set_enabled(action, enabled): menu.note.text = "声音设置保存失败，原设置已保留。"

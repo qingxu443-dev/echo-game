@@ -18,8 +18,51 @@ func _run() -> void:
 	await _test_actual_confirmation_button()
 	await _test_pending_signed_confirmation()
 	await _test_signed_reserve_pause_snapshot()
+	await _test_map_equipment_pause_roundtrip()
 	for path in [run_path, stash_path, SpringSaveTransaction.journal_path(stash_path)]:
 		if FileAccess.file_exists(path): DirAccess.remove_absolute(path)
+
+
+func _test_map_equipment_pause_roundtrip() -> void:
+	SessionSave.path_override = "user://map_equipment_pause_%d.json" % OS.get_process_id()
+	for definition in LootCatalog._definitions:
+		if definition.kind not in ["weapon", "armor"]: continue
+		var item_id: StringName = definition.id
+		var run := _prepared_run(item_id)
+		run.pending_battle_settlement = {}
+		run.add_battle_item(LootCatalog.get_item(item_id))
+		_check(run.save_to_file(run_path), "persist worn equipment before next fight: " + str(item_id))
+		run = SpringRun.load_from_file(run_path)
+		_check(run != null and SpringBattleBridge.prepare(run, &"B001", &"battle_1"), "reload map equipment and prepare next fight: " + str(item_id))
+		if run == null: continue
+		var scene = load("res://scenes/main/main.tscn")
+		var view = scene.instantiate()
+		root.add_child(view)
+		_check(PlaySession.save(view), "save and return accepts gear inherited from plain map JSON: " + str(item_id))
+		var original := BattleSession.capture(view)
+		var saved := SessionSave.read()
+		_check(not saved.is_empty(), "inherited equipment suspend reloads: " + str(item_id))
+		if not saved.is_empty():
+			_check(JSON.stringify(SessionCodec.encode(original.run_state)) == JSON.stringify(SessionCodec.encode(saved.run_state)), "suspend preserves loaded equipment and party state: " + str(item_id))
+		view.controller.request_deploy(view.controller.get_active_character().cell)
+		view.controller.request_begin_battle()
+		_check(not view.run_state.equip_from_backpack(0, view.controller.get_active_character()).is_empty(), "equip another copy inherited through the JSON backpack: " + str(item_id))
+		_check(view.controller.request_switch_character("sevrin") and PlaySession.save(view), "save after equipping loaded bag gear and switching to reserve: " + str(item_id))
+		var expected := BattleSession.capture(view)
+		var staged := SessionSave.stage()
+		view.queue_free()
+		await process_frame
+		_check(staged == SessionSave.BATTLE_PATH, "resume routes the loaded-gear checkpoint: " + str(item_id))
+		if staged == SessionSave.BATTLE_PATH:
+			var resumed = scene.instantiate()
+			root.add_child(resumed)
+			var after := BattleSession.capture(resumed)
+			_check(JSON.stringify(SessionCodec.encode(after.run_state)) == JSON.stringify(SessionCodec.encode(expected.run_state)) and JSON.stringify(SessionCodec.encode(after.actors)) == JSON.stringify(SessionCodec.encode(expected.actors)), "actual resume preserves both roles, health and equipment: " + str(item_id))
+			resumed.queue_free()
+			await process_frame
+		SessionSave.clear()
+	SpringBattleBridge.clear_pending()
+	SessionSave.path_override = ""
 
 
 func _prepared_run(item_id: StringName = &"armor_echo_mantle") -> SpringRun:
@@ -79,6 +122,13 @@ func _test_json_roundtrip_and_award() -> void:
 
 func _test_numeric_rejection_boundaries() -> void:
 	var base := _prepared_run().to_dict()
+	for slot in ["equipped_weapon", "equipped_armor", "backpack"]:
+		for value in [1.5, "90", true, INF, NAN, 9.223372036854775e18]:
+			var bad := base.duplicate(true)
+			var item := LootCatalog.get_item(&"weapon_dusk_blade")
+			item.attack = value
+			bad.battle_carry[slot] = [item] if slot == "backpack" else item
+			_check(not SpringSaveValidation.invalid_field(bad).is_empty(), "reject invalid item stat at every JSON carry location: " + slot + "=" + str(value))
 	for value in [1800.5, "1800", true, NAN, INF, 9.223372036854775e18, -1]:
 		var bad := base.duplicate(true)
 		bad.battle_carry.party_loadouts.sakura.base_max_health = value

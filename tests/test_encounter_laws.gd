@@ -116,6 +116,16 @@ func _test_demo_and_resume() -> void:
 	view.controller.ap.spend(1)
 	var snapshot := BattleSession.capture(view)
 	_check(SessionSave.valid(snapshot) and SessionSave.write(snapshot), "anomaly suspends through real JSON storage")
+	for key in ["attenuation_k", "team_ap"]:
+		var mistyped := snapshot.duplicate(true)
+		mistyped.controller[key] = float(mistyped.controller[key])
+		_check(not SessionSave.valid(mistyped), "integer controller law fields cannot bypass restore typing: " + key)
+	var float_ap := snapshot.duplicate(true)
+	float_ap.ap.maximum = 4.0
+	_check(not SessionSave.valid(float_ap), "float maximum cannot be accepted then skipped by typed AP restore")
+	var float_actor := snapshot.duplicate(true)
+	float_actor.actors[0].attenuation_k = 500.0
+	_check(not SessionSave.valid(float_actor), "float actor K cannot bypass restore typing")
 	for key in ["law_overrides", "attenuation_k"]:
 		var broken := snapshot.duplicate(true)
 		broken.controller[key] = {"unknown": 1} if key == "law_overrides" else 0

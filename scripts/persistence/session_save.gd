@@ -43,9 +43,14 @@ static func valid(data: Dictionary) -> bool:
 	var state: Dictionary = data.controller
 	var overrides: Variant = state.get("law_overrides", {})
 	if not overrides is Dictionary: return false
-	var laws := EncounterLaws.resolve(overrides, int(state.get("team_ap", 3)))
-	if laws.is_empty() or state.get("attenuation_k", CombatMath.ATTENUATION_K) != laws.attenuation_k: return false
-	if not overrides.is_empty() and data.ap.get("maximum", 0) != laws.ap_pool: return false
+	var base_ap: Variant = state.get("team_ap", 3)
+	if not base_ap is int or base_ap < 1: return false
+	var laws := EncounterLaws.resolve(overrides, base_ap)
+	var active_k: Variant = state.get("attenuation_k", CombatMath.ATTENUATION_K)
+	if laws.is_empty() or not active_k is int or active_k != laws.attenuation_k: return false
+	if not overrides.is_empty():
+		var maximum_ap: Variant = data.ap.get("maximum", 0)
+		if not maximum_ap is int or maximum_ap != laws.ap_pool: return false
 	var scaling: Variant = state.get("enemy_stat_multiplier", 1.0)
 	if not (scaling is float or scaling is int): return false
 	if not is_finite(float(scaling)) or float(scaling) <= 0.0: return false
@@ -60,7 +65,8 @@ static func valid(data: Dictionary) -> bool:
 		if id.is_empty() or ids.has(id) or actor.get("team", "") not in ["player", "enemy"]: return false
 		if int(actor.get("max_health", 0)) <= 0 or int(actor.get("health", -1)) < 0: return false
 		if int(actor.health) > int(actor.max_health) or not GridRules.is_inside_bounds(actor.cell, state.grid_size): return false
-		if actor.get("attenuation_k", CombatMath.ATTENUATION_K) != laws.attenuation_k: return false
+		var actor_k: Variant = actor.get("attenuation_k", CombatMath.ATTENUATION_K)
+		if not actor_k is int or actor_k != laws.attenuation_k: return false
 		ids[id] = true
 	for intent in data.intents:
 		if not intent is Dictionary or not ids.has(str(intent.get("source_actor_id", ""))): return false

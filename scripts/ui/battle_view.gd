@@ -112,11 +112,7 @@ func _begin_spring_fight() -> void:
 
 ## Hands the outcome back to the map scene. Called from the settlement button.
 func _spring_run_lead():
-	var payload: Dictionary = SpringBattleBridgeScript.pending
-	var party_ids: Array = payload.get("character_ids", [SpringRunScript.HERO_CHARACTER_ID])
-	if party_ids.is_empty():
-		return controller.get_active_character()
-	return controller.actors.get(str(party_ids[0]))
+	return SpringSettlementHandoffScript.run_lead(self)
 
 func _restore_spring_party_vitals(payload: Dictionary) -> void:
 	SpringBattleBridgeScript.restore_party_vitals(controller, payload)

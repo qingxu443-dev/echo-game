@@ -206,7 +206,7 @@ static func judgment_mark_v2(battle, target_actor_id: String) -> bool:
 		battle.ap.refund(skill.ap_cost)
 		return false
 	gain_active_energy(battle, caster_id)
-	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, skill.damage_multiplier)
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.defense, skill.damage_multiplier)
 	battle._apply_damage(target_actor_id, raw_damage, caster_id, "oathkeeper_judgment_mark", String(skill.damage_type))
 	battle._emit_event(
 		"skill_resolved",

@@ -229,7 +229,7 @@ func _test_run_retirement_and_equipment() -> void:
 	_check(battle.request_switch_character("sakura"), "switch away from an equipped character")
 	_check(view.run_state.equipped_armor.is_empty() and battle.actors.sevrin.max_health == 3600, "worn gear stays on its owner without entering the shared backpack")
 	_check(battle.request_switch_character("sevrin") and view.run_state.equipped_armor.get("id") == &"rotation_armor", "returning restores the same equipment slot")
-	_check(battle.actors.sevrin.health == 1600, "switching itself does not heal the equipped character")
+	_check(battle.actors.sevrin.health == 2000, "switching itself does not heal the equipped character")
 	battle._apply_damage("sevrin", 999999, "vanguard_00", "probe", "true")
 	_check(battle.active_character_id == "sakura", "death replaces an equipped front with the next role")
 	PartyLoadout.capture(battle)

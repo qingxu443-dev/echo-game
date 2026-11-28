@@ -3,7 +3,7 @@ extends Control
 
 const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
 const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
-const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
+const SPRING_SCENE_PATH := "res://scenes/spring/spring_theme.tscn"
 const BACKGROUND_PATH := "res://assets/ui/lobby_atelier_bg.png"
 const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
 const AtelierPrepOverlayScript = preload("res://scripts/ui/atelier_prep_overlay.gd")
@@ -15,9 +15,9 @@ const MAP_ENTRIES: Array[Dictionary] = [
 		"cta": "进入章节 1", "scene_path": BATTLE_SCENE_PATH, "accent": Color("#d4b77b"), "locked": false,
 	},
 	{
-		"id": "spring", "chapter": "CHAPTER 02", "chapter_zh": "章节 2", "tag": "赛季大地图 · 5×5", "title": "春之境 · 未尽之春", "subtitle": "出战角色：樱（花之誓）",
-		"desc_lines": ["5×5 探索 · 十段奇遇 · 春日行商", "精英专属技 · 首领千枝神将"],
-		"cta": "进入章节 2", "scene_path": SPRING_SCENE_PATH, "accent": Color("#e89ab0"), "locked": false,
+		"id": "spring", "chapter": "CHAPTER 02", "chapter_zh": "章节 2", "tag": "章节主题 · 图鉴与故事", "title": "春之境 · 未尽之春", "subtitle": "出战角色：樱（花之誓）",
+		"desc_lines": ["藏品图鉴 · 敌人图鉴 · 剧情回顾", "普通探索 · 困难定轨 · 春之境冒险"],
+		"cta": "进入主题界面", "scene_path": SPRING_SCENE_PATH, "accent": Color("#e89ab0"), "locked": false,
 	},
 	{
 		"id": "upcoming", "chapter": "CHAPTER 03", "chapter_zh": "章节 3", "tag": "COMING SOON", "title": "未竟之域 · 筹备中", "subtitle": "后续章节与多角色拓展",
@@ -223,12 +223,8 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 		return false
 	# Godot adds the destination scene at the end of the frame.
 	if str(entry.get("id", "")) == "spring":
-		if hard_mode:
-			SpringBattleBridge.requested_mode = "hard"
-		elif not bool(spring_resume_info.get("active", false)):
-			SpringBattleBridge.requested_mode = "normal"
-		else:
-			SpringBattleBridge.requested_mode = ""
+		# The chapter hub owns the later normal / hard / resume decision.
+		SpringBattleBridge.requested_mode = ""
 	else:
 		SpringBattleBridge.tutorial_loadout_requested = true
 	return true
@@ -583,14 +579,10 @@ func _draw_map_card(font: Font, index: int, sx: float, sy: float, alpha: float) 
 		draw_string(font, Vector2(r.position.x + 22.0 * sx, r.end.y - 82.0 * sy), "困难定轨：长按一笔画路线必达首领", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40.0 * sx, roundi(11.5 * sy), Color(0.95, 0.62, 0.56, alpha))
 
 	if is_spring:
-		var left_r := spring_normal_button_rect()
-		var right_r := spring_hard_button_rect()
-		draw_rect(left_r, Color(0.24, 0.22, 0.24, 0.92 * alpha), true)
-		draw_rect(left_r, border_col, false, 1.4)
-		draw_string(font, left_r.position + Vector2(0.0, 28.0 * sy), "继续探索" if is_spring_resume else "普通探索", HORIZONTAL_ALIGNMENT_CENTER, left_r.size.x, roundi(14.0 * sy), Color(0.98, 0.95, 0.88, alpha))
-		draw_rect(right_r, Color(0.38, 0.14, 0.15, 0.96 * alpha), true)
-		draw_rect(right_r, Color(0.90, 0.44, 0.42, 0.95 * alpha), false, 1.6)
-		draw_string(font, right_r.position + Vector2(0.0, 28.0 * sy), "困难 · 定轨", HORIZONTAL_ALIGNMENT_CENTER, right_r.size.x, roundi(14.0 * sy), Color(1.0, 0.90, 0.86, alpha))
+		var cta_r := Rect2(r.position.x + 20.0 * sx, r.end.y - 64.0 * sy, r.size.x - 40.0 * sx, 44.0 * sy)
+		draw_rect(cta_r, Color(0.34, 0.19, 0.25, 0.96 * alpha), true)
+		draw_rect(cta_r, border_col, false, 1.6)
+		draw_string(font, cta_r.position + Vector2(0.0, 28.0 * sy), "进入主题界面", HORIZONTAL_ALIGNMENT_CENTER, cta_r.size.x, roundi(14.0 * sy), Color(0.98, 0.95, 0.88, alpha))
 		return
 
 	var cta_r := Rect2(r.position.x + 20.0 * sx, r.end.y - 64.0 * sy, r.size.x - 40.0 * sx, 44.0 * sy)

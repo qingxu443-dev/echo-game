@@ -52,4 +52,7 @@ static func recover(run_path: String, atelier_path: String) -> bool:
 ## CONTRACT: _test_bad_journal_images
 ## CONTRACT: _test_bad_commit_images
 static func _valid_images(run_data: Dictionary, atelier_data: Dictionary) -> bool:
+	# Journals have always stored complete wallet images. Missing fields here
+	# must not invoke the defaults supported for standalone legacy wallet files.
+	if not atelier_data.has("shards") or not atelier_data.has("loadout"): return false
 	return SpringRun.from_dict(run_data) != null and not AtelierStash.from_dict(atelier_data).is_empty()

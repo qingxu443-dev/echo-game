@@ -40,12 +40,14 @@ func _corruptions() -> Array:
 		["atelier", "shards", "140"], ["atelier", "shards", -1], ["atelier", "shards", 1.5],
 		["atelier", "loadout", "item_dusk_potion"], ["atelier", "loadout", ["item_dusk_potion", "unknown_paid_item"]],
 		["atelier", "loadout", [27]],
+		["atelier", "shards"], ["atelier", "loadout"],
 	]
 
 
 func _broken(row: Array) -> Dictionary:
 	var data := _images()
-	data[row[0]][row[1]] = row[2]
+	if row.size() == 2: data[row[0]].erase(row[1])
+	else: data[row[0]][row[1]] = row[2]
 	return data
 
 
@@ -77,7 +79,7 @@ func _test_bad_commit_images() -> void:
 
 func _test_wallet_read_and_write() -> void:
 	for row in _corruptions():
-		if row[0] != "atelier": continue
+		if row[0] != "atelier" or row.size() == 2: continue
 		_seed()
 		var wallet: Dictionary = _broken(row).atelier
 		var before := FileAccess.get_file_as_string(stash_path)

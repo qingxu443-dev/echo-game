@@ -391,7 +391,7 @@ func _on_member_selected(option_index: int, slot: int) -> void:
 	if not SquadStoreScript.set_team_members(selected_team_index, compact):
 		_rebuild()
 		if status_label != null:
-			status_label.text = "保存失败：角色不能重复，且每队最多 3 人。"
+			status_label.text = "保存失败：当前出战队伍至少需要 1 人；同队不能重复，且每队最多 3 人。"
 		return
 	_rebuild()
 

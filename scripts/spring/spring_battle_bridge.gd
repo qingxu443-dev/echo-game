@@ -99,13 +99,15 @@ static func prepare(run, encounter_id: StringName, place_id: StringName, kind: S
 	if lead == null:
 		return false
 	if run.party_vitals.is_empty():
+		var previous_max_health: int = run.effective_max_health()
+		var health_ratio: float = clampf(float(run.hero_health) / float(maxi(1, previous_max_health)), 0.0, 1.0)
 		run.hero_character_id = String(lead.character_id)
 		run.hero_base_max_health = lead.max_health
 		run.hero_base_attack = lead.attack
 		run.hero_base_defense = lead.defense
 		run.hero_base_magic_resistance = lead.magic_resistance
 		run.hero_max_health = run.effective_max_health()
-		run.hero_health = run.hero_max_health
+		run.hero_health = clampi(roundi(float(run.hero_max_health) * health_ratio), 1, run.hero_max_health)
 	suspended_map = run.to_dict()
 	pending = {
 		"encounter": encounter_id,

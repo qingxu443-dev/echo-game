@@ -20,14 +20,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GODOT="${GODOT:-godot}"
 cd "$ROOT" || exit 2
 
-# Keep suites off the developer's real user:// data. Godot reads XDG_DATA_HOME
-# on Linux and %APPDATA% on Windows (including Git Bash); both point at a
-# throwaway directory so assertion numbers match a clean CI profile.
-TEST_DATA_ROOT="${TMPDIR:-/tmp}/echo-test-user-data"
-export XDG_DATA_HOME="$TEST_DATA_ROOT/xdg-data"
-export APPDATA="$TEST_DATA_ROOT/appdata"
-mkdir -p "$XDG_DATA_HOME" "$APPDATA"
-
 # Fail fast: without a working binary every suite would look like a crash.
 if ! command -v "$GODOT" >/dev/null 2>&1; then
 	if [ -x "$GODOT" ]; then

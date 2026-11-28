@@ -203,6 +203,14 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 
 恢复战斗不会重新构建遭遇、消耗工坊补给或重放已完成的动作。春之境快照同时保存对应的战前地图，返回时不依赖可能被其他新局更新的地图文件。标题页仅对有效断点显示「继续旅程」，成功恢复后删除断点以防重复结算。音频偏好保存在 `user://audio_settings.cfg`。无头测试的两个新增存档默认使用进程独立路径，避免读写玩家文件。
 
+### 自定义关卡（`scripts/custom/`）
+
+标题页的自定义入口指向独立编辑场景。`CustomLevelData` 管理 4–8 格地图、单位和逐个属性；JSON 加载在修改当前草稿前校验类型、坐标、重叠、档案和数值范围。`custom_editor.gd` 编排工具、单笔刷撤销、数字属性面板和文件选择；`CustomGrid` 负责绘制与命中，`CustomInspector` 只报告属性编辑。`CustomLevelBridge` 持有编辑草稿及本地文件读写，试玩不会反向污染原设计。
+
+`custom_battle_view.gd` 继承正常战斗视图，使用 `CustomLevelRuntime` 的延迟开战入口：先生成正常单位，替换当前实例的数值和宝箱，再生成第一回合意图。它沿用原有 AI、技能、回合与胜负规则，单独覆盖结算回调，不写正式奖励或领用工坊补给。F2 返回编辑器；重新试玩重新构造原设计。
+
+暂停快照携带已校验的 `custom_level` 数据。`SessionSave.stage()` 将该断点路由至自定义战斗场景，`BattleSession.restore()` 恢复对应定义和完整战斗状态，不将其当作教学第一关。自定义定义与春之境模式互斥，仍通过通用暂停预检。编辑稿、存读档、真实战斗和跨场景恢复由 `test_custom_levels.gd` 覆盖。
+
 ## 审计范围、发现与处理
 
 2026-11-28 暂停恢复跟进：

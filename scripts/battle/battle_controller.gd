@@ -72,6 +72,8 @@ var turn_number: int = 0
 var battle_result: String = ""
 ## Encounter-wide scaling also applies to units summoned after initial setup.
 var enemy_stat_multiplier: float = 1.0
+var law_overrides: Dictionary = {}
+var attenuation_k: int = CombatMath.ATTENUATION_K
 ## Settlement tallies for the end-of-battle panel. Reset on every encounter.
 var damage_dealt: int = 0
 var damage_taken: int = 0
@@ -117,9 +119,10 @@ func start_encounter(
 	chest_items: Array[StringName] = [],
 	ward_nodes: int = 0,
 	deploy_zone_cells: Array[Vector2i] = [],
-	defer_start: bool = false, enemy_stat_multiplier: float = 1.0
+	defer_start: bool = false, enemy_stat_multiplier: float = 1.0,
+	anomaly_overrides: Dictionary = {}
 ) -> bool:
-	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes, deploy_zone_cells, defer_start, enemy_stat_multiplier)
+	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes, deploy_zone_cells, defer_start, enemy_stat_multiplier, anomaly_overrides)
 
 
 func end_player_turn() -> bool:

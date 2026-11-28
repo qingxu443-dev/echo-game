@@ -1,0 +1,7 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/main/main.tscn" id="1"]
+[ext_resource type="Resource" path="res://data/levels/anomaly_resonance.tres" id="2"]
+
+[node name="AnomalyDemo" instance=ExtResource("1")]
+encounter_override = ExtResource("2")

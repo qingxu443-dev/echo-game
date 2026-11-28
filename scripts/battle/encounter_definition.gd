@@ -34,6 +34,8 @@ extends Resource
 ## Optional multiplier for the four core enemy stats in this encounter.
 ## Defaults to neutral so ordinary and elite encounters remain unchanged.
 @export var enemy_stat_multiplier: float = 1.0
+## Encounter-local law overrides; unknown or unimplemented parameters fail validation.
+@export var anomaly_overrides: Dictionary = {}
 
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
 
@@ -57,8 +59,9 @@ func is_valid() -> bool:
 			return false
 	if ward_nodes < 0 or ward_nodes > 4:
 		return false
-	if enemy_stat_multiplier <= 0.0:
+	if not is_finite(enemy_stat_multiplier) or enemy_stat_multiplier <= 0.0:
 		return false
+	if not EncounterLaws.describe_error(anomaly_overrides).is_empty(): return false
 	return true
 
 

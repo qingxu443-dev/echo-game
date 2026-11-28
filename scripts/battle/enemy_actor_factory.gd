@@ -4,7 +4,8 @@ extends RefCounted
 ## Shared profile reader for encounter enemies and phase-two reinforcements.
 static func create(
 	profile: EnemyDefinition, actor_id: String, cell: Vector2i,
-	health_override: int = -1, stat_multiplier: float = 1.0
+	health_override: int = -1, stat_multiplier: float = 1.0,
+	attenuation_k: int = CombatMath.ATTENUATION_K
 ) -> BattleActor:
 	var base_health: int = profile.health if health_override < 0 else health_override
 	var health := maxi(1, roundi(base_health * stat_multiplier))
@@ -25,4 +26,5 @@ static func create(
 	actor.basic_attack_multiplier = profile.basic_attack_multiplier
 	actor.interruptible_skill = profile.interruptible_skill
 	actor.curse_defense_down = profile.curse_defense_down
+	actor.attenuation_k = attenuation_k
 	return actor

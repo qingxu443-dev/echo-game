@@ -33,7 +33,7 @@ static func draw_header(canvas: CanvasItem, level, level_index: int, level_count
 static func draw_status(canvas: CanvasItem, controller, status_message: String, fx_state: Dictionary = {}) -> void:
 	var font := ThemeDB.fallback_font
 	_draw_turn_and_ap(canvas, font, controller)
-	_draw_camera_controls(canvas, font)
+	_draw_camera_controls(canvas, font, controller)
 	_draw_active_mods(canvas, font, controller)
 	_draw_guide_banner(canvas, font, status_message)
 	_draw_portrait_card(canvas, font, controller)
@@ -72,20 +72,25 @@ static func _draw_turn_and_ap(canvas: CanvasItem, font: Font, controller) -> voi
 	var pip_start := rect.position + Vector2(14.0, 74.0)
 	var total_ap: int = maxi(1, controller.ap.maximum)
 	var cur_ap: int = controller.ap.current
-	var pip_w: float = minf(38.0, (rect.size.x - 28.0 - float(total_ap - 1) * 6.0) / float(total_ap))
-	for i in range(total_ap):
+	var pip_count := mini(total_ap, 8)
+	var pip_w: float = minf(38.0, (rect.size.x - 28.0 - float(pip_count - 1) * 6.0) / float(pip_count))
+	for i in range(pip_count):
 		var pr := Rect2(pip_start.x + float(i) * (pip_w + 6.0), pip_start.y, pip_w, 12.0)
 		var filled: bool = i < cur_ap
 		canvas.draw_rect(pr, P.GOLD_LIGHT if filled else Color(0.14, 0.16, 0.19, 1.0), true)
 		canvas.draw_rect(pr, P.GOLD_PALE if filled else P.PANEL_BORDER, false, 1.2)
+	if total_ap > pip_count:
+		canvas.draw_string(font, rect.position + Vector2(14, 96), "AP %d / %d" % [cur_ap, total_ap], HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 28, 10, P.GOLD_PALE)
 
 
-static func _draw_camera_controls(canvas: CanvasItem, font: Font) -> void:
+static func _draw_camera_controls(canvas: CanvasItem, font: Font, controller) -> void:
 	_draw_card(canvas, P.CAM_LEFT_BTN, P.PANEL, P.PANEL_BORDER)
 	_draw_card(canvas, P.CAM_RIGHT_BTN, P.PANEL, P.PANEL_BORDER)
 	canvas.draw_string(font, P.CAM_LEFT_BTN.position + Vector2(18.0, 21.0), "[Q] 逆时针视角", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_FAINT)
 	canvas.draw_string(font, P.CAM_RIGHT_BTN.position + Vector2(18.0, 21.0), "[E] 顺时针视角", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_FAINT)
-	canvas.draw_string(font, Vector2(P.CAM_LEFT_BTN.position.x + 2.0, P.CAM_LEFT_BTN.end.y + 18.0), "当前镜头：" + P.camera_label(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.GOLD)
+	var law_text := EncounterLaws.summary(controller.law_overrides, controller.team_ap)
+	var label := "当前镜头：" + P.camera_label() if law_text.is_empty() else law_text
+	canvas.draw_string(font, Vector2(P.CAM_LEFT_BTN.position.x + 2.0, P.CAM_LEFT_BTN.end.y + 18.0), label, HORIZONTAL_ALIGNMENT_LEFT, P.TOP_LEFT_RECT.size.x - 4, 11, P.GOLD)
 
 
 static func _draw_active_mods(canvas: CanvasItem, font: Font, controller) -> void:

@@ -192,7 +192,7 @@ static func _trigger_boss_enrage(battle, boss) -> void:
 			continue
 		var uid: String = "escort_%s_%d_%d" % [arch, battle.turn_number, idx]
 		idx += 1
-		var unit = EnemyActorFactory.create(profile, uid, spawn_cell, hp_cap, battle.enemy_stat_multiplier)
+		var unit = EnemyActorFactory.create(profile, uid, spawn_cell, hp_cap, battle.enemy_stat_multiplier, battle.attenuation_k)
 		unit.skill_charge = 2
 		init_enemy_pressure(unit)
 		battle.actors[uid] = unit

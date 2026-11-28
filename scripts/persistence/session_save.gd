@@ -41,6 +41,16 @@ static func valid(data: Dictionary) -> bool:
 	if not data.get("intents") is Array or not data.get("run_state") is Dictionary: return false
 	if data.actors.is_empty() or data.actors.size() > 64 or data.intents.size() > 256: return false
 	var state: Dictionary = data.controller
+	var overrides: Variant = state.get("law_overrides", {})
+	if not overrides is Dictionary: return false
+	var base_ap: Variant = state.get("team_ap", 3)
+	if not base_ap is int or base_ap < 1: return false
+	var laws := EncounterLaws.resolve(overrides, base_ap)
+	var active_k: Variant = state.get("attenuation_k", CombatMath.ATTENUATION_K)
+	if laws.is_empty() or not active_k is int or active_k != laws.attenuation_k: return false
+	if not overrides.is_empty():
+		var maximum_ap: Variant = data.ap.get("maximum", 0)
+		if not maximum_ap is int or maximum_ap != laws.ap_pool: return false
 	var scaling: Variant = state.get("enemy_stat_multiplier", 1.0)
 	if not (scaling is float or scaling is int): return false
 	if not is_finite(float(scaling)) or float(scaling) <= 0.0: return false
@@ -55,6 +65,8 @@ static func valid(data: Dictionary) -> bool:
 		if id.is_empty() or ids.has(id) or actor.get("team", "") not in ["player", "enemy"]: return false
 		if int(actor.get("max_health", 0)) <= 0 or int(actor.get("health", -1)) < 0: return false
 		if int(actor.health) > int(actor.max_health) or not GridRules.is_inside_bounds(actor.cell, state.grid_size): return false
+		var actor_k: Variant = actor.get("attenuation_k", CombatMath.ATTENUATION_K)
+		if not actor_k is int or actor_k != laws.attenuation_k: return false
 		ids[id] = true
 	for intent in data.intents:
 		if not intent is Dictionary or not ids.has(str(intent.get("source_actor_id", ""))): return false
@@ -70,6 +82,10 @@ static func valid(data: Dictionary) -> bool:
 		if str(status.get("target_actor_id", "")).is_empty(): return false
 	if bool(data.get("spring_mode", false)):
 		return data.get("parent_run") is Dictionary and SpringRun.from_dict(data.parent_run) != null and SpringEncounterCatalog.has_encounter(StringName(str(data.get("bridge", {}).get("encounter", ""))))
+	var override_id: Variant = data.get("encounter_override_id", "")
+	if not override_id is String: return false
+	if not override_id.is_empty():
+		return LevelCatalog.optional_encounter(StringName(override_id)) != null and int(data.get("level", -1)) == 0
 	return int(data.get("level", -1)) >= 0 and int(data.get("level", -1)) < LevelCatalog.create_prototype_levels().size()
 
 

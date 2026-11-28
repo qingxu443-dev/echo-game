@@ -85,6 +85,7 @@ func _test_editor_interactions() -> void:
 	_check(editor.left_panel.get_global_rect().end.x <= editor.center_panel.global_position.x, "the palette does not overlap the editable map")
 	_check(editor.name_input.text == "回声试炼", "the editor opens with the actual design name")
 	_check(editor.enemy_choice.item_count == EnemyCatalog.definitions().size(), "all enemy profiles appear in the dropdown")
+	_check(editor.hero_choice.item_count == CharacterCatalog.all_definitions().size(), "new mainline characters automatically appear in the hero palette")
 	_check(editor.grid.cell_at(editor.grid.cell_rect(Vector2i(3, 4)).get_center()) == Vector2i(3, 4), "grid hit testing matches the rendered tile")
 	editor._choose_tool("enemy")
 	editor._grid_pressed(Vector2i(6, 4), MOUSE_BUTTON_LEFT)
@@ -142,6 +143,12 @@ func _test_play_and_suspend() -> void:
 	design.data.enemies[0].skill_damage = 987
 	design.place_unit("hero", "sakura", Vector2i(1, 6))
 	design.data.heroes[1].resource_current = 3
+	for id in CharacterCatalog.all_ids():
+		if id not in ["sevrin", "sakura"]:
+			design.place_unit("hero", id, Vector2i(3, 6))
+			design.data.heroes[-1].health = 6789
+			design.data.heroes[-1].attack = 765
+			break
 	CustomLevelBridge.design = design
 	_check(AtelierStash.save_state({"shards": 123, "loadout": ["item_dusk_potion"]}, wallet_path), "the test wallet exists")
 	var before := FileAccess.get_file_as_string(wallet_path)
@@ -157,6 +164,9 @@ func _test_play_and_suspend() -> void:
 	_check(enemy.health == 4321 and enemy.attack == 333 and enemy.shield == 123, "per-instance enemy values reach the runtime")
 	_check(enemy.move_steps == 4 and enemy.skill_damage == 987 and enemy.skill_charge == 1, "enemy movement, signature damage and charge reach the runtime before intent planning")
 	_check(view.controller.get_actor("sakura").resource_current == 3, "the second hero keeps its chosen initial resource")
+	if design.data.heroes.size() > 2:
+		var newest: Dictionary = design.data.heroes[2]
+		_check(view.controller.get_actor(newest.id).health == 6789 and view.controller.get_actor(newest.id).attack == 765, "new mainline characters use authored stats in a three-person custom squad")
 	_check(view.controller.beacons.size() == 1 and view.controller.beacons.has(Vector2i(0, 4)), "custom chest placement replaces automatic tutorial chests")
 	_check(FileAccess.get_file_as_string(wallet_path) == before, "starting a custom fight never claims paid tutorial supplies")
 	view.controller.ap.spend(1)
@@ -177,6 +187,8 @@ func _test_play_and_suspend() -> void:
 	current_scene = resumed
 	_check(resumed.controller.ap.current == 5 and resumed.controller.get_active_character().health == 2468, "a suspended custom battle restores exact AP and HP")
 	_check(resumed.levels[0].level_id == &"custom_sandbox", "restoring custom play never substitutes the first tutorial")
+	if design.data.heroes.size() > 2:
+		_check(resumed.controller.get_actor(design.data.heroes[2].id).health == 6789, "the new squad member survives a full custom suspend roundtrip")
 	for actor in resumed.controller.actors.values():
 		if actor.team == "enemy": actor.health = 0; actor._is_defeated = true
 	resumed.controller._check_battle_end()

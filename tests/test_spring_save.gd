@@ -53,7 +53,13 @@ func _test_old_versions_migrate_forward() -> void:
 	v4["version"] = 4
 	v4["resources"].erase("collectible_consumables")
 	var from_v4 := SpringRun.from_dict(v4)
-	_check(from_v4 != null and from_v4.collectible_consumables.is_empty(), "v4 saves migrate with an empty active-consumable inventory")
+	_check(from_v4 != null and from_v4.collectible_consumables.is_empty(), "v4 saves without a consumable field migrate with an empty inventory")
+	var preview_v4: Dictionary = base.duplicate(true)
+	preview_v4["version"] = 4
+	preview_v4["resources"]["collectible_consumables"] = {"col_field_ration": 2}
+	var from_preview_v4 := SpringRun.from_dict(preview_v4)
+	_check(from_preview_v4 != null and int(from_preview_v4.collectible_consumables.get("col_field_ration", 0)) == 2,
+		"v4 preview saves keep existing active-consumable stacks")
 
 	var v3: Dictionary = base.duplicate(true)
 	v3["version"] = 3
@@ -104,6 +110,14 @@ func _test_pending_settlement_round_trip() -> void:
 		"the pending settlement id survives save/load")
 	_check(restored != null and str(restored.pending_battle_settlement.get("phase", "")) == "pending",
 		"the pending phase survives save/load")
+	var path := "user://spring_pending_start_guard_%d.json" % OS.get_process_id()
+	_check(run.save_to_file(path), "persist a pending battle result")
+	_check(SpringRunStorage.start(12, true, path, path + ".wallet") == null,
+		"a new expedition cannot overwrite an unclaimed battle result")
+	var still_pending := SpringRun.load_from_file(path)
+	_check(still_pending != null and str(still_pending.pending_battle_settlement.get("id", "")) == "battle-resume-001",
+		"the original pending result remains intact after a refused new run")
+	DirAccess.remove_absolute(path)
 
 
 func _test_random_event_is_not_redrawn() -> void:

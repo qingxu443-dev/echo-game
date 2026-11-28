@@ -24,6 +24,7 @@ extends RefCounted
 ## debt in PROJECT_STATUS.md rather than faked with numbers that do nothing.
 
 const EnemyCatalogScript = preload("res://scripts/battle/enemy_catalog.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 const DIFFICULTY_EASY: String = "简单"
 const DIFFICULTY_NORMAL: String = "普通"
@@ -166,6 +167,16 @@ static func build(encounter_id: StringName, character_ids: Array[String] = []) -
 	var entry: Dictionary = _entry(encounter_id)
 	if entry.is_empty():
 		return null
+	var party: Array[String] = character_ids.duplicate()
+	if party.is_empty():
+		party.append(SpringRun.HERO_CHARACTER_ID)
+	if party.size() > 3:
+		return null
+	var seen_party: Dictionary = {}
+	for character_id in party:
+		if seen_party.has(character_id) or not CharacterCatalogScript.has_definition(character_id):
+			return null
+		seen_party[character_id] = true
 	var roster: Array[String] = roster_of(encounter_id)
 	if roster.is_empty():
 		return null
@@ -179,8 +190,12 @@ static func build(encounter_id: StringName, character_ids: Array[String] = []) -
 	definition.display_name_zh = str(entry["title"])
 	definition.tactical_hint_zh = str(entry.get("hint", _default_hint(encounter_id)))
 	definition.player_cell = HERO_CELL
-	definition.character_ids = character_ids.duplicate()
+	definition.character_ids = party
 	definition.ally_cells = []
+	if party.size() >= 2:
+		definition.ally_cells.append(Vector2i(2, 6))
+	if party.size() >= 3:
+		definition.ally_cells.append(Vector2i(4, 6))
 	definition.enemy_archetypes = roster
 	for cell in slots:
 		definition.enemy_cells.append(cell)

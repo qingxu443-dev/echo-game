@@ -67,7 +67,7 @@ var dialogue_speaker: String = "瑟弗林"
 var dialogue_timer: float = 0.0
 var status_notice: String = ""
 var spring_resume_info: Dictionary = {}
-var roster_nav: RefCounted
+var roster_nav
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP

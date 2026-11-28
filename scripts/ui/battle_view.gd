@@ -19,7 +19,7 @@ const InventoryViewScript = preload("res://scripts/ui/inventory_view.gd")
 const SpringBattleBridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
-const SPRING_SETTLEMENT_SCENE_PATH := "res://scenes/spring/spring_battle_settlement.tscn"
+const SpringSettlementHandoffScript = preload("res://scripts/spring/spring_battle_settlement_handoff.gd")
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
 ## Number keys 1–5 mirror the visible order, and nothing is selected by default.
@@ -112,11 +112,7 @@ func _begin_spring_fight() -> void:
 
 ## Hands the outcome back to the map scene. Called from the settlement button.
 func _spring_run_lead():
-	var payload: Dictionary = SpringBattleBridgeScript.pending
-	var party_ids: Array = payload.get("character_ids", [SpringRunScript.HERO_CHARACTER_ID])
-	if party_ids.is_empty():
-		return controller.get_active_character()
-	return controller.actors.get(str(party_ids[0]))
+	return SpringSettlementHandoffScript.run_lead(self)
 
 func _restore_spring_party_vitals(payload: Dictionary) -> void:
 	SpringBattleBridgeScript.restore_party_vitals(controller, payload)
@@ -152,30 +148,7 @@ func _return_to_map() -> void:
 
 
 func _open_spring_settlement(result: Dictionary) -> void:
-	var run := SpringRunScript.load_from_file(SpringRunScript.SAVE_PATH)
-	if run == null and not SpringBattleBridgeScript.suspended_map.is_empty():
-		run = SpringRunScript.from_dict(SpringBattleBridgeScript.suspended_map)
-	if run == null:
-		status_message = "战斗结果无法读取原始出征存档；结果仍保留在当前战斗中。"
-		queue_redraw()
-		return
-	var settlement_id := "%s-%d-%d" % [str(result.get("place", "battle")), int(Time.get_unix_time_from_system()), Time.get_ticks_usec()]
-	run.pending_battle_settlement = {
-		"id": settlement_id,
-		"phase": "pending",
-		"result": result.duplicate(true),
-	}
-	if not run.save_to_file(SpringRunScript.SAVE_PATH):
-		status_message = "战斗结果暂未写入存档，请重试；不会提前发放奖励。"
-		queue_redraw()
-		return
-	SessionSave.clear()
-	SpringBattleBridgeScript.clear_pending()
-	SpringBattleBridgeScript.restore_map = false
-	SpringBattleBridgeScript.suspended_map = {}
-	var error := SceneTravel.change(get_tree(), SPRING_SETTLEMENT_SCENE_PATH)
-	if error != OK:
-		push_error("独立战斗结算界面载入失败，待结算记录已保留。Error: %s" % error)
+	SpringSettlementHandoffScript.open(self, result)
 
 func _begin_fresh_run() -> void:
 	run_state.reset()

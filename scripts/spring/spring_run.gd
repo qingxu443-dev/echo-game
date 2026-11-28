@@ -3,6 +3,7 @@ extends RefCounted
 
 const SaveMigrationScript = preload("res://scripts/spring/spring_run_migration.gd")
 const MIGRATIONS = SaveMigrationScript.MIGRATIONS
+const CollectibleRulesScript = preload("res://scripts/spring/spring_run_collectible_rules.gd")
 
 ## One 春之境 expedition: the board, the explorer on it, and the resources that
 ## survive from place to place (设计汇总 2026-11-26 §4, §5, §16.2).
@@ -154,7 +155,7 @@ func dew_total() -> int:
 ## §5.4: when the storage is full the player must be told, never silently
 ## dropped. Returning false is that signal.
 func effective_dew_cap() -> int:
-	return maxi(0, dew_cap + SpringRelicCatalog.total_bonus(relics, "dew_cap"))
+	return CollectibleRulesScript.effective_dew_cap(self)
 
 
 func add_dew(kind: String, amount: int) -> bool:
@@ -193,18 +194,11 @@ func add_memory_pages(amount: int) -> void:
 
 
 func add_relic(relic_id: StringName) -> bool:
-	if relic_id == &"" or not SpringRelicCatalog.has_relic(relic_id) or relics.has(relic_id):
-		return false
-	relics.append(relic_id)
-	return true
+	return CollectibleRulesScript.add_relic(self, relic_id)
 
 
 func grant_random_relic(rng: RandomNumberGenerator) -> StringName:
-	var candidates := SpringRelicCatalog.candidates_for(relics)
-	if candidates.is_empty():
-		return &""
-	var picked := StringName(candidates[rng.randi_range(0, candidates.size() - 1)])
-	return picked if add_relic(picked) else &""
+	return CollectibleRulesScript.grant_random_relic(self, rng)
 
 
 # --- hero vitals (§11.2) -----------------------------------------------------
@@ -251,127 +245,35 @@ func add_bonus_max_health(amount: int) -> void:
 # --- collectibles (§6.1) -----------------------------------------------------
 
 func has_collectible(collectible_id: StringName) -> bool:
-	if SpringCollectibleCatalog.is_consumable(collectible_id):
-		return int(collectible_consumables.get(String(collectible_id), 0)) > 0
-	return collectibles.has(collectible_id)
+	return CollectibleRulesScript.has_collectible(self, collectible_id)
 
 
-## §6.1: no duplicates, ever. Returns false when the player already owns it.
 func grant_collectible(collectible_id: StringName) -> bool:
-	if collectible_id == &"" or not SpringCollectibleCatalog.has_collectible(collectible_id):
-		return false
-	if SpringCollectibleCatalog.is_consumable(collectible_id):
-		var key := String(collectible_id)
-		collectible_consumables[key] = int(collectible_consumables.get(key, 0)) + 1
-		return true
-	if collectibles.has(collectible_id):
-		return false
-	collectibles.append(collectible_id)
-	return true
+	return CollectibleRulesScript.grant_collectible(self, collectible_id)
 
 
-## Draws one the player does not own yet. Returns &"" when the pool is exhausted;
-## the caller then falls back to a resource reward so the option is never dead
-## (§6.1 closing rule).
 func grant_random_collectible(rng: RandomNumberGenerator, source: String = "event") -> StringName:
-	var candidates: Array[String] = []
-	for candidate_id in SpringCollectibleCatalog.candidates_for(source):
-		var id := StringName(candidate_id)
-		if SpringCollectibleCatalog.is_consumable(id) or not collectibles.has(id):
-			candidates.append(candidate_id)
-	if candidates.is_empty():
-		return &""
-	var picked: StringName = StringName(candidates[rng.randi_range(0, candidates.size() - 1)])
-	if not grant_collectible(picked):
-		return &""
-	return picked
+	return CollectibleRulesScript.grant_random_collectible(self, rng, source)
 
 
-## §7.4 / 神秘收藏家: handing one over removes the newest, which is the one the
-## player just saw in the log.
 func consume_collectible() -> StringName:
-	if not collectibles.is_empty():
-		return collectibles.pop_back()
-	var active_ids: Array = collectible_consumables.keys()
-	active_ids.sort()
-	for item_id in active_ids:
-		var count: int = int(collectible_consumables[item_id])
-		if count <= 0:
-			continue
-		if count == 1:
-			collectible_consumables.erase(item_id)
-		else:
-			collectible_consumables[item_id] = count - 1
-		return StringName(item_id)
-	return &""
+	return CollectibleRulesScript.consume_collectible(self)
 
 
 func collectible_name(collectible_id: StringName) -> String:
-	return SpringCollectibleCatalog.name_of(collectible_id)
+	return CollectibleRulesScript.collectible_name(collectible_id)
 
 
 func relic_name(relic_id: StringName) -> String:
-	return SpringRelicCatalog.name_of(relic_id)
+	return CollectibleRulesScript.relic_name(relic_id)
 
 
-## Applies a collectible's effect. Resource kinds land immediately; the two that
-## need the map (a reveal) and the run (a stat) set state the map/bridge reads.
 func apply_collectible_effect(collectible_id: StringName) -> Dictionary:
-	if SpringCollectibleCatalog.is_consumable(collectible_id):
-		return {"ok": false, "message": "这件藏品需要主动使用。"}
-	return _apply_collectible_effect_data(collectible_id)
+	return CollectibleRulesScript.apply_collectible_effect(self, collectible_id)
 
 
 func use_collectible(collectible_id: StringName) -> Dictionary:
-	var key := String(collectible_id)
-	var count: int = int(collectible_consumables.get(key, 0))
-	if count <= 0 or not SpringCollectibleCatalog.is_consumable(collectible_id):
-		return {"ok": false, "message": "没有可使用的这件藏品。"}
-	var result := _apply_collectible_effect_data(collectible_id)
-	if not bool(result.get("ok", false)):
-		return result
-	count -= 1
-	if count <= 0:
-		collectible_consumables.erase(key)
-	else:
-		collectible_consumables[key] = count
-	result["message"] = "使用「%s」：%s" % [collectible_name(collectible_id), str(result.get("message", ""))]
-	return result
-
-
-func _apply_collectible_effect_data(collectible_id: StringName) -> Dictionary:
-	var effect: Dictionary = SpringCollectibleCatalog.effect_of(collectible_id)
-	var result := {"ok": false, "message": ""}
-	if effect.is_empty():
-		return result
-	match str(effect.get("kind", "")):
-		"coins":
-			add_coins(int(effect.get("amount", 0)))
-		"supplies":
-			add_supplies(int(effect.get("amount", 0)))
-		"pages":
-			add_memory_pages(int(effect.get("amount", 0)))
-		"dew":
-			var dew_kind: String = str(effect.get("dew_kind", "spring"))
-			if not add_dew(dew_kind, int(effect.get("amount", 0))):
-				result["message"] = "四时花露容量不足，这件藏品没有消耗。"
-				return result
-		"max_health":
-			add_bonus_max_health(int(effect.get("amount", 0)))
-		"heal":
-			var healed: int = heal_hero(int(effect.get("amount", 0)))
-			if healed <= 0:
-				result["message"] = "生命已满，这件藏品没有消耗。"
-				return result
-			result["message"] = "恢复 %d 点生命。" % healed
-		"reveal_hidden":
-			pending_hidden_reveal = true
-		_:
-			return result
-	result["ok"] = true
-	if str(result.get("message", "")).is_empty():
-		result["message"] = SpringCollectibleCatalog.desc_of(collectible_id)
-	return result
+	return CollectibleRulesScript.use_collectible(self, collectible_id)
 
 
 # --- battle carry (§11.2) ----------------------------------------------------

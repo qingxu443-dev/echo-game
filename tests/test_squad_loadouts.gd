@@ -19,6 +19,7 @@ func _run() -> void:
 	_test_spring_snapshots_selected_party_and_health()
 	await _test_party_vitals_enter_the_battle_scene()
 	await _test_fragment_health_bonus_stacks_on_saved_vitals()
+	_test_continue_uses_scaled_member_maximum()
 	_cleanup()
 
 func _test_three_persistent_teams() -> void:
@@ -167,6 +168,17 @@ func _test_fragment_health_bonus_stacks_on_saved_vitals() -> void:
 	if FileAccess.file_exists(absolute):
 		DirAccess.remove_absolute(absolute)
 	await process_frame
+
+
+func _test_continue_uses_scaled_member_maximum() -> void:
+	var run := SpringRunScript.begin(37)
+	run.hero_character_id = "sakura"
+	run.supplies = 5
+	run.party_vitals = {"sakura": {"health": 0, "max_health": 1890, "base_max_health": 1800}}
+	var outcome: Dictionary = SpringBattleBridgeScript.continue_run(run)
+	_check(bool(outcome.get("ok", false)), "a lost legacy run can spend supplies to continue")
+	_check(run.hero_health == 567, "continue heals 30% of the module-scaled maximum, not the unscaled one")
+	_check(str(outcome.get("message", "")).contains("567 / 1890"), "continue reports the same scaled maximum the map will use")
 
 
 func _cleanup() -> void:

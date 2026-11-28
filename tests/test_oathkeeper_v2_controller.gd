@@ -4,6 +4,7 @@ const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const ActorScript = preload("res://scripts/actors/battle_actor.gd")
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
+const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 
 
 func _run() -> void:
@@ -18,6 +19,8 @@ func _run() -> void:
 	_test_oathblade_knockback_collisions()
 	_test_oathblade_knockback_unit_collision_and_chest_break()
 	_test_guard_taunt_pulls_a_dodged_melee_within_two_cells()
+	_test_guard_taunt_redirects_single_target_ranged_intents()
+	_test_guard_counters_each_independent_enemy_intent()
 	_test_knockback_shifts_active_telegraphs()
 	_report()
 
@@ -33,13 +36,13 @@ func _test_oath_vow_passive_and_shield_application() -> void:
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Vow begins with zero stacks")
 	_check(battle.request_oath_shield("ally_test"), "Oath Shield can target a nearby allied test unit")
 	_check(battle.ap.current == battle.ap.maximum - 1, "Oath Shield spends exactly one AP")
-	_check(battle.get_actor("sevrin").shield == 720, "Sevrin receives the base 650 shield")
+	_check(battle.get_actor("sevrin").shield == 720, "Sevrin receives the base shield equal to 200% DEF")
 	_check(battle.get_actor("ally_test").shield == 300, "ally shield independently respects 30 percent max-health cap")
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Shield works with zero Oath Vow stacks")
 
 	_check(battle.end_player_turn(), "enemy attack resolves against Sevrin")
 	_check(battle.get_oath_vow_stacks() == 1, "successful enemy active attack grants one Oath Vow stack")
-	_check(battle.get_actor("sevrin").shield < 650, "incoming damage is absorbed by Sevrin's shield")
+	_check(battle.get_actor("sevrin").shield < 720, "incoming damage is absorbed by Sevrin's shield")
 	_check(battle.get_actor("sevrin").health < battle.get_actor("sevrin").max_health, "damage beyond shield reduces health")
 
 	_check(battle.request_oath_shield("sevrin"), "Oath Shield can target Sevrin alone")
@@ -235,6 +238,43 @@ func _test_oathblade_knockback_collisions() -> void:
 	_check(open_before - open_enemy.health == 793, "a clean push deals only the strike")
 	_check(open_enemy.cell == Vector2i(3, 1), "a clean push moves the target one cell")
 	open.queue_free()
+
+
+func _test_guard_taunt_redirects_single_target_ranged_intents() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(6, 1)]), "ranged taunt encounter starts")
+	battle.beacons.clear()
+	var guardian = battle.get_actor("sevrin")
+	var light_shot = IntentScript.new("taunt_light_shot", "vanguard_00", "light_shot", IntentScript.TargetMode.TILE_LOCKED, "", Vector2i(1, 1), [Vector2i(1, 1)], 100)
+	IntentResolverScript.redirect_to_guardian(battle, light_shot, guardian.actor_id)
+	_check(light_shot.target_actor_id == guardian.actor_id and light_shot.target_cell == guardian.cell, "tile-locked ranged attack is redirected to the guardian")
+	var locked_shot = IntentScript.new("taunt_locked_shot", "vanguard_00", "locked_shot", IntentScript.TargetMode.ACTOR_LOCKED, "vanguard_00", Vector2i(1, 1), [Vector2i(1, 1)], 100)
+	IntentResolverScript.redirect_to_guardian(battle, locked_shot, guardian.actor_id)
+	_check(locked_shot.target_actor_id == guardian.actor_id, "actor-locked elite shot is redirected away from its previous mark")
+	var sweep = IntentScript.new("taunt_area", "vanguard_00", "charged_strike", IntentScript.TargetMode.AREA_LOCKED, "", Vector2i(1, 1), [Vector2i(1, 1)], 100)
+	IntentResolverScript.redirect_to_guardian(battle, sweep, guardian.actor_id)
+	_check(sweep.affected_cells == [Vector2i(1, 1)] and sweep.target_actor_id.is_empty(), "area attacks retain their telegraphed geometry")
+	battle.queue_free()
+
+
+func _test_guard_counters_each_independent_enemy_intent() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(3, 1)]), "counter cadence encounter starts")
+	battle.beacons.clear()
+	var guardian = battle.get_actor("sevrin")
+	var attacker = battle.get_actor("vanguard_00")
+	_check(battle.statuses.apply_status(&"absolute_guard", guardian.actor_id, guardian.actor_id, 1, 1, -1, &"", &"replace"), "Absolute Guard status is active")
+	var before := attacker.health
+	var first = IntentScript.new("counter_intent_one", attacker.actor_id, "light_shot", IntentScript.TargetMode.ACTOR_LOCKED, guardian.actor_id, guardian.cell, [guardian.cell], 100)
+	IntentResolverScript.absolute_guard_counter(battle, first)
+	var after_first := attacker.health
+	var second = IntentScript.new("counter_intent_two", attacker.actor_id, "light_shot", IntentScript.TargetMode.ACTOR_LOCKED, guardian.actor_id, guardian.cell, [guardian.cell], 100)
+	IntentResolverScript.absolute_guard_counter(battle, second)
+	_check(after_first < before and attacker.health < after_first, "two independent actions from one enemy each trigger a counter")
+	_check(attacker.cell.x >= 5, "each counter applies the existing knockback displacement")
+	battle.queue_free()
 
 
 ## The collision branch the trio above does not reach: a unit in the way pays

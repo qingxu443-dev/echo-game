@@ -361,6 +361,7 @@ func _build_squads(root: VBoxContainer) -> void:
 	activate.pressed.connect(_activate_team)
 	footer.add_child(activate)
 	status_label = Label.new()
+	status_label.text = SquadStoreScript.last_error
 	status_label.add_theme_color_override("font_color", MUTED)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(status_label)

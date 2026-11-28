@@ -31,7 +31,10 @@ static func restore(view: Node, data: Dictionary) -> bool:
 		SpringBattleBridge.pending = data.bridge.duplicate(true)
 		SpringBattleBridge.suspended_map = data.parent_run.duplicate(true)
 		SpringBattleBridge.restore_map = true
-		view.levels.assign([SpringEncounterCatalog.build(StringName(str(data.bridge.encounter)), [SpringRun.HERO_CHARACTER_ID])])
+		var party_ids: Array[String] = []
+		for character_id in data.bridge.get("character_ids", [SpringRun.HERO_CHARACTER_ID]):
+			party_ids.append(str(character_id))
+		view.levels.assign([SpringEncounterCatalog.build(StringName(str(data.bridge.encounter)), party_ids)])
 	else:
 		SpringBattleBridge.clear_pending()
 		view.levels = LevelCatalog.create_prototype_levels()

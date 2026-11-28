@@ -267,7 +267,6 @@ static func _run_daybreak_ends(battle,skill,aim:Vector2i)->bool:
 				_ignite(battle,target,1)
 		_damage_objects(battle,cells,caster,mult,String(skill.skill_id))
 		end_batch(battle)
-	E.gain_active_energy(battle,caster.actor_id)
 	battle._emit_event("skill_resolved",caster.actor_id,"","skill=dest_lee_daybreak_ends aim=%s rounds=4"%str(aim))
 	battle._check_battle_end()
 	return true

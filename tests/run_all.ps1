@@ -22,6 +22,13 @@ param(
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+# Godot resolves user:// from %APPDATA% on Windows. Point it at a throwaway
+# directory so a developer's real saves cannot change assertion numbers; CI
+# already starts from a clean profile, and this makes local runs match it.
+$testDataRoot = Join-Path ([System.IO.Path]::GetTempPath()) "echo-test-user-data"
+$env:APPDATA = Join-Path $testDataRoot "appdata"
+New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
+
 if ($Godot -eq "" -and $env:ECHO_GODOT) { $Godot = $env:ECHO_GODOT }
 if ($Godot -eq "") {
     $fallback = Get-Command godot -ErrorAction SilentlyContinue

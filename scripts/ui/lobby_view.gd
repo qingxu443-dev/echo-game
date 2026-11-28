@@ -1,12 +1,12 @@
 extends Control
 
-
 const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
 const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
 const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
 const BACKGROUND_PATH := "res://assets/ui/lobby_atelier_bg.png"
 const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
 const AtelierPrepOverlayScript = preload("res://scripts/ui/atelier_prep_overlay.gd")
+const RosterNavScript = preload("res://scripts/ui/lobby_roster_nav.gd")
 
 const MAP_ENTRIES: Array[Dictionary] = [
 	{
@@ -67,12 +67,14 @@ var dialogue_speaker: String = "瑟弗林"
 var dialogue_timer: float = 0.0
 var status_notice: String = ""
 var spring_resume_info: Dictionary = {}
-
+var roster_nav
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
 	background = _load_texture(BACKGROUND_PATH)
+	roster_nav = RosterNavScript.new()
+	roster_nav.install(self)
 	chapter_portraits["tutorial"] = _load_texture("res://assets/actors/portraits/sevrin.png")
 	chapter_portraits["spring"] = _load_texture("res://assets/actors/portraits/sakura.png")
 	_init_motes()
@@ -96,12 +98,10 @@ func refresh_save_summary() -> void:
 			"stamina_max": ExplorationState.STAMINA_MAX,
 		}
 
-
 func _show_dialogue(speaker: String, text: String, duration: float = 5.5) -> void:
 	dialogue_speaker = speaker
 	active_dialogue = text
 	dialogue_timer = duration
-
 
 func _load_texture(res_path: String) -> Texture2D:
 	if ResourceLoader.exists(res_path, "Texture2D"):
@@ -115,14 +115,12 @@ func _load_texture(res_path: String) -> Texture2D:
 			return ImageTexture.create_from_image(img)
 	return null
 
-
 func _init_motes() -> void:
 	motes.clear()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261127
 	for _i in range(36):
 		motes.append({"x": rng.randf_range(120.0, 980.0), "y": rng.randf_range(40.0, 660.0), "vy": rng.randf_range(-12.0, -4.0), "vx": rng.randf_range(4.0, 12.0), "r": rng.randf_range(1.1, 2.6), "phase": rng.randf_range(0.0, TAU), "cyan": rng.randf() < 0.22})
-
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -139,7 +137,6 @@ func _process(delta: float) -> void:
 		if float(m["y"]) < -10.0:
 			m["y"] = size.y + 10.0
 	queue_redraw()
-
 
 # --- geometry (1280x720 scaled cleanly to viewport) --------------------------
 
@@ -172,7 +169,6 @@ func spring_hard_button_rect() -> Rect2:
 	var w := (r.size.x - 50.0 * sx) * 0.5
 	return Rect2(r.position.x + 30.0 * sx + w, r.end.y - 64.0 * _sy(), w, 44.0 * _sy())
 
-
 # --- public state helpers ----------------------------------------------------
 
 func open_map_selector() -> void:
@@ -181,19 +177,16 @@ func open_map_selector() -> void:
 	map_selector_open = true
 	queue_redraw()
 
-
 func close_map_selector() -> void:
 	map_selector_open = false
 	hovered_map_index = -1
 	queue_redraw()
-
 
 func move_map_selection(direction: int) -> void:
 	if direction == 0 or MAP_ENTRIES.is_empty():
 		return
 	selected_map_index = wrapi(selected_map_index + signi(direction), 0, MAP_ENTRIES.size())
 	queue_redraw()
-
 
 func activate_map(index: int, hard_mode: bool = false) -> bool:
 	if index < 0 or index >= MAP_ENTRIES.size():
@@ -233,7 +226,6 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 		SpringBattleBridge.tutorial_loadout_requested = true
 	return true
 
-
 func return_to_title() -> bool:
 	var tree := get_tree()
 	if tree == null:
@@ -244,10 +236,12 @@ func return_to_title() -> bool:
 		return false
 	return true
 
-
 # --- input -------------------------------------------------------------------
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if roster_nav != null and roster_nav.handle_key(event):
+		get_viewport().set_input_as_handled()
+		return
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if prep_open:
@@ -278,7 +272,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			return_to_title()
 			get_viewport().set_input_as_handled()
 
-
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var pos: Vector2 = event.position
@@ -295,6 +288,7 @@ func _gui_input(event: InputEvent) -> void:
 			if next_hover != hovered_map_index or next_nav != hovered_nav_btn:
 				hovered_map_index = next_hover; hovered_nav_btn = next_nav; queue_redraw()
 		else:
+			roster_nav.update_hover(self, pos)
 			hover_expedition = expedition_button_rect().has_point(pos)
 			hover_prep = prep_button_rect().has_point(pos)
 			hover_back = back_button_rect().has_point(pos)
@@ -307,6 +301,8 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 func _handle_click(pos: Vector2) -> void:
+	if roster_nav.handle_click(self, pos):
+		return
 	if prep_open:
 		var res := AtelierPrepOverlayScript.handle_click(size, pos, atelier_state)
 		if bool(res.get("close", false)): prep_open = false
@@ -331,7 +327,6 @@ func _handle_click(pos: Vector2) -> void:
 	if dialogue_timer > 0.0:
 		dialogue_timer = 0.0; queue_redraw()
 
-
 # --- rendering ---------------------------------------------------------------
 
 func _draw() -> void:
@@ -348,7 +343,6 @@ func _draw() -> void:
 		AtelierPrepOverlayScript.draw(self, font, size, atelier_state, prep_notice, mouse_pos)
 	elif map_selector_open or selector_fade > 0.02:
 		_draw_map_selector(font, sx, sy, maxf(selector_fade, 1.0 if map_selector_open else 0.0))
-
 
 func _draw_atelier_scene(sx: float, sy: float) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#141218"), true)
@@ -387,7 +381,6 @@ func _draw_atelier_scene(sx: float, sy: float) -> void:
 		PackedColorArray([Color(0.04, 0.04, 0.06, 0.46), Color(0.04, 0.04, 0.06, 0.46), Color(0.04, 0.04, 0.06, 0.0), Color(0.04, 0.04, 0.06, 0.0)])
 	)
 
-
 func _draw_hotspots(font: Font, sx: float, sy: float) -> void:
 	if map_selector_open:
 		return
@@ -413,7 +406,6 @@ func _draw_hotspots(font: Font, sx: float, sy: float) -> void:
 			draw_rect(box, col, false, 1.2)
 			draw_string(font, box.position + Vector2(12.0 * sx, 16.5 * sy), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color("#fbf2df"))
 
-
 func _draw_minimal_hud(font: Font, sx: float, sy: float) -> void:
 	var back_r := back_button_rect()
 	draw_rect(back_r, Color(0.16, 0.14, 0.16, 0.82) if hover_back else Color(0.09, 0.09, 0.12, 0.65), true)
@@ -434,6 +426,7 @@ func _draw_minimal_hud(font: Font, sx: float, sy: float) -> void:
 	var pill_text := "未尽之春（%s）· 体力 %d/%d" % [mode_tag, int(spring_resume_info.get("stamina", 0)), int(spring_resume_info.get("stamina_max", 10))] if has_resume else "黄昏时分  ·  营地待机中"
 	draw_string(font, pill.position + Vector2(16.0 * sx, 23.0 * sy), pill_text, HORIZONTAL_ALIGNMENT_LEFT, pill.size.x - 24.0 * sx, roundi(12.5 * sy), Color("#dcf4fc") if has_resume else Color("#dfd6c6"))
 
+	roster_nav.draw(self, font, sx, sy)
 
 func _draw_dialogue_ribbon(font: Font, sx: float, sy: float) -> void:
 	if map_selector_open or dialogue_timer <= 0.0 or active_dialogue.is_empty():
@@ -445,7 +438,6 @@ func _draw_dialogue_ribbon(font: Font, sx: float, sy: float) -> void:
 	draw_rect(box, Color(0.88, 0.76, 0.50, 0.30 * fade), false, 1.0)
 	draw_string(font, box.position + Vector2(18.0 * sx, 24.0 * sy), dialogue_speaker, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(14.0 * sy), Color(0.95, 0.84, 0.58, fade))
 	draw_string(font, box.position + Vector2(18.0 * sx, 52.0 * sy), active_dialogue, HORIZONTAL_ALIGNMENT_LEFT, box.size.x - 32.0 * sx, roundi(13.0 * sy), Color(0.92, 0.90, 0.86, fade))
-
 
 func _draw_expedition_button(font: Font, sx: float, sy: float) -> void:
 	# Atelier Prep button sitting cleanly to the left of Select Map
@@ -479,7 +471,6 @@ func _draw_expedition_button(font: Font, sx: float, sy: float) -> void:
 		draw_rect(badge, Color("#244656"), true)
 		draw_rect(badge, Color("#8fc7dc"), false, 1.2)
 		draw_string(font, badge.position + Vector2(12.0 * sx, 16.0 * sy), "可续行", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color("#e4f9ff"))
-
 
 func _draw_map_selector(font: Font, sx: float, sy: float, alpha: float) -> void:
 	# Full-screen chapter roadmap backdrop
@@ -538,7 +529,6 @@ func _draw_map_selector(font: Font, sx: float, sy: float, alpha: float) -> void:
 	var footer_text := status_notice if not status_notice.is_empty() else "提示：章节 1 为瑟弗林教学遗迹，章节 2 为樱「春之境」大地图探索，各自独立记录。"
 	var footer_col := Color("#e4b092") if not status_notice.is_empty() else Color("#9b9a94")
 	draw_string(font, Vector2(44.0 * sx, size.y - 32.0 * sy), footer_text, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color(footer_col.r, footer_col.g, footer_col.b, alpha))
-
 
 func _draw_map_card(font: Font, index: int, sx: float, sy: float, alpha: float) -> void:
 	var entry: Dictionary = MAP_ENTRIES[index]

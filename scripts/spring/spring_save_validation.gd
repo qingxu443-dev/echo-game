@@ -3,7 +3,7 @@ extends RefCounted
 
 const SECTIONS := [
 	"exploration", "hidden", "resources", "hero", "battle_carry",
-	"event_choices", "pending_event", "event_log", "price", "shop", "route_plan",
+	"event_choices", "pending_event", "event_log", "price", "shop", "route_plan", "party_vitals",
 ]
 
 
@@ -14,7 +14,7 @@ static func invalid_field(data: Dictionary) -> String:
 	for key in ["version", "template_id", "seed", "battles_won"]:
 		if not _whole_number(data.get(key, 0)):
 			return key
-	for key in ["collectibles", "reward_choices"]:
+	for key in ["collectibles", "reward_choices", "party_character_ids"]:
 		if not _list_of(data.get(key, []), TYPE_STRING):
 			return key
 
@@ -54,8 +54,23 @@ static func invalid_field(data: Dictionary) -> String:
 	if dew_total > resources.get("dew_cap", 0):
 		return "resources.dew_cap"
 
+	var party_ids: Array = data.get("party_character_ids", [])
+	if party_ids.size() > 3 or party_ids.size() != party_ids.duplicate().size():
+		return "party_character_ids"
+	var party_vitals: Dictionary = data.get("party_vitals", {})
+	for character_id in party_vitals:
+		var vitals: Variant = party_vitals[character_id]
+		if not vitals is Dictionary:
+			return "party_vitals." + str(character_id)
+		var hp = vitals.get("health", 0)
+		var max_hp = vitals.get("max_health", 0)
+		if not _whole_number(hp) or not _whole_number(max_hp) or hp < 0 or max_hp <= 0 or hp > max_hp:
+			return "party_vitals." + str(character_id)
+
 	var hero: Dictionary = data.get("hero", {})
-	for key in ["health", "bonus_max_health", "carry_max_health"]:
+	if not _is_text(hero.get("character_id", "sakura")):
+		return "hero.character_id"
+	for key in ["health", "bonus_max_health", "carry_max_health", "base_max_health", "base_attack", "base_defense", "base_magic_resistance"]:
 		if not _whole_number(hero.get(key, 0)) or hero.get(key, 0) < 0:
 			return "hero." + key
 	var carry: Dictionary = data.get("battle_carry", {})

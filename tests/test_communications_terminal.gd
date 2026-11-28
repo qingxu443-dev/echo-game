@@ -96,6 +96,7 @@ func _test_local_supply_mail_and_claims() -> void:
 	MailService.fragment_path_override = ""
 	MailService.journal_path_override = ""
 	MailService.save_slots_override = []
+	MailService.save_slots_override = []
 
 
 func _test_mail_terminal_scene() -> void:

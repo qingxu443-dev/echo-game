@@ -3,7 +3,7 @@ extends RefCounted
 
 const OverlayScript = preload("res://scripts/ui/roster_manager_overlay.gd")
 
-var overlay: Control
+var overlay
 var hover_roster: bool = false
 var hover_squads: bool = false
 

@@ -223,9 +223,12 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 			var boss_pool: Array[StringName] = roll_reward_choices(run, "boss", 1, int(result.get("seed", run.seed_value)))
 			if not boss_pool.is_empty():
 				var boss_reward: StringName = boss_pool[0]
-				run.grant_collectible(boss_reward)
-				run.apply_collectible_effect(boss_reward)
-				outcome["message"] = "击败了首领。获得藏品「%s」。" % run.collectible_name(boss_reward)
+				if run.grant_collectible(boss_reward):
+					var boss_effect_note: String = "已收纳，可在藏品栏中选择使用。"
+					if not SpringCollectibleCatalog.is_consumable(boss_reward):
+						var boss_effect: Dictionary = run.apply_collectible_effect(boss_reward)
+						boss_effect_note = str(boss_effect.get("message", "效果已结算。"))
+					outcome["message"] = "击败了首领。获得藏品「%s」：%s" % [run.collectible_name(boss_reward), boss_effect_note]
 			else:
 				run.add_coins(60)
 				outcome["message"] = "击败了首领。藏品已收集齐全，换得 60 花钿。"

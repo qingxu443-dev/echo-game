@@ -37,6 +37,8 @@ func handle_key(event: InputEvent) -> bool:
 func handle_click(view, point: Vector2) -> bool:
 	if overlay != null and overlay.visible:
 		return true
+	if view.prep_open or view.map_selector_open:
+		return false
 	if _roster_rect(view).has_point(point):
 		overlay.open_characters()
 		return true

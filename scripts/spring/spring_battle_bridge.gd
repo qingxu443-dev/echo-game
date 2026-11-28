@@ -208,9 +208,9 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 		KIND_ELITE:
 			# §14: three candidates, pick one, common or rare only.
 			var choices: Array[StringName] = roll_reward_choices(run, "elite", 3, int(result.get("seed", run.seed_value)))
-			if choices.is_empty():
-				# §6.1: when the pool cannot fill the hand, pay resources instead of
-				# offering an empty panel.
+			if choices.size() < 3:
+				# §14 promises three distinct choices. If fewer than three remain,
+				# compensate rather than presenting a broken partial reward panel.
 				run.add_coins(40)
 				run.add_supplies(2)
 				outcome["message"] = "击败了精英。藏品已收集齐全，换得 40 花钿与 2 份补给。"

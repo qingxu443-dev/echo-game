@@ -18,8 +18,8 @@ func _run() -> void:
 	_check(charge_battle.start_encounter(Vector2i(1, 1), [Vector2i(3, 1)]), "encounter starts with valid positions")
 	charge_battle.beacons.clear()
 	charge_battle.intents = IntentPlannerScript.plan(charge_battle)
-	_check(charge_battle.get_actor("sevrin").max_health == 3600 and charge_battle.get_actor("sevrin").attack == 1150, "Oathkeeper receives the solo rework base health and attack")
-	_check(charge_battle.get_actor("sevrin").defense == 350 and charge_battle.get_actor("sevrin").magic_resistance == 250, "Oathkeeper receives defense and magic resistance")
+	_check(charge_battle.get_actor("sevrin").max_health == 3200 and charge_battle.get_actor("sevrin").attack == 650, "Oathkeeper receives the solo rework base health and attack")
+	_check(charge_battle.get_actor("sevrin").defense == 360 and charge_battle.get_actor("sevrin").magic_resistance == 230, "Oathkeeper receives defense and magic resistance")
 	_check(charge_battle.intents.size() == 1, "one eligible enemy produces one intent")
 	var charge_intent = charge_battle.intents[0]
 	_check(charge_intent.action_id == "charged_strike", "distance-two aligned enemy selects charged strike")
@@ -31,7 +31,7 @@ func _run() -> void:
 	_check(charge_battle.statuses.has_status("sevrin", &"oathguard"), "status remains active before enemy phase")
 	_check(charge_battle.end_player_turn(), "player can end turn")
 	_check(not charge_battle.statuses.has_status("sevrin", &"oathguard"), "enemy-phase-end status expires before the next player turn")
-	_check(charge_battle.get_actor("sevrin").health == 3600, "area-locked charged strike does not follow a moved actor")
+	_check(charge_battle.get_actor("sevrin").health == 3200, "area-locked charged strike does not follow a moved actor")
 	_check(charge_intent.state == IntentScript.IntentState.CANCELED, "empty marked area cancels charged strike")
 	charge_battle.queue_free()
 
@@ -74,8 +74,8 @@ func _run() -> void:
 	_check(shot_intent.target_mode == IntentScript.TargetMode.AREA_LOCKED, "aimed shot captures 3-tile piercing area lock")
 	_check(shot_intent.target_cell == Vector2i(1, 1) and shot_intent.damage == 1620, "aimed shot captures target cell and 1.35x ATK raw damage")
 	_check(marksman_battle.end_player_turn(), "aimed shot resolves during enemy phase")
-	var expected_shot_dmg: int = CombatMathScript.calculate_damage(1620, 350)
-	_check(marksman_battle.get_actor("sevrin").health == 3600 - expected_shot_dmg, "aimed shot deals mitigated physical damage")
+	var expected_shot_dmg: int = CombatMathScript.calculate_damage(1620, 360)
+	_check(marksman_battle.get_actor("sevrin").health == 3200 - expected_shot_dmg, "aimed shot deals mitigated physical damage")
 	_check(shot_intent.state == IntentScript.IntentState.RESOLVED, "aimed shot intent resolves")
 	marksman_battle.queue_free()
 
@@ -88,7 +88,7 @@ func _run() -> void:
 	var marksman_evade_path: Array[Vector2i] = [Vector2i(1, 2)]
 	_check(evaded_marksman_battle.request_player_move(marksman_evade_path), "player can leave marksman piercing line")
 	_check(evaded_marksman_battle.end_player_turn(), "evaded marksman phase resolves")
-	_check(evaded_marksman_battle.get_actor("sevrin").health == 3600, "area-locked aimed shot does not track moved player")
+	_check(evaded_marksman_battle.get_actor("sevrin").health == 3200, "area-locked aimed shot does not track moved player")
 	_check(evaded_shot.state == IntentScript.IntentState.CANCELED, "aimed shot cancels when marked line is empty")
 	evaded_marksman_battle.queue_free()
 
@@ -112,7 +112,7 @@ func _run() -> void:
 	_check(mixed_battle.intents[0].source_actor_id == "vanguard_00" and mixed_battle.intents[1].source_actor_id == "marksman_01", "mixed execution order retains explicit archetype identities")
 	var mixed_intents = mixed_battle.intents
 	_check(mixed_battle.end_player_turn(), "mixed enemy phase resolves")
-	_check(mixed_battle.get_actor("sevrin").health < 3600, "mixed phase applies vanguard and marksman damage")
+	_check(mixed_battle.get_actor("sevrin").health < 3200, "mixed phase applies vanguard and marksman damage")
 	_check(mixed_intents[0].state == IntentScript.IntentState.RESOLVED and mixed_intents[1].state == IntentScript.IntentState.RESOLVED, "both mixed intents resolve")
 	mixed_battle.queue_free()
 
@@ -156,8 +156,8 @@ func _run() -> void:
 	_check(area_intent.target_mode == IntentScript.TargetMode.AREA_LOCKED, "ground pulse captures area lock")
 	_check(area_intent.affected_cells.size() == 5 and area_intent.affected_cells.has(Vector2i(1, 1)), "ground pulse captures fixed orthogonal cross footprint")
 	_check(area_battle.end_player_turn(), "ground pulse resolves during enemy phase")
-	var expected_pulse_dmg: int = CombatMathScript.calculate_damage(area_intent.damage, 250)
-	_check(area_battle.get_actor("sevrin").health == 3600 - expected_pulse_dmg, "ground pulse deals mitigated magic damage inside marked area")
+	var expected_pulse_dmg: int = CombatMathScript.calculate_damage(area_intent.damage, 230)
+	_check(area_battle.get_actor("sevrin").health == 3200 - expected_pulse_dmg, "ground pulse deals mitigated magic damage inside marked area")
 	_check(area_intent.state == IntentScript.IntentState.RESOLVED, "ground pulse intent resolves")
 	area_battle.queue_free()
 
@@ -170,7 +170,7 @@ func _run() -> void:
 	var area_evade_path: Array[Vector2i] = [Vector2i(1, 2), Vector2i(2, 2)]
 	_check(evaded_area_battle.request_player_move(area_evade_path), "player can move outside the marked cross area")
 	_check(evaded_area_battle.end_player_turn(), "evaded ground pulse phase resolves")
-	_check(evaded_area_battle.get_actor("sevrin").health == 3600, "ground pulse misses player outside captured area")
+	_check(evaded_area_battle.get_actor("sevrin").health == 3200, "ground pulse misses player outside captured area")
 	_check(evaded_area_intent.state == IntentScript.IntentState.CANCELED and evaded_area_intent.cancel_reason == "marked_area_empty", "empty ground pulse area cancels explicitly")
 	evaded_area_battle.queue_free()
 
@@ -196,7 +196,7 @@ func _run() -> void:
 	_check(uncharged_battle.request_player_move(retreat_path), "player can dodge tile-locked basic_melee by stepping away")
 	_check(uncharged_battle.get_actor("vanguard_00").skill_charge == 1, "spending 1 AP adds 1 skill charge to living enemies")
 	_check(uncharged_battle.end_player_turn(), "dodged melee enemy phase resolves")
-	_check(uncharged_battle.get_actor("sevrin").health == 3600, "tile-locked basic_melee misses when player steps off the tile")
+	_check(uncharged_battle.get_actor("sevrin").health == 3200, "tile-locked basic_melee misses when player steps off the tile")
 	uncharged_battle.queue_free()
 
 	var terminal_battle = ControllerScript.new()

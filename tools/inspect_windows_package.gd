@@ -10,7 +10,7 @@ func _initialize() -> void:
 	_collect("res://", files)
 	files.sort()
 	for path in files:
-		for forbidden in ["res://tests/", "res://assets/actors/raw/", "res://tools/", "res://docs/"]:
+		for forbidden in ["res://tests/", "res://assets/actors/raw/", "res://tools/", "res://docs/", "res://build/", "res://dist/"]:
 			if path.begins_with(forbidden):
 				push_error("Forbidden source content in package: " + path)
 				quit(1)

@@ -17,8 +17,7 @@ const IntentSupportScript = preload("res://scripts/battle/intent_support.gd")
 const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
 const DestLeeSkillEffectsScript = preload("res://scripts/battle/dest_lee_skill_effects.gd")
 
-const ABSOLUTE_GUARD_MARKED_MULTIPLIER: float = 0.7
-const ABSOLUTE_GUARD_PLAIN_MULTIPLIER: float = 0.5
+const ABSOLUTE_GUARD_COUNTER_MULTIPLIER: float = 1.5
 ## Same six-cell reach the planner uses for 百花锁命. Kept here because the shot
 ## is re-checked against the live board; changing one without the other would let
 ## the telegraph promise a shot the resolver then refuses.
@@ -157,17 +156,14 @@ static func redirect_to_guardian(battle, intent, guardian_id: String) -> void:
 	var source = actors[intent.source_actor_id]
 	var target = actors[guardian_id]
 	var distance: int = GridRulesScript.manhattan_distance(source.cell, target.cell)
-	if distance > 2:
-		return
 	var legal := false
 	match intent.action_id:
 		"basic_melee":
 			# Actor-locked attacks are dodge-proof by design: they track their
 			# target without re-checking distance at resolve time. A melee is
-			# therefore legally redirected to Sevrin anywhere inside the
-			# two-cell taunt radius, not only when adjacent.
-			## CONTRACT: _test_guard_taunt_pulls_a_dodged_melee_within_two_cells
-			legal = distance <= 2
+			# Taunt is battlefield-wide: all enemy melee actions are redirected
+			# while the guard status remains active.
+			legal = true
 		_:
 			# Charged strikes are AREA_LOCKED sweeps; the mode filter above
 			# already excludes them, and a sweep has nothing to redirect.
@@ -195,11 +191,14 @@ static func absolute_guard_counter(battle, intent) -> void:
 	if battle.ledger.absolute_guard_countered_enemies.has(intent.source_actor_id):
 		return
 	battle.ledger.absolute_guard_countered_enemies[intent.source_actor_id] = true
-	var marked: bool = statuses.has_status(intent.source_actor_id, &"oathkeeper_mark")
-	var multiplier: float = ABSOLUTE_GUARD_MARKED_MULTIPLIER if marked else ABSOLUTE_GUARD_PLAIN_MULTIPLIER
-	var raw_damage: int = CombatMathScript.calculate_raw_damage(actors[guardian_id].defense, multiplier)
+	var guardian = actors[guardian_id]
+	var attacker = actors[intent.source_actor_id]
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(guardian.defense, ABSOLUTE_GUARD_COUNTER_MULTIPLIER)
 	battle._apply_damage(intent.source_actor_id, raw_damage, guardian_id, "absolute_guard_counter", "physical", false, intent.intent_id)
-	battle._emit_event("counter_resolved", guardian_id, intent.source_actor_id, "skill=absolute_guard multiplier=%.2f raw=%d" % [multiplier, raw_damage])
+	if attacker.is_alive():
+		var direction: Vector2i = attacker.cell - guardian.cell
+		KnockbackService.apply(battle, guardian, attacker, direction, 450, false)
+	battle._emit_event("counter_resolved", guardian_id, intent.source_actor_id, "skill=absolute_guard multiplier=%.2f raw=%d" % [ABSOLUTE_GUARD_COUNTER_MULTIPLIER, raw_damage])
 
 
 static func _actor_locked_attack(battle, intent) -> void:

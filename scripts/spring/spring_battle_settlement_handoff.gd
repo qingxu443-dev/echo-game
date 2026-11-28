@@ -30,3 +30,10 @@ static func open(view, result: Dictionary) -> void:
 	var error := SceneTravel.change(view.get_tree(), SETTLEMENT_SCENE_PATH)
 	if error != OK:
 		push_error("独立战斗结算界面载入失败，待结算记录已保留。Error: %s" % error)
+
+
+static func run_lead(view):
+	var party_ids: Array = BridgeScript.pending.get("character_ids", [SpringRunScript.HERO_CHARACTER_ID])
+	if party_ids.is_empty():
+		return view.controller.get_active_character()
+	return view.controller.actors.get(str(party_ids[0]))

@@ -43,15 +43,24 @@ static func invalid_field(data: Dictionary) -> String:
 		if not _whole_number(amount) or amount < 0:
 			return "resources." + key
 	var dew = resources.get("dew", {})
-	if not dew is Dictionary or not _list_of(resources.get("relics", []), TYPE_STRING):
+	var saved_relics: Array = resources.get("relics", [])
+	if not dew is Dictionary or not _list_of(saved_relics, TYPE_STRING):
 		return "resources.dew / relics"
+	var consumables: Variant = resources.get("collectible_consumables", {})
+	if not consumables is Dictionary:
+		return "resources.collectible_consumables"
+	for item_id in consumables:
+		if not SpringCollectibleCatalog.is_consumable(StringName(item_id)):
+			return "resources.collectible_consumables." + String(item_id)
+		if not _whole_number(consumables[item_id]) or int(consumables[item_id]) <= 0:
+			return "resources.collectible_consumables." + String(item_id)
 	var dew_total := 0.0
 	for key in ["spring", "summer", "autumn", "winter"]:
 		var amount = dew.get(key, 0)
 		if not _whole_number(amount) or amount < 0:
 			return "resources.dew." + key
 		dew_total += amount
-	if dew_total > resources.get("dew_cap", 0):
+	if dew_total > int(resources.get("dew_cap", 0)) + SpringRelicCatalog.total_bonus(saved_relics, "dew_cap"):
 		return "resources.dew_cap"
 
 	var hero: Dictionary = data.get("hero", {})

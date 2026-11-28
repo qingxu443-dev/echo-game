@@ -22,6 +22,12 @@ static func start(p_seed: int, hard_mode: bool, path: String, atelier_path: Stri
 
 
 static func settle(run: SpringRun, path: String, atelier_path: String, shards: int, settlement_id: String = "") -> bool:
+	if SpringSaveTransaction.is_pending(atelier_path):
+		if not SpringSaveTransaction.recover(path, atelier_path):
+			return false
+		var recovered := SpringRun.load_from_file(path)
+		if recovered != null:
+			run.settled_battle_ids = recovered.settled_battle_ids.duplicate()
 	var already_settled := not settlement_id.is_empty() and run.settled_battle_ids.has(settlement_id)
 	var run_image: Dictionary = run.to_dict()
 	if not settlement_id.is_empty() and not already_settled:

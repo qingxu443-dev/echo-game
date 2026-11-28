@@ -26,15 +26,15 @@ const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 ## Ultimate energy is not one of them any more. Releasing an ultimate spends the
 ## caster's whole pool, and the pool's size lives on the character sheet, so
 ## neither this file nor the bar needs a number.
-const OATH_SHIELD_BASE: int = 650
+const OATH_SHIELD_DEFENSE_MULTIPLIER: float = 2.0
 const OATH_SHIELD_VOW_FLAT: int = 100
 const KNOCKBACK_COLLISION_DMG: int = 450
 
 
 static func absolute_guard(battle) -> bool:
-	## Ultimate (绝对裁决): consumes 2 AP and full ultimate energy (4) to slam
-	## every enemy within Chebyshev distance 1 (8 surrounding tiles) for 130% ATK
-	## and knock them back 1 tile (with wall/unit collision bonus).
+	## Ultimate (绝对裁决): consumes 2 AP and full ultimate energy (4),
+	## deals 100% DEF to enemies within one tile, then taunts all enemies.
+	## The opening strike does not knock targets back.
 	var actors = battle.actors
 	if battle.phase != battle.BattlePhase.PLAYER:
 		return false
@@ -57,9 +57,8 @@ static func absolute_guard(battle) -> bool:
 			battle.ap.refund(skill.ap_cost)
 		return false
 
-	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.attack, skill.damage_multiplier)
+	var raw_damage: int = CombatMathScript.calculate_raw_damage(caster.defense, skill.damage_multiplier)
 	var radius: int = battle.run_state.ultimate_radius() if battle.run_state != null else 1
-	var col_dmg: int = battle.run_state.collision_damage() if battle.run_state != null else KNOCKBACK_COLLISION_DMG
 	var hit_targets: Array = []
 	for actor_id in actors.keys():
 		var enemy = actors[actor_id]
@@ -72,8 +71,9 @@ static func absolute_guard(battle) -> bool:
 
 	for enemy in hit_targets:
 		battle._apply_damage(enemy.actor_id, raw_damage, caster_id, "absolute_guard", String(skill.damage_type))
-		if enemy.is_alive():
-			_knockback_one(battle, caster, enemy, enemy.cell - caster.cell, col_dmg)
+
+	# The existing guard status is the taunt authority consumed by the enemy resolver.
+	# It is refreshed on cast; duration is handled by its turn-boundary lifecycle.
 
 	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=%d energy=%d hits=%d" % [skill.ap_cost, energy_cost, hit_targets.size()])
 	battle._check_battle_end()
@@ -125,7 +125,7 @@ static func oath_shield(battle, target_actor_id: String = "") -> bool:
 	var caster_id: String = caster.actor_id
 	var vow_stacks: int = battle.get_oath_vow_stacks(caster_id)
 	var mod_bonus: int = battle.run_state.shield_bonus() if battle.run_state != null else 0
-	var raw_shield: int = OATH_SHIELD_BASE + vow_stacks * OATH_SHIELD_VOW_FLAT + mod_bonus
+	var raw_shield: int = roundi(float(caster.defense) * OATH_SHIELD_DEFENSE_MULTIPLIER) + vow_stacks * OATH_SHIELD_VOW_FLAT + mod_bonus
 	var shielded_ids: Array[String] = [caster_id]
 	if resolved_target_id != caster_id:
 		shielded_ids.append(resolved_target_id)

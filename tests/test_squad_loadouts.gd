@@ -42,10 +42,7 @@ func _test_spring_encounters_use_the_selected_party() -> void:
 	_check(encounter != null, "Spring encounter accepts a two-character squad")
 	_check(encounter.character_ids == party, "Spring encounter preserves squad order")
 	_check(encounter.ally_cells.size() == 1, "a second character receives a distinct deployment cell")
-	var full_party: Array[String] = ["sakura", "sevrin"]
-	var three: Array[String] = ["sakura", "sevrin"]
-	three.append_array([])
-	var expanded = SpringEncounterCatalogScript.build(&"B001", ["sakura", "sevrin"])
+	var expanded = SpringEncounterCatalogScript.build(&"B001", party)
 	_check(expanded.ally_cells[0] == Vector2i(2, 6), "second member uses the left deployment slot")
 	var invalid: Array[String] = ["sakura", "sakura"]
 	_check(SpringEncounterCatalogScript.build(&"B001", invalid) == null, "duplicate party members cannot enter an encounter")

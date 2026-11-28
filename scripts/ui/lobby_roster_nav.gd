@@ -48,7 +48,7 @@ func handle_click(view, point: Vector2) -> bool:
 	return false
 
 func draw(view, font: Font, sx: float, sy: float) -> void:
-	var compact_labels := view.size.x < 700.0
+	var compact_labels: bool = view.size.x < 700.0
 	var entries := [
 		{"rect": _roster_rect(view), "label": "角色" if compact_labels else "角色总览", "hover": hover_roster},
 		{"rect": _squads_rect(view), "label": "编队" if compact_labels else "队伍编成", "hover": hover_squads},

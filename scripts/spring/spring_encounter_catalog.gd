@@ -168,8 +168,6 @@ static func build(encounter_id: StringName, character_ids: Array[String] = []) -
 	if entry.is_empty():
 		return null
 	var party: Array[String] = character_ids.duplicate()
-	if party.is_empty():
-		party.append(SpringRun.HERO_CHARACTER_ID)
 	if party.size() > 3:
 		return null
 	var seen_party: Dictionary = {}

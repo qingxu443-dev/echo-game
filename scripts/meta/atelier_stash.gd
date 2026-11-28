@@ -76,35 +76,42 @@ static func load_state(path: String = SAVE_PATH) -> Dictionary:
 
 ## An empty result indicates an existing file could not be safely read.
 static func read_state(path: String) -> Dictionary:
-	var state := _default_state()
 	if not FileAccess.file_exists(path):
-		return state
+		return _default_state()
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {}
 	var parsed = JSON.parse_string(file.get_as_text())
 	file.close()
-	if not (parsed is Dictionary) or not (parsed.get("loadout", []) is Array):
+	return from_dict(parsed)
+
+
+## Use the same data boundary for direct reads, writes and transaction images.
+## CONTRACT: _test_wallet_read_and_write
+static func from_dict(data: Variant) -> Dictionary:
+	if not data is Dictionary or not data.get("loadout", []) is Array:
 		return {}
-	if typeof(parsed.get("shards", STARTING_SHARDS)) not in [TYPE_INT, TYPE_FLOAT]:
+	var shards: Variant = data.get("shards", STARTING_SHARDS)
+	if not (shards is int or shards is float) or shards < 0:
 		return {}
-	state["shards"] = maxi(0, int(parsed.get("shards", STARTING_SHARDS)))
+	if shards is float and (not is_finite(shards) or shards != floorf(shards) or shards >= 9223372036854775808.0):
+		return {}
 	var loadout: Array[String] = []
-	var saved_loadout = parsed.get("loadout", [])
-	for lid in (saved_loadout if saved_loadout is Array else []):
-		var sid := str(lid)
-		if not recipe_by_id(sid).is_empty():
-			loadout.append(sid)
-	state["loadout"] = loadout
-	return state
+	for lid in data.get("loadout", []):
+		if not (lid is String or lid is StringName) or recipe_by_id(str(lid)).is_empty():
+			return {}
+		loadout.append(str(lid))
+	return {"shards": int(shards), "loadout": loadout}
 
 
 static func save_state(state: Dictionary, path: String = SAVE_PATH) -> bool:
+	var validated := from_dict(state)
+	if validated.is_empty(): return false
 	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
 		return true
 	if SpringSaveTransaction.is_pending(path) or read_state(path).is_empty():
 		return false
-	return SaveFile.write_json(path, state)
+	return SaveFile.write_json(path, validated)
 
 
 static func recipe_by_id(item_id: String) -> Dictionary:

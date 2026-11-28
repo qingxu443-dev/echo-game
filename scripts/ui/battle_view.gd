@@ -79,7 +79,10 @@ func _begin_spring_fight() -> void:
 	spring_mode = true
 	var payload: Dictionary = SpringBattleBridgeScript.pending
 	var encounter_id := StringName(str(payload.get("encounter", "")))
-	var definition := SpringEncounterCatalogScript.build(encounter_id, [String(SpringRunScript.HERO_CHARACTER_ID)])
+	var party_ids: Array[String] = []
+	for character_id in payload.get("character_ids", [SpringRunScript.HERO_CHARACTER_ID]):
+		party_ids.append(str(character_id))
+	var definition := SpringEncounterCatalogScript.build(encounter_id, party_ids)
 	if definition == null:
 		push_error("春之境：遭遇 %s 无法构建，直接返回地图。" % String(encounter_id))
 		SpringBattleBridgeScript.last_result = {
@@ -106,17 +109,34 @@ func _begin_spring_fight() -> void:
 	LootCatalogScript.seed_rng(loot_seed)
 	run_state.loot_seed = loot_seed
 	_start_level(0)
+	_restore_spring_party_vitals(payload)
 
 ## Hands the outcome back to the map scene. Called from the settlement button.
-func _return_to_map() -> void:
-	var hero = controller.get_active_character()
+func _spring_run_lead():
 	var payload: Dictionary = SpringBattleBridgeScript.pending
+	var party_ids: Array = payload.get("character_ids", [SpringRunScript.HERO_CHARACTER_ID])
+	if party_ids.is_empty():
+		return controller.get_active_character()
+	return controller.actors.get(str(party_ids[0]))
+
+func _restore_spring_party_vitals(payload: Dictionary) -> void:
+	SpringBattleBridgeScript.restore_party_vitals(controller, payload)
+
+func _return_to_map() -> void:
+	var hero = _spring_run_lead()
+	var payload: Dictionary = SpringBattleBridgeScript.pending
+	var party_vitals: Dictionary = {}
+	for actor_id in controller.actors:
+		var actor = controller.actors[actor_id]
+		if actor.team == "player":
+			party_vitals[str(actor_id)] = {"health": actor.health, "max_health": actor.max_health}
 	var result := {
 		"result": controller.battle_result,
 		"kind": str(payload.get("kind", SpringBattleBridgeScript.KIND_BATTLE)),
 		"place": str(payload.get("place", "")),
 		"hero_health": hero.health if hero != null else 1,
 		"hero_max_health": hero.max_health if hero != null else 1,
+		"party_vitals": party_vitals,
 		"carry": SpringBattleBridgeScript.pack_carry(run_state),
 		"chests_saved": pending_rewards.size(),
 		"loot": pending_rewards.duplicate(true),
@@ -557,7 +577,7 @@ func _on_battle_finished(result: String) -> void:
 	var rewards_saved := BattleRewards.settle(controller, spring_mode, atelier_save_path)
 	if result == "victory":
 		pending_rewards = controller.collect_remaining_chests()
-		var hero = controller.get_active_character()
+		var hero = _spring_run_lead() if spring_mode else controller.get_active_character()
 		if hero != null and run_state != null:
 			run_state.sync_from_actor(hero)
 		if spring_mode:

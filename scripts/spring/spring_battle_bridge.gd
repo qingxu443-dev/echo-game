@@ -2,6 +2,8 @@ class_name SpringBattleBridge
 extends RefCounted
 
 const RegionProgressionScript = preload("res://scripts/spring/spring_region_progression.gd")
+const SquadLoadoutStoreScript = preload("res://scripts/meta/squad_loadout_store.gd")
+const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 ## Carries one fight between the map scene and the battle scene.
 ##
@@ -82,9 +84,42 @@ static func consume_result() -> Dictionary:
 static func prepare(run, encounter_id: StringName, place_id: StringName, kind: String = KIND_BATTLE) -> bool:
 	if not SpringEncounterCatalog.has_encounter(encounter_id):
 		return false
+	if run.party_character_ids.is_empty():
+		run.party_character_ids = SquadLoadoutStoreScript.active_character_ids()
+	if run.party_character_ids.is_empty():
+		run.party_character_ids = [SpringRun.HERO_CHARACTER_ID]
+	if run.party_character_ids.size() > 3:
+		return false
+	var seen_party: Dictionary = {}
+	for character_id in run.party_character_ids:
+		if seen_party.has(character_id) or not CharacterCatalogScript.has_definition(character_id):
+			return false
+		seen_party[character_id] = true
+	var lead = CharacterCatalogScript.get_definition(run.party_character_ids[0])
+	if lead == null:
+		return false
+	if run.party_vitals.is_empty():
+		var lead_changed: bool = run.hero_character_id != String(lead.character_id)
+		var previous_max_health: int = run.effective_max_health()
+		var health_ratio: float = clampf(float(run.hero_health) / float(maxi(1, previous_max_health)), 0.0, 1.0)
+		run.hero_character_id = String(lead.character_id)
+		run.hero_base_max_health = lead.max_health
+		run.hero_base_attack = lead.attack
+		run.hero_base_defense = lead.defense
+		run.hero_base_magic_resistance = lead.magic_resistance
+		run.hero_max_health = run.effective_max_health()
+		if lead_changed:
+			run.hero_health = clampi(roundi(float(run.hero_max_health) * health_ratio), 1, run.hero_max_health)
 	suspended_map = run.to_dict()
 	pending = {
 		"encounter": encounter_id,
+		"character_ids": run.party_character_ids.duplicate(),
+		"party_vitals": run.party_vitals.duplicate(true),
+		"hero_character_id": run.hero_character_id,
+		"hero_base_max_health": run.hero_base_max_health,
+		"hero_base_attack": run.hero_base_attack,
+		"hero_base_defense": run.hero_base_defense,
+		"hero_base_magic_resistance": run.hero_base_magic_resistance,
 		"place": place_id,
 		"kind": kind,
 		"hero_health": run.hero_health,
@@ -104,10 +139,10 @@ static func prepare(run, encounter_id: StringName, place_id: StringName, kind: S
 ## test can assert the mapping without touching a scene.
 static func apply_payload(run_state, payload: Dictionary) -> void:
 	run_state.reset(
-		SpringRun.HERO_BASE_MAX_HEALTH + int(payload.get("relic_max_health", 0)),
-		SpringRun.HERO_BASE_ATTACK + int(payload.get("relic_attack", 0)),
-		SpringRun.HERO_BASE_DEFENSE + int(payload.get("relic_defense", 0)),
-		SpringRun.HERO_BASE_MAGIC_RESISTANCE
+		int(payload.get("hero_base_max_health", SpringRun.HERO_BASE_MAX_HEALTH)) + int(payload.get("relic_max_health", 0)),
+		int(payload.get("hero_base_attack", SpringRun.HERO_BASE_ATTACK)) + int(payload.get("relic_attack", 0)),
+		int(payload.get("hero_base_defense", SpringRun.HERO_BASE_DEFENSE)) + int(payload.get("relic_defense", 0)),
+		int(payload.get("hero_base_magic_resistance", SpringRun.HERO_BASE_MAGIC_RESISTANCE))
 	)
 	run_state.bonus_max_health = int(payload.get("bonus_max_health", 0))
 	run_state.hero_max_health = run_state.effective_max_health()
@@ -121,6 +156,21 @@ static func apply_payload(run_state, payload: Dictionary) -> void:
 	run_state.backpack.clear()
 	for item in carry.get("backpack", []):
 		run_state.backpack.append((item as Dictionary).duplicate(true))
+
+
+## Restore the prepared party snapshot after encounter actors have been created.
+## CONTRACT: _test_party_vitals_enter_the_battle_scene
+static func restore_party_vitals(battle, payload: Dictionary) -> void:
+	var saved: Dictionary = payload.get("party_vitals", {})
+	for character_id in saved:
+		var actor = battle.actors.get(str(character_id))
+		var vitals: Dictionary = saved[character_id]
+		if actor == null or actor.team != "player":
+			continue
+		actor.max_health = maxi(1, int(vitals.get("max_health", actor.max_health)))
+		actor.health = clampi(int(vitals.get("health", actor.health)), 0, actor.max_health)
+		actor._is_downed = actor.health <= 0
+		actor._is_defeated = false
 
 
 ## Packs what the battle left behind so it can be written onto the run.
@@ -157,6 +207,8 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 		"hero_max_health": int(result.get("hero_max_health", run.effective_max_health())),
 		"carry": result.get("carry", run.battle_carry),
 	})
+	if result.get("party_vitals", {}) is Dictionary:
+		run.party_vitals = result.get("party_vitals", {}).duplicate(true)
 
 	if place_id != &"":
 		run.exploration.mark_completed(place_id)
@@ -294,6 +346,11 @@ static func continue_run(run) -> Dictionary:
 		outcome["message"] = "补给不足。"
 		return outcome
 	run.hero_health = maxi(1, int(round(float(run.effective_max_health()) * CONTINUE_HEALTH_FRACTION)))
+	for character_id in run.party_vitals:
+		var vitals: Dictionary = run.party_vitals[character_id]
+		var member_max: int = maxi(1, int(vitals.get("max_health", 1)))
+		vitals["health"] = maxi(1, int(round(float(member_max) * CONTINUE_HEALTH_FRACTION)))
+		run.party_vitals[character_id] = vitals
 	run.revive_used = true
 	outcome["ok"] = true
 	outcome["message"] = "消耗 %d 份补给续行，回复至 %d / %d。" % [CONTINUE_SUPPLY_COST, run.hero_health, run.effective_max_health()]

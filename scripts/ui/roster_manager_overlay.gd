@@ -389,21 +389,22 @@ func _on_member_selected(option_index: int, slot: int) -> void:
 		if not value.is_empty():
 			compact.append(value)
 	if not SquadStoreScript.set_team_members(selected_team_index, compact):
+		var error: String = SquadStoreScript.last_error
 		_rebuild()
 		if status_label != null:
-			status_label.text = "保存失败：当前出战队伍至少需要 1 人；同队不能重复，且每队最多 3 人。"
+			status_label.text = error if not error.is_empty() else "保存失败：当前出战队伍至少需要 1 人；同队不能重复，且每队最多 3 人。"
 		return
 	_rebuild()
 
 func _save_team_name() -> void:
 	if not SquadStoreScript.set_team_name(selected_team_index, team_name_edit.text):
-		status_label.text = "名称不能为空。"
+		status_label.text = SquadStoreScript.last_error if not SquadStoreScript.last_error.is_empty() else "名称不能为空。"
 		return
 	_rebuild()
 
 func _activate_team() -> void:
 	if not SquadStoreScript.set_active_team(selected_team_index):
-		status_label.text = "编队保存失败，请重试。"
+		status_label.text = SquadStoreScript.last_error if not SquadStoreScript.last_error.is_empty() else "编队保存失败，请重试。"
 		return
 	_rebuild()
 

@@ -9,7 +9,7 @@ const STYLES := {
 	"blight": [P.HAZARD_BLIGHT_FILL, P.HAZARD_BLIGHT_LINE],
 	"spring": [P.HAZARD_SPRING_FILL, P.HAZARD_SPRING_LINE],
 }
-## One fill per tile; distinct inset borders preserve overlapping attack types.
+## One fill/border per tile; short colored corners preserve overlapping types.
 const PRIORITY := ["charge", "pulse", "shot", "blight", "spring"]
 const ACTION_STYLES := {
 	"charged_strike": "charge", "sakura_shock": "charge", "basic_melee": "charge", "shadow_raid": "charge",
@@ -56,16 +56,15 @@ static func build(controller) -> Dictionary:
 
 
 static func draw(canvas: CanvasItem, controller, time: float) -> void:
-	var pulse := 0.80 + 0.20 * sin(time * 5.2)
+	var pulse := 0.94 + 0.06 * sin(time * 3.0)
 	var tiles := build(controller)
 	for cell in tiles:
 		var styles: Array = tiles[cell]
 		var fill: Color = STYLES[styles[0]][0]
 		var outer := P.cell_diamond(cell, 1.5)
-		canvas.draw_colored_polygon(outer, Color(fill.r, fill.g, fill.b, fill.a * pulse))
-		for index in range(styles.size()):
+		canvas.draw_colored_polygon(outer, Color(fill.r, fill.g, fill.b, fill.a * pulse * 0.62))
+		var primary: Color = STYLES[styles[0]][1]
+		P.draw_polyline_closed(canvas, outer, Color(primary.r, primary.g, primary.b, 0.85), 1.4)
+		for index in range(1, styles.size()):
 			var line: Color = STYLES[styles[index]][1]
-			P.draw_polyline_closed(canvas, P.cell_diamond(cell, 2.0 + index * 4.0), line, 2.5)
-		var stripe: Color = STYLES[styles[0]][1]
-		for fraction in [0.25, 0.5, 0.75]:
-			canvas.draw_line(outer[0].lerp(outer[3], fraction), outer[1].lerp(outer[2], fraction), Color(stripe.r, stripe.g, stripe.b, 0.4 * pulse), 1.5, true)
+			P.draw_corner_marks(canvas, outer, line, 2.4, index - 1)

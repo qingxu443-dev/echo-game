@@ -96,6 +96,7 @@ static func _draw_ward_node_tethers(canvas: CanvasItem, controller, fx_state: Di
 
 static func draw_formation_links(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
 	_draw_ward_node_tethers(canvas, controller, fx_state)
+	if _focused_source_ids(controller, fx_state).is_empty(): return
 	var formation: Dictionary = IntentPlannerScript.analyze_formation(controller)
 	if formation.is_empty():
 		return
@@ -194,6 +195,7 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 				if not controller.blocked_cells.has(rc):
 					_draw_caution_tile(canvas, rc, Color(1.0, 0.62, 0.16), 0.90 if hero_on_rc or (is_focus and has_focus) else 0.50)
 
+		if not has_focus or not is_focus: continue
 		match intent.action_id:
 			"ground_pulse", "echo_bolt":
 				if source != null and source.is_alive():
@@ -296,18 +298,21 @@ static func _projected_entries(controller, cell: Vector2i, active: Array, focuse
 	return entries
 
 
-static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
-	var focused := _focused_source_ids(controller, fx_state)
+## CONTRACT: _test_compact_threat_labels
+static func label_entries(controller, fx_state: Dictionary) -> Dictionary:
 	var active := _active_intents(controller)
 	var buckets: Dictionary = {}
-	for intent in active:
-		var cell: Vector2i = intent.target_cell
-		if intent.target_mode == IntentScript.TargetMode.ACTOR_LOCKED:
-			var target = controller.get_actor(intent.target_actor_id)
-			if target != null:
-				cell = target.cell
-		if not buckets.has(cell):
-			buckets[cell] = _projected_entries(controller, cell, active, focused)
+	var hero = controller.get_active_character()
+	if hero != null and hero.is_alive():
+		buckets[hero.cell] = _projected_entries(controller, hero.cell, active)
+	var hover: Vector2i = fx_state.get("hover_cell", Vector2i(-1, -1))
+	if P.is_inside_board(hover, controller.grid_size) and not buckets.has(hover):
+		buckets[hover] = _projected_entries(controller, hover, active)
+	return buckets
+
+
+static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	var buckets := label_entries(controller, fx_state)
 
 	# Render AT MOST ONE tiny chip per tile (near floor center, never a tall tower
 	# blocking standees behind it). Full multi-hit breakdown lives above the hero HUD.
@@ -503,7 +508,7 @@ static func draw_danger_vignette(canvas: CanvasItem, controller, fx_state: Dicti
 		return
 	var t: float = float(fx_state.get("time", 0.0))
 	var breath: float = 0.45 + 0.55 * sin(t * 3.8)
-	var max_alpha: float = 0.16 * breath
+	var max_alpha: float = 0.065 * breath
 	var w: float = P.VIEW_SIZE.x
 	var h: float = P.VIEW_SIZE.y
 	var edge_x: float = 110.0

@@ -24,6 +24,7 @@ func _run() -> void:
 	_check(battle.damage_taken == 0, "player skill does not count as damage taken")
 
 	var player = battle.get_actor("sevrin")
+	player.health = 100000
 	var player_health_before: int = player.health
 	battle.end_player_turn()
 	var taken: int = player_health_before - player.health

@@ -119,8 +119,8 @@ func _test_resources_round_trip() -> void:
 	run.add_dew("spring", 3)
 	run.add_dew("winter", 2)
 	run.memory_pages = 4
-	run.add_relic(&"relic_petal")
-	run.add_relic(&"relic_echo")
+	run.add_relic(&"relic_spring_charm")
+	run.add_relic(&"relic_old_hairpin")
 
 	var restored := SpringRun.from_dict(run.to_dict())
 	_check(restored.coins == 47, "coins survive a save")
@@ -129,7 +129,7 @@ func _test_resources_round_trip() -> void:
 	_check(int(restored.dew["spring"]) == 3 and int(restored.dew["winter"]) == 2, "each 花露 keeps its own count")
 	_check(restored.dew_total() == 5, "the 花露 total is still the sum of the four")
 	_check(restored.memory_pages == 4, "记忆残页 survive a save")
-	_check(restored.relics.size() == 2 and restored.relics[1] == &"relic_echo", "relics keep their order")
+	_check(restored.relics.size() == 2 and restored.relics[1] == &"relic_old_hairpin", "relics keep their order")
 
 
 func _test_progress_round_trip() -> void:

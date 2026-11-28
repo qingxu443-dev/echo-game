@@ -109,7 +109,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `sakura_skill_catalog.gd` | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | 春之境出战；教学遗迹使用瑟弗林 |
 | `enemy_definition.gd` | 敌人属性档案 Resource | 数值外置于 `data/enemies/*.tres` |
 | `enemy_catalog.gd` | 从显式资源清单加载敌人和动作优先级 | 敌人动作由招式目录校验 |
-| `enemy_actor_factory.gd` | 从 EnemyDefinition 生成实际敌人属性与招式字段 | 初始生成和 Boss 二阶段援军共享字段映射；遭遇倍率由 BattleFlow 明确应用 |
+| `enemy_actor_factory.gd` | 从 EnemyDefinition 生成实际敌人属性与招式字段 | 初始生成和 Boss 二阶段援军共享四项属性倍率；技能固定伤害不缩放，援军生命覆盖值先覆盖再乘倍率 |
 | `elite_skills.gd` | 九条精英与 Boss 专属技的几何：给友军上盾、留地格、两段式锁命、带路径突袭、降防 | 与规划器同签名 `(battle, enemy, target)`；加一条专属技只改本文件与数据表 |
 | `enemy_skill_catalog.gd` | 16 条敌人招式的数值表：倍率、射程、伤害类型、充能门槛、地格比例 | **所有敌人技能数字的唯一来源**；未注册的 action 会报错而不是退化成近战 |
 | `enemy_skill_definition.gd` | 单条敌人招式的数据结构（Resource），与玩家侧 `SkillDefinition` 对称 | 带 `is_valid()`；`damage_multiplier == 0` 表示「用档案里的 skill_damage」 |
@@ -234,6 +234,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | 低 | TASK_PLAN 的 601～612 | 法则覆写、余震、永久进度、条件藏品、新区域、角色成长、剧情/序幕与契约仍有规则、立项或资产依赖 | 先形成各工作包的规则与资源输入；Android 明确暂缓 |
 
 控制器宝箱/掉落职责提取后，模块行数存量豁免已清空。`BattleController` 仍持有战斗权威状态，协作者接收显式 battle 参数；新增机制应避免循环预加载和模块间暗改状态。当前报告不把待设计内容记作代码缺陷，具体未决关系见 [决策登记](../decisions/CURRENT_SCOPE_AND_DECISIONS.md)，验收步骤与反馈见 [Windows 交接](../../delivery/WINDOWS_DELIVERY.md)。
+
+2026-11-28 后续缺陷（中，已修）：`BattleFlow.start_encounter()` 原来只在初始化后乘属性倍率，`TacticalPressure._trigger_boss_enrage()` 直接按原档案生成护卫。Boss 战二阶段的攻击因此出现 1040/1120，而非该战 1.2 倍要求的 1248/1344。现由控制器持有遭遇倍率，EnemyActorFactory 在初始/援军两入口统一缩放生命、攻击、防御与法抗；技能固定伤害与基础招式倍率保持目录值。倍率随暂停快照保存，每次新遭遇重设；旧快照缺字段默认 1.0，保留旧进行中战斗的行为，不追溯重算已有单位属性。真实技能触发、控制器复用、JSON 暂停恢复和旧档均有回归。
 
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。
 

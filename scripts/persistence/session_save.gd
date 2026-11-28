@@ -41,6 +41,9 @@ static func valid(data: Dictionary) -> bool:
 	if not data.get("intents") is Array or not data.get("run_state") is Dictionary: return false
 	if data.actors.is_empty() or data.actors.size() > 64 or data.intents.size() > 256: return false
 	var state: Dictionary = data.controller
+	var scaling: Variant = state.get("enemy_stat_multiplier", 1.0)
+	if not (scaling is float or scaling is int): return false
+	if not is_finite(float(scaling)) or float(scaling) <= 0.0: return false
 	if not state.get("grid_size") is Vector2i: return false
 	if state.grid_size.x < 1 or state.grid_size.y < 1 or state.grid_size.x > 32 or state.grid_size.y > 32: return false
 	if int(state.get("phase", -1)) not in [0, 1, 2, 3]: return false

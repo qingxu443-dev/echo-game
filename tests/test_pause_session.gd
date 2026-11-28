@@ -13,6 +13,8 @@ func _run() -> void:
 	shell.animations_enabled = false
 	await _test_pause_freezes_enemy_and_all_buttons()
 	await _test_battle_roundtrip()
+	await _test_reinforcement_scaling_roundtrip(false)
+	await _test_reinforcement_scaling_roundtrip(true)
 	await _test_spring_and_map_roundtrip()
 	_test_invalid_save_and_failed_write()
 	await _test_return_to_title_actions()
@@ -21,6 +23,8 @@ func _run() -> void:
 	SessionSave.path_override = ""
 	shell.resume()
 	for voice in shell.audio.voices: voice.stop()
+	# Let the audio server release the phase-transition chime before tree exit.
+	await create_timer(0.05, true).timeout
 
 
 func _battle() -> Node:
@@ -96,6 +100,43 @@ func _test_battle_roundtrip() -> void:
 		_check(JSON.stringify(SessionCodec.encode(snapshot[key])) == JSON.stringify(SessionCodec.encode(after[key])), "resume restores exact %s state without replaying actions" % key)
 	_check(not FileAccess.file_exists(SessionSave.path()), "successful resume consumes the suspend slot to prevent reward replay")
 	shell.resume()
+	resumed.queue_free()
+	await process_frame
+
+
+func _test_reinforcement_scaling_roundtrip(legacy: bool) -> void:
+	var view := _battle()
+	await process_frame
+	var battle: BattleController = view.controller
+	_check(battle.start_encounter(Vector2i(3, 3), [Vector2i(4, 3)], [], ["boss_thousand_boughs"], ["sevrin"], [], [], 0, [], false, 1.2), "pause fixture starts a scaled boss encounter")
+	view.controller.beacons.clear()
+	var snapshot := BattleSession.capture(view)
+	if legacy:
+		snapshot.controller.erase("enemy_stat_multiplier")
+		_check(SessionSave.valid(snapshot), "older checkpoint without multiplier remains valid")
+	else:
+		_check(is_equal_approx(float(snapshot.controller.get("enemy_stat_multiplier", 0.0)), 1.2), "snapshot records encounter scaling before phase two")
+		for invalid in [0.0, -1.0, "1.2", NAN, INF]:
+			var broken := snapshot.duplicate(true)
+			broken.controller.enemy_stat_multiplier = invalid
+			_check(not SessionSave.valid(broken), "invalid multiplier is rejected before restore: %s" % str(invalid))
+	_check(SessionSave.write(snapshot), "scaled checkpoint writes through the real JSON path")
+	_check(SessionSave.stage() == SessionSave.BATTLE_PATH, "checkpoint routes to battle after disk reload")
+	view.queue_free()
+	await process_frame
+	var resumed := _battle()
+	await process_frame
+	var expected := 1.0 if legacy else 1.2
+	_check(is_equal_approx(float(resumed.controller.get("enemy_stat_multiplier")), expected), "restore keeps scaling and defaults old checkpoints to one")
+	var boss = resumed.controller.get_actor("boss_thousand_boughs_00")
+	boss.health = int(boss.max_health / 2) + 1
+	resumed.controller._apply_damage(boss.actor_id, 100, "sevrin", "pause_scale_probe", "true")
+	var count := 0
+	for actor in resumed.controller.actors.values():
+		if not str(actor.actor_id).begins_with("escort_"): continue
+		count += 1
+		_check(actor.attack == roundi(EnemyCatalog.get_definition(actor.archetype).attack * expected), "reinforcement after resume uses the checkpoint multiplier")
+	_check(count == 2, "resumed boss actually reaches phase two and summons escorts")
 	resumed.queue_free()
 	await process_frame
 

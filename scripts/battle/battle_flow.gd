@@ -37,7 +37,7 @@ static func start_encounter(
 ) -> bool:
 	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
 		return false
-	if enemy_stat_multiplier <= 0.0:
+	if not is_finite(enemy_stat_multiplier) or enemy_stat_multiplier <= 0.0:
 		return false
 	if not GridRulesScript.is_inside_bounds(player_cell, battle.grid_size):
 		return false
@@ -93,6 +93,7 @@ static func start_encounter(
 	battle.dropped_loot.clear()
 	battle.statuses.clear_all()
 	battle.ledger.reset_for_encounter()
+	battle.enemy_stat_multiplier = enemy_stat_multiplier
 	TacticalPressureScript.reset_turn_tolerance(battle)
 	battle.blocked_cells = candidate_blockers
 	battle.intents.clear()
@@ -132,15 +133,7 @@ static func start_encounter(
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
 		var enemy_id := "%s_%02d" % [archetype, index]
 		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
-		var enemy_unit = EnemyActorFactory.create(profile, enemy_id, cell)
-		# Boss encounters can scale the four core sheet stats without changing
-		# signature-skill damage, which remains authored independently in the sheet.
-		if not is_equal_approx(enemy_stat_multiplier, 1.0):
-			enemy_unit.max_health = roundi(float(profile.health) * enemy_stat_multiplier)
-			enemy_unit.health = enemy_unit.max_health
-			enemy_unit.attack = roundi(float(profile.attack) * enemy_stat_multiplier)
-			enemy_unit.defense = roundi(float(profile.defense) * enemy_stat_multiplier)
-			enemy_unit.magic_resistance = roundi(float(profile.magic_resistance) * enemy_stat_multiplier)
+		var enemy_unit = EnemyActorFactory.create(profile, enemy_id, cell, -1, battle.enemy_stat_multiplier)
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		TacticalPressureScript.init_enemy_pressure(enemy_unit)

@@ -146,7 +146,15 @@ func _test_equipped_modules_apply_to_battle() -> void:
 		"attributes": {"attack": 4.0},
 		"created_seed": 6006,
 	}
-	var crit_module := Catalog.create_large("crit_rate", rng, "battle_crit_1")
+	var crit_module := {
+		"instance_id": "battle_crit_1",
+		"size": Catalog.SIZE_LARGE,
+		"capacity": 3,
+		"main_stat": "crit_rate",
+		"sub_stat": "health",
+		"attributes": {"crit_rate": 2.5, "health": 1.0},
+		"created_seed": 6007,
+	}
 	var battle_modules: Array[Dictionary] = [attack_module, crit_module]
 	_check(store.add_modules(battle_modules), "battle test modules are added")
 	_check(store.install("sevrin", 0, str(attack_module.instance_id)).ok, "attack module is equipped")

@@ -151,28 +151,14 @@ static func redirect_to_guardian(battle, intent, guardian_id: String) -> void:
 	var actors = battle.actors
 	if not actors.has(guardian_id) or not actors[guardian_id].is_alive() or not actors.has(intent.source_actor_id):
 		return
+	# Absolute Guard redirects single-target attacks regardless of whether the
+	# intent follows an actor or locks a tile. Area attacks keep their original
+	# geometry; moving an entire blast would silently change the enemy skill.
 	if intent.target_mode != BattleIntentScript.TargetMode.ACTOR_LOCKED and intent.target_mode != BattleIntentScript.TargetMode.TILE_LOCKED:
 		return
-	var source = actors[intent.source_actor_id]
-	var target = actors[guardian_id]
-	var distance: int = GridRulesScript.manhattan_distance(source.cell, target.cell)
-	var legal := false
-	match intent.action_id:
-		"basic_melee":
-			# Actor-locked attacks are dodge-proof by design: they track their
-			# target without re-checking distance at resolve time. A melee is
-			# Taunt is battlefield-wide: all enemy melee actions are redirected
-			# while the guard status remains active.
-			legal = true
-		_:
-			# Charged strikes are AREA_LOCKED sweeps; the mode filter above
-			# already excludes them, and a sweep has nothing to redirect.
-			return
-	if not legal:
+	if intent.action_id in ["wait", "pursuit", "ward_ally", "ward_stance", "lock_on"]:
 		return
-	# Record the pull on the intent: the tile-slot re-check in the resolver
-	# must know this intent was redirected, or it cancels the two-cell melee
-	# the taunt just made legal.
+	var target = actors[guardian_id]
 	intent.target_actor_id = guardian_id
 	intent.target_cell = target.cell
 	var redirected_cells: Array[Vector2i] = [target.cell]
@@ -182,15 +168,15 @@ static func redirect_to_guardian(battle, intent, guardian_id: String) -> void:
 
 static func absolute_guard_counter(battle, intent) -> void:
 	var actors = battle.actors
-	var statuses = battle.statuses
 	var guardian_id: String = battle.get_absolute_guardian()
 	if guardian_id.is_empty() or not actors.has(guardian_id) or not actors[guardian_id].is_alive():
 		return
 	if not actors.has(intent.source_actor_id) or not actors[intent.source_actor_id].is_alive():
 		return
-	if battle.ledger.absolute_guard_countered_enemies.has(intent.source_actor_id):
-		return
-	battle.ledger.absolute_guard_countered_enemies[intent.source_actor_id] = true
+	# resolve_one_active calls this once after resolving each intent, and
+	# absolute_guard_hit_intents is keyed by intent_id. This naturally allows
+	# separate actions from the same enemy to each trigger one counter, while
+	# multi-hit damage inside one intent still produces only one counter.
 	var guardian = actors[guardian_id]
 	var attacker = actors[intent.source_actor_id]
 	var raw_damage: int = CombatMathScript.calculate_raw_damage(guardian.defense, ABSOLUTE_GUARD_COUNTER_MULTIPLIER)

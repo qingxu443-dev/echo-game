@@ -258,6 +258,11 @@ func _test_guard_taunt_redirects_single_target_ranged_intents() -> void:
 	var locked_shot = IntentScript.new("taunt_locked_shot", "vanguard_00", "locked_shot", IntentScript.TargetMode.ACTOR_LOCKED, "vanguard_00", Vector2i(1, 1), [Vector2i(1, 1)], 100)
 	IntentResolverScript.redirect_to_guardian(battle, locked_shot, guardian.actor_id)
 	_check(locked_shot.target_actor_id == guardian.actor_id, "actor-locked elite shot is redirected away from its previous mark")
+	var far_melee = IntentScript.new("taunt_far_melee", "vanguard_00", "basic_melee", IntentScript.TargetMode.ACTOR_LOCKED, "sevrin", guardian.cell, [guardian.cell], 100)
+	var guardian_health_before: int = guardian.health
+	IntentResolverScript.redirect_to_guardian(battle, far_melee, guardian.actor_id)
+	IntentResolverScript._tile_locked_attack(battle, far_melee)
+	_check(far_melee.state == IntentScript.IntentState.CANCELED and guardian.health == guardian_health_before, "battlefield-wide taunt never turns a distant melee into a teleport strike")
 	var sweep = IntentScript.new("taunt_area", "vanguard_00", "charged_strike", IntentScript.TargetMode.AREA_LOCKED, "", Vector2i(1, 1), [Vector2i(1, 1)], 100)
 	IntentResolverScript.redirect_to_guardian(battle, sweep, guardian.actor_id)
 	_check(sweep.affected_cells == [Vector2i(1, 1)] and sweep.target_actor_id.is_empty(), "area attacks retain their telegraphed geometry")

@@ -68,7 +68,9 @@ static func invalid_field(data: Dictionary) -> String:
 			return "party_vitals." + str(character_id)
 
 	var hero: Dictionary = data.get("hero", {})
-	for key in ["health", "bonus_max_health", "carry_max_health"]:
+	if not _is_text(hero.get("character_id", "sakura")):
+		return "hero.character_id"
+	for key in ["health", "bonus_max_health", "carry_max_health", "base_max_health", "base_attack", "base_defense", "base_magic_resistance"]:
 		if not _whole_number(hero.get(key, 0)) or hero.get(key, 0) < 0:
 			return "hero." + key
 	var carry: Dictionary = data.get("battle_carry", {})

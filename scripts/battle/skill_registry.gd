@@ -19,6 +19,7 @@ extends RefCounted
 
 const OathkeeperCatalogScript = preload("res://scripts/battle/oathkeeper_v2_skill_catalog.gd")
 const SakuraCatalogScript = preload("res://scripts/battle/sakura_skill_catalog.gd")
+const DestLeeCatalogScript = preload("res://scripts/battle/dest_lee_skill_catalog.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 
 ## Built on first use. GDScript statics live for the process, which is what makes
@@ -35,6 +36,7 @@ static func _ensure_built() -> void:
 	_skills.append_array(OathkeeperCatalogScript.create_prototype_skills())
 	_skills.append(OathkeeperCatalogScript.create_passive_skill())
 	_skills.append_array(SakuraCatalogScript.create_skills())
+	_skills.append_array(DestLeeCatalogScript.create_skills())
 	for skill in _skills:
 		# A duplicated id would silently shadow an earlier skill, and the symptom
 		# would be a button that casts something else.

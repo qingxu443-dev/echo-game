@@ -50,6 +50,24 @@ func _run() -> void:
 
 		if result.is_empty():
 			print(_row(name, "NO RESULT (crashed or failed to parse)"))
+			var diagnostics := 0
+			for line in text.split("\n"):
+				var trimmed := line.strip_edges()
+				if trimmed.is_empty():
+					continue
+				if trimmed.contains("SCRIPT ERROR") or trimmed.contains("Parse Error") or trimmed.contains("ERROR:") or trimmed.contains("Invalid type"):
+					print("  " + trimmed.substr(0, 220))
+					diagnostics += 1
+					if diagnostics >= 8:
+						break
+			if diagnostics == 0:
+				for line in text.split("\n"):
+					var trimmed := line.strip_edges()
+					if not trimmed.is_empty():
+						print("  " + trimmed.substr(0, 220))
+						diagnostics += 1
+						if diagnostics >= 5:
+							break
 			broken += 1
 			continue
 

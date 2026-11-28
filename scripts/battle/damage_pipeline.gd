@@ -48,7 +48,17 @@ static func apply(
 		battle._emit_event("status_consumed", source_actor_id, target_actor_id, "status=oathkeeper_mark mult=%.2f" % vuln_mult)
 
 	effective_amount = TacticalPressureScript.adjust_incoming_damage(battle, target, effective_amount, action_id)
-	var damage_result: Dictionary = target.apply_damage_with_result(effective_amount, damage_type)
+	var critical_multiplier := 1.0
+	var attacker = actors.get(source_actor_id)
+	if attacker != null and attacker.team == "player" and float(attacker.crit_rate) > 0.0:
+		# Hash the persisted action sequence so critical rolls remain reproducible
+		# after a suspended battle is resumed.
+		var roll_key := "%s|%s|%d|%d|%s" % [source_actor_id, target_actor_id, battle.turn_number, battle.event_sequence, action_id]
+		var roll := float(posmod(hash(roll_key), 10000)) / 100.0
+		if roll < clampf(float(attacker.crit_rate), 0.0, 100.0):
+			critical_multiplier = maxf(1.0, float(attacker.crit_damage) / 100.0)
+	var no_additional_reductions: Array[int] = []
+	var damage_result: Dictionary = target.apply_damage_with_result(effective_amount, damage_type, 0, no_additional_reductions, critical_multiplier)
 	var applied: int = int(damage_result.get("health_damage", 0))
 	var was_hit: bool = bool(damage_result.get("hit", false))
 
@@ -82,7 +92,7 @@ static func apply(
 		elif target.team == "player":
 			battle.damage_taken += applied
 
-	battle._emit_event("damage_applied", source_actor_id, target_actor_id, "action=%s type=%s public_intent=%s raw=%d absorbed=%d applied=%d health=%d shield=%d" % [action_id, damage_type, str(is_public_intent), amount, int(damage_result.get("absorbed", 0)), applied, target.health, target.shield])
+	battle._emit_event("damage_applied", source_actor_id, target_actor_id, "action=%s type=%s public_intent=%s critical=%s raw=%d absorbed=%d applied=%d health=%d shield=%d" % [action_id, damage_type, str(is_public_intent), str(damage_result.get("was_critical", false)), amount, int(damage_result.get("absorbed", 0)), applied, target.health, target.shield])
 
 	if target.is_defeated():
 		# Snapshot death-time statuses before generic defeat cleanup removes them.
@@ -100,5 +110,4 @@ static func apply(
 		battle._emit_event("actor_defeated", target_actor_id, "", "enemy")
 		TacticalPressureScript.on_enemy_defeated(battle, target)
 	elif was_hit and target.team == "enemy" and target.is_alive():
-		var attacker = actors.get(source_actor_id)
 		TacticalPressureScript.on_enemy_hit(battle, attacker, target, action_id)

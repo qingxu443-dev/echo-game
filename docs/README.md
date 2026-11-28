@@ -43,6 +43,7 @@
 | [`ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2`](design/systems/ECHO_COMBAT_SYSTEM_AND_CHARACTER_NUMERICAL_PLAN_v0.3.2_zh-CN.md) | **当前主规格**：队伍、共享 AP、伤害管线、状态、角色与技能结构 |
 | [`battle_status_system`](design/systems/battle_status_system_zh-CN.md) | 状态容器、叠层策略、生命周期与已接入状态清单 |
 | [`skill_design_principles`](design/systems/skill_design_principles_zh-CN.md) | 技能与关卡的表达原则、数据要求与验收标准 |
+| [`FRAGMENT_SYSTEM_AND_COMMUNICATIONS_TERMINAL_v0.1`](design/systems/FRAGMENT_SYSTEM_AND_COMMUNICATIONS_TERMINAL_v0.1_zh-CN.md) | 残片模块生成、角色构筑、通讯终端与本地奖励邮件规则 |
 
 ## 角色与技能（`design/characters/`）
 

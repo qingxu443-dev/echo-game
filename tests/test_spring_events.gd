@@ -233,13 +233,14 @@ func _test_collectibles_never_duplicate() -> void:
 		after_trade += int(count)
 	_check(after_trade == 2, "the exchange consumes one item and grants two")
 
-	# Exhausting the pool must not hand out a duplicate; it reports &"" instead.
+	# Once all unique passive items are owned, only stackable active items remain.
 	var exhausted := _fresh_run()
 	for collectible_id in CollectibleCatalogScript.candidates_for("event"):
 		exhausted.grant_collectible(StringName(collectible_id))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
-	_check(exhausted.grant_random_collectible(rng) == &"", "an exhausted pool yields nothing rather than a duplicate")
+	var repeatable: StringName = exhausted.grant_random_collectible(rng)
+	_check(CollectibleCatalogScript.is_consumable(repeatable), "an exhausted passive pool only yields a repeatable consumable")
 
 	# Elite draws never contain the epic (§14).
 	for candidate_id in CollectibleCatalogScript.candidates_for("elite"):

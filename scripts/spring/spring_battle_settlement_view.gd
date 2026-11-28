@@ -137,7 +137,8 @@ func _draw() -> void:
 	draw_rect(Rect2(72.0, 54.0, 1136.0, 600.0), Color("#425968"), false, 2.0)
 	draw_line(Vector2(112.0, 160.0), Vector2(1168.0, 160.0), Color("#526a73"), 1.0)
 	var font := ThemeDB.fallback_font
-	var won := str(record.get("result", {}).get("result", "")) == "victory"
+	var battle_result: Dictionary = record.get("result", {})
+	var won := str(battle_result.get("result", "")) == "victory"
 	var title := "战斗胜利" if won else "战斗结束"
 	draw_string(font, Vector2(120.0, 122.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 34, Color("#f0dfb8"))
 	draw_string(font, Vector2(120.0, 148.0), "春之境 · 战后结算", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("#a9c1c7"))

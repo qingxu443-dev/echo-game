@@ -63,6 +63,16 @@ func _test_lobby_scene_and_map_selector() -> void:
 	_check(exp_btn.position.x > 640.0 and exp_btn.position.y > 360.0, "the Select Map button sits in the bottom-right quadrant")
 	_check(exp_btn.end.x <= 1280.0 and exp_btn.end.y <= 720.0, "the Select Map button stays inside the 1280x720 viewport")
 	_check(not lobby.map_selector_open, "the map selector starts closed on lobby entry")
+	var nav = lobby.roster_nav
+	_check(ResourceLoader.exists(nav.COMMUNICATIONS_SCENE_PATH), "the communications terminal scene exists")
+	var nav_rects := [nav._roster_rect(lobby), nav._fragment_rect(lobby), nav._squads_rect(lobby), nav._communications_rect(lobby)]
+	var nav_layout_valid := true
+	for i in range(nav_rects.size()):
+		nav_layout_valid = nav_layout_valid and nav_rects[i].position.x >= 0.0 and nav_rects[i].end.x <= 1280.0 and nav_rects[i].end.y <= 720.0
+		for j in range(i + 1, nav_rects.size()):
+			nav_layout_valid = nav_layout_valid and not nav_rects[i].intersects(nav_rects[j])
+	_check(nav_layout_valid, "the four auxiliary lobby entries fit without overlap")
+	_check(nav.mail_unread_count >= 0 and nav.mail_pending_count >= 0, "the lobby keeps unread and pending-reward counts separate")
 
 	# Clicking the bottom-right button opens the map selector overlay.
 	lobby._handle_click(exp_btn.get_center())
@@ -86,6 +96,9 @@ func _test_lobby_scene_and_map_selector() -> void:
 
 	lobby._handle_click(lobby.close_selector_rect().get_center())
 	_check(not lobby.map_selector_open, "clicking the close button dismisses the map selector")
+	_check(nav.handle_click(lobby, nav._fragment_rect(lobby).get_center()), "the lobby fragment entry opens the fragment center")
+	_check(nav.overlay.visible and nav.overlay.current_mode == "fragments", "the fragment entry opens the integrated roster overlay in fragment mode")
+	nav.overlay.hide()
 
 	_check(ResourceLoader.exists(LobbyScript.BATTLE_SCENE_PATH), "tutorial battle scene exists at the lobby's path")
 	_check(ResourceLoader.exists(LobbyScript.SPRING_SCENE_PATH), "春之境 scene exists at the lobby's path")

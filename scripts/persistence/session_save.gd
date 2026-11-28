@@ -84,6 +84,10 @@ static func valid(data: Dictionary) -> bool:
 		if int(actor.health) > int(actor.max_health) or not GridRules.is_inside_bounds(actor.cell, state.grid_size): return false
 		for key in ["attack", "defense", "magic_resistance"]:
 			if not actor.get(key) is int or actor[key] < 0: return false
+		for key in ["crit_rate", "crit_damage", "healing_efficiency"]:
+			var attribute: Variant = actor.get(key, 0.0 if key != "crit_damage" else 150.0)
+			if not (attribute is int or attribute is float) or not is_finite(float(attribute)) or float(attribute) < 0.0: return false
+		if float(actor.get("crit_rate", 0.0)) > 100.0 or float(actor.get("crit_damage", 150.0)) < 100.0: return false
 		var actor_k: Variant = actor.get("attenuation_k", CombatMath.ATTENUATION_K)
 		if not actor_k is int or actor_k != laws.attenuation_k: return false
 		if actor.team == "player":

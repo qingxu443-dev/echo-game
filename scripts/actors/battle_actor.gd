@@ -14,6 +14,10 @@ var health: int
 var attack: int
 var defense: int
 var magic_resistance: int
+## Fragment-derived combat stats. Every character starts at 0% crit rate and 150% crit damage.
+var crit_rate: float = 0.0
+var crit_damage: float = 150.0
+var healing_efficiency: float = 0.0
 var attenuation_k: int = CombatMathScript.ATTENUATION_K
 ## Defeated / downed state is read through predicate methods, exactly like
 ## is_alive(): every state query on this class takes parentheses - is_alive(),
@@ -218,9 +222,8 @@ func apply_damage_with_result(
 	## Detailed result for new combat systems. "hit" means a valid positive
 	## damage instance reached this living actor, even if shield absorbs all of it.
 	##
-	## crit_multiplier is the §47 待决 4 hook: the pipeline has a place for a
-	## critical strike, but no skill in Prototype 0.1 feeds it anything but 1.0.
-	## The trigger condition belongs to the skill; this function only scales.
+	## crit_multiplier is supplied by DamagePipeline after the attacker’s crit
+	## rate roll. This function only applies the resolved multiplier.
 	if _is_defeated or raw_damage <= 0:
 		return {"hit": false, "absorbed": 0, "health_damage": 0, "final_damage": 0, "was_critical": false}
 	# §10.6: an unknown type used to fall through to zero resistance, which let a
@@ -279,6 +282,12 @@ func spend_resource(amount: int) -> bool:
 		return false
 	resource_current -= amount
 	return true
+
+
+func scaled_healing_amount(base_amount: int) -> int:
+	if base_amount <= 0:
+		return 0
+	return maxi(1, roundi(float(base_amount) * (1.0 + maxf(0.0, healing_efficiency) / 100.0)))
 
 
 func has_resource() -> bool:

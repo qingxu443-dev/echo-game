@@ -6,6 +6,8 @@ signal close_requested
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 const SquadStoreScript = preload("res://scripts/meta/squad_loadout_store.gd")
+const FragmentStoreScript = preload("res://scripts/fragments/fragment_store.gd")
+const FragmentCenterPanelScript = preload("res://scripts/ui/fragment_center_panel.gd")
 
 const BG := Color("#11151a")
 const PANEL := Color("#1b2027")
@@ -62,13 +64,23 @@ func _ready() -> void:
 
 func open_characters() -> void:
 	current_mode = "characters"
-	selected_character_id = ""
+	if not CharacterCatalogScript.has_definition(selected_character_id):
+		selected_character_id = ""
 	_rebuild()
 	show()
 
 func open_squads() -> void:
 	current_mode = "squads"
 	selected_team_index = SquadStoreScript.active_team_index()
+	_rebuild()
+	show()
+
+func open_fragments(character_id: String = "") -> void:
+	current_mode = "fragments"
+	if not character_id.is_empty() and CharacterCatalogScript.has_definition(character_id):
+		selected_character_id = character_id
+	if selected_character_id.is_empty() or not CharacterCatalogScript.has_definition(selected_character_id):
+		selected_character_id = CharacterCatalogScript.default_id()
 	_rebuild()
 	show()
 
@@ -114,6 +126,8 @@ func _rebuild() -> void:
 	_build_header(root)
 	if current_mode == "characters":
 		_build_characters(root)
+	elif current_mode == "fragments":
+		_build_fragments(root)
 	else:
 		_build_squads(root)
 
@@ -121,7 +135,7 @@ func _build_header(root: VBoxContainer) -> void:
 	var header := HBoxContainer.new()
 	root.add_child(header)
 	var heading := Label.new()
-	heading.text = "角色总览" if current_mode == "characters" else "队伍编成"
+	heading.text = "角色总览" if current_mode == "characters" else ("残片中心" if current_mode == "fragments" else "队伍编成")
 	heading.add_theme_font_size_override("font_size", 24)
 	heading.add_theme_color_override("font_color", GOLD)
 	header.add_child(heading)
@@ -137,6 +151,9 @@ func _build_header(root: VBoxContainer) -> void:
 	var roster_button := _make_button("角色总览", current_mode == "characters")
 	roster_button.pressed.connect(open_characters)
 	navigation.add_child(roster_button)
+	var fragment_button := _make_button("残片中心", current_mode == "fragments")
+	fragment_button.pressed.connect(open_fragments)
+	navigation.add_child(fragment_button)
 	var squad_button := _make_button("队伍编成", current_mode == "squads")
 	squad_button.pressed.connect(open_squads)
 	navigation.add_child(squad_button)
@@ -199,6 +216,33 @@ func _build_characters(root: VBoxContainer) -> void:
 		resource.text = "专属资源：%s（上限 %d）" % [definition.resource_name_zh, definition.resource_max]
 		resource.add_theme_color_override("font_color", BLUE)
 		intro_box.add_child(resource)
+	var fragment_store := FragmentStoreScript.load_store()
+	var fragment_summary := Label.new()
+	if fragment_store == null:
+		fragment_summary.text = "残片加成：存档无法读取"
+	else:
+		var hp_bonus := fragment_store.total_bonus(selected_character_id, "health")
+		var attack_bonus := fragment_store.total_bonus(selected_character_id, "attack")
+		var defense_bonus := fragment_store.total_bonus(selected_character_id, "defense")
+		var resistance_bonus := fragment_store.total_bonus(selected_character_id, "magic_resistance")
+		var crit_rate_bonus := fragment_store.total_bonus(selected_character_id, "crit_rate")
+		var crit_damage_bonus := fragment_store.total_bonus(selected_character_id, "crit_damage")
+		var healing_bonus := fragment_store.total_bonus(selected_character_id, "healing_efficiency")
+		fragment_summary.text = "残片后属性：生命 %d · 攻击 %d · 防御 %d · 魔抗 %d · 暴击率 %.1f%% · 暴击伤害 %.1f%% · 治疗效率 %.1f%%" % [
+			roundi(float(definition.max_health) * (1.0 + hp_bonus / 100.0)),
+			roundi(float(definition.attack) * (1.0 + attack_bonus / 100.0)),
+			roundi(float(definition.defense) * (1.0 + defense_bonus / 100.0)),
+			roundi(float(definition.magic_resistance) * (1.0 + resistance_bonus / 100.0)),
+			crit_rate_bonus,
+			150.0 + crit_damage_bonus,
+			healing_bonus,
+		]
+	fragment_summary.add_theme_color_override("font_color", BLUE)
+	fragment_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	intro_box.add_child(fragment_summary)
+	var fragment_button := _make_button("查看 / 装配残片", false)
+	fragment_button.pressed.connect(open_fragments.bind(selected_character_id))
+	intro_box.add_child(fragment_button)
 
 	var section := Label.new()
 	section.text = "技能详情"
@@ -239,6 +283,8 @@ func _skill_panel(skill: SkillDefinition, character_id: String) -> Control:
 			for multiplier in skill.hit_multipliers:
 				segments.append("%.0f%%" % (multiplier * 100.0))
 			damage += "（%s）" % " / ".join(segments)
+	if skill.healing_multiplier > 0.0:
+		damage += " · 治疗效率适用倍率 %.0f%%" % (skill.healing_multiplier * 100.0)
 	var shape_text := "单体"
 	match skill.shape:
 		SkillDefinition.SHAPE_CROSS: shape_text = "十字范围"
@@ -286,6 +332,17 @@ func _on_meta_clicked(meta: Variant) -> void:
 	origin.x = clampf(origin.x, 8.0, maxf(8.0, viewport_size.x - 318.0))
 	origin.y = clampf(origin.y, 8.0, maxf(8.0, viewport_size.y - 178.0))
 	glossary_popup.popup(Rect2i(Vector2i(origin), Vector2i(310, 170)))
+
+
+func _build_fragments(root: VBoxContainer) -> void:
+	var panel := FragmentCenterPanelScript.new()
+	panel.configure(selected_character_id if not selected_character_id.is_empty() else CharacterCatalogScript.default_id())
+	panel.character_changed.connect(_on_fragment_character_changed)
+	root.add_child(panel)
+
+
+func _on_fragment_character_changed(character_id: String) -> void:
+	selected_character_id = character_id
 
 func _build_squads(root: VBoxContainer) -> void:
 	var state := SquadStoreScript.load_state()

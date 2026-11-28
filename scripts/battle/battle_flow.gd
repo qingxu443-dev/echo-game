@@ -17,6 +17,7 @@ const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
+const FragmentStoreScript = preload("res://scripts/fragments/fragment_store.gd")
 
 
 ## Validates the whole setup before touching live state: a rejected call must
@@ -128,6 +129,7 @@ static func start_encounter(
 		unit.attenuation_k = battle.attenuation_k
 		if index == 0 and battle.run_state != null:
 			battle.run_state.apply_to_actor(unit)
+		_apply_fragment_modules(unit, character_id)
 		battle.actors[character_id] = unit
 		if index == 0:
 			battle.active_character_id = roster[0]
@@ -164,6 +166,25 @@ static func start_encounter(
 	battle.phase = battle.BattlePhase.PLAYER
 	begin_player_turn(battle)
 	return true
+
+
+static func _apply_fragment_modules(unit, character_id: String) -> void:
+	var store = FragmentStoreScript.load_store()
+	if store == null:
+		push_warning("BattleFlow: fragment inventory is invalid; this encounter uses character base stats.")
+		return
+	var hp_bonus := store.total_bonus(character_id, "health")
+	var old_max := maxi(1, int(unit.max_health))
+	var old_health := int(unit.health)
+	var new_max := maxi(1, roundi(float(old_max) * (1.0 + hp_bonus / 100.0)))
+	unit.max_health = new_max
+	unit.health = clampi(roundi(float(old_health) * float(new_max) / float(old_max)), 1, new_max)
+	unit.attack = maxi(0, roundi(float(unit.attack) * (1.0 + store.total_bonus(character_id, "attack") / 100.0)))
+	unit.defense = maxi(0, roundi(float(unit.defense) * (1.0 + store.total_bonus(character_id, "defense") / 100.0)))
+	unit.magic_resistance = maxi(0, roundi(float(unit.magic_resistance) * (1.0 + store.total_bonus(character_id, "magic_resistance") / 100.0)))
+	unit.crit_rate = clampf(store.total_bonus(character_id, "crit_rate"), 0.0, 100.0)
+	unit.crit_damage = 150.0 + store.total_bonus(character_id, "crit_damage")
+	unit.healing_efficiency = store.total_bonus(character_id, "healing_efficiency")
 
 
 static func _spawn_default_beacons(

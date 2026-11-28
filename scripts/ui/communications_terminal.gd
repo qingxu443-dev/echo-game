@@ -356,7 +356,7 @@ func _handle_click(position: Vector2) -> void:
 				main_picker_complete = false
 				main_picker_open = true
 			else:
-				_claim_one(id, [])
+				_claim_one(id, _empty_main_stats())
 			queue_redraw()
 			return
 	if _claim_all_rect().has_point(position) and not attachments.is_empty():
@@ -374,7 +374,7 @@ func _handle_click(position: Vector2) -> void:
 			main_picker_complete = false
 			main_picker_open = true
 		else:
-			_claim_all([])
+			_claim_all(_empty_main_stats())
 		queue_redraw()
 		return
 	if _rect(540, 615, 130, 42).has_point(position) and not mail.is_empty():
@@ -394,13 +394,18 @@ func _handle_click(position: Vector2) -> void:
 		queue_redraw()
 
 
+func _empty_main_stats() -> Array[String]:
+	var result: Array[String] = []
+	return result
+
+
 func _claim_one(attachment_id: String, main_stats: Array[String]) -> void:
 	var result := MailServiceScript.claim_attachment(mailbox, selected_mail_id, attachment_id, MailServiceScript.DEFAULT_SLOT_ID, main_stats)
 	notice = str(result.get("message", "领取失败。"))
 	mailbox = MailServiceScript.load_mailbox()
 
 
-func _claim_all(main_stats: Array[String] = []) -> void:
+func _claim_all(main_stats: Array[String]) -> void:
 	var result := MailServiceScript.claim_all(mailbox, selected_mail_id, MailServiceScript.DEFAULT_SLOT_ID, main_stats)
 	notice = "成功领取 %d / %d 份附件。" % [int(result.get("succeeded", 0)), int(result.get("total", 0))]
 	mailbox = MailServiceScript.load_mailbox()

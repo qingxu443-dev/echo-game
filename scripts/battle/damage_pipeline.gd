@@ -57,7 +57,8 @@ static func apply(
 		var roll := float(posmod(hash(roll_key), 10000)) / 100.0
 		if roll < clampf(float(attacker.crit_rate), 0.0, 100.0):
 			critical_multiplier = maxf(1.0, float(attacker.crit_damage) / 100.0)
-	var damage_result: Dictionary = target.apply_damage_with_result(effective_amount, damage_type, 0, [], critical_multiplier)
+	var no_additional_reductions: Array[int] = []
+	var damage_result: Dictionary = target.apply_damage_with_result(effective_amount, damage_type, 0, no_additional_reductions, critical_multiplier)
 	var applied: int = int(damage_result.get("health_damage", 0))
 	var was_hit: bool = bool(damage_result.get("hit", false))
 

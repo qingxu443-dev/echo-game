@@ -22,6 +22,7 @@ func _test_local_supply_mail_and_claims() -> void:
 	var mails := MailService.all_mails(mailbox, "inbox")
 	_check(mails.size() == 1 and mails[0].title == "残片补给计划", "the local test supply mail is seeded")
 	var mail: Dictionary = mails[0]
+	var empty_main_stats: Array[String] = []
 	_check(int(mail.get("expires_at", -1)) == 0, "the supply mail has no expiry and can always be claimed")
 	_check(bool(mail.get("local_test_mail", false)), "the local test mail is clearly distinguished from official server mail")
 	var attachments: Array = mail.get("attachments", [])
@@ -34,7 +35,7 @@ func _test_local_supply_mail_and_claims() -> void:
 	_check(not MailService.delete_mail(mailbox, str(mail.id), mailbox_path).ok, "an unclaimed reward mail cannot be deleted")
 	_check(not MailService.claim_attachment(mailbox, str(mail.id), "fragment_small_10", "missing_slot", "", mailbox_path, 1).ok, "an invalid target save cannot receive rewards")
 
-	var small := MailService.claim_attachment(mailbox, str(mail.id), "fragment_small_10", MailService.DEFAULT_SLOT_ID, [], mailbox_path, 111)
+	var small := MailService.claim_attachment(mailbox, str(mail.id), "fragment_small_10", MailService.DEFAULT_SLOT_ID, empty_main_stats, mailbox_path, 111)
 	_check(small.ok and small.instance_ids.size() == 10, "the ten small modules are generated and claimed")
 	var duplicate := MailService.claim_attachment(mailbox, str(mail.id), "fragment_small_10", MailService.DEFAULT_SLOT_ID, [], mailbox_path, 222)
 	_check(not duplicate.ok, "replaying a claimed attachment cannot generate a second reward")
@@ -77,7 +78,7 @@ func _test_local_supply_mail_and_claims() -> void:
 	_check(actual_fixed == expected, "the fixed large-module attachment keeps the confirmed 2/2/1/1/1/1/2 distribution")
 	_check(MailService.pending_attachment_count(mailbox) == 0, "all claimed attachments clear the pending-reward counter")
 	_check(mailbox.get("claim_ledger", {}).size() == 4, "each attachment leaves an account-level claim ledger record")
-	_check(MailService.claim_all(mailbox, str(mail.id), MailService.DEFAULT_SLOT_ID, [], mailbox_path, 900).total == 0, "one-click claiming cannot repeat previously delivered attachments")
+	_check(MailService.claim_all(mailbox, str(mail.id), MailService.DEFAULT_SLOT_ID, empty_main_stats, mailbox_path, 900).total == 0, "one-click claiming cannot repeat previously delivered attachments")
 	var persisted := MailService.load_mailbox(mailbox_path)
 	_check(MailService.unread_count(persisted) == 0, "reading and claiming the mail persists its read state")
 	_check(MailService.all_mails(persisted, "inbox").size() == 1, "the claimed mail remains in the inbox until archived")
@@ -87,7 +88,7 @@ func _test_local_supply_mail_and_claims() -> void:
 	_check(persisted.get("claim_ledger", {}).size() == 4, "deleting a mail does not delete its claim history")
 	persisted.mails.append(mail.duplicate(true))
 	_check(MailService.save_mailbox(persisted, mailbox_path), "re-seed a duplicate mail record for the idempotency test")
-	var replay_after_delete := MailService.claim_attachment(persisted, str(mail.id), "fragment_small_10", MailService.DEFAULT_SLOT_ID, [], mailbox_path, 1234)
+	var replay_after_delete := MailService.claim_attachment(persisted, str(mail.id), "fragment_small_10", MailService.DEFAULT_SLOT_ID, empty_main_stats, mailbox_path, 1234)
 	_check(not replay_after_delete.ok, "a deleted-and-reintroduced mail cannot replay a previously claimed attachment")
 	_check(FragmentStoreScript.load_store(fragment_path).modules.size() == 40, "replaying after deletion does not duplicate modules")
 	DirAccess.remove_absolute(mailbox_path)

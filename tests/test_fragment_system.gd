@@ -155,7 +155,10 @@ func _test_equipped_modules_apply_to_battle() -> void:
 	Store.default_path_override = path
 	var battle = BattleControllerScript.new()
 	root.add_child(battle)
-	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], [], [], ["sevrin"], [])
+	var no_obstacles: Array[Vector2i] = []
+	var no_enemy_archetypes: Array[String] = []
+	var no_deployment_cells: Array[Vector2i] = []
+	battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)], no_obstacles, no_enemy_archetypes, ["sevrin"], no_deployment_cells)
 	var actor = battle.get_actor("sevrin")
 	_check(actor.attack == roundi(1150.0 * (1.0 + float(attack_module.attributes.attack) / 100.0)), "equipped attack percentage modifies the spawned character")
 	_check(is_equal_approx(actor.crit_rate, float(crit_module.attributes.crit_rate)), "equipped critical-rate modules reach combat runtime")

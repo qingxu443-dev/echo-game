@@ -64,8 +64,12 @@ static func invalid_field(data: Dictionary) -> String:
 		return "resources.dew_cap"
 
 	var party_ids: Array = data.get("party_character_ids", [])
-	if party_ids.size() > 3 or party_ids.size() != party_ids.duplicate().size():
+	if party_ids.size() > 3:
 		return "party_character_ids"
+	var seen_party := {}
+	for character_id in party_ids:
+		if seen_party.has(character_id) or not CharacterCatalog.has_definition(character_id): return "party_character_ids"
+		seen_party[character_id] = true
 	var party_vitals: Dictionary = data.get("party_vitals", {})
 	for character_id in party_vitals:
 		var vitals: Variant = party_vitals[character_id]

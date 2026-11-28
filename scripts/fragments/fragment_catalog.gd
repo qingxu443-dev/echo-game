@@ -131,7 +131,8 @@ static func validate_module(module: Dictionary) -> bool:
 	var attrs: Variant = module.get("attributes", null)
 	if instance_id.is_empty() or not CAPACITY.has(size) or not attrs is Dictionary or attrs.is_empty():
 		return false
-	if int(module.get("capacity", -1)) != capacity_of(size):
+	var capacity: Variant = module.get("capacity")
+	if not (capacity is int or capacity is float) or capacity != capacity_of(size):
 		return false
 	for stat in attrs:
 		if not STAT_KEYS.has(str(stat)) or not (attrs[stat] is int or attrs[stat] is float):

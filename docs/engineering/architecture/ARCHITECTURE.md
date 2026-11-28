@@ -1,5 +1,7 @@
 # ECHO 工程架构与全量审计报告
 
+2026-11-29 持久化边界补充：地图 JSON 的当前穿戴、背包和队员槽位由 `PartyLoadout` 统一规范化；`FragmentStore.from_dict` 共用于读档和事务镜像，`MailboxValidation` 检查邮箱嵌套数据，邮件恢复在两份镜像与目标/凭证通过后才写入。暂停区分校验与 IO 失败，远征读写共用预检；模块关系、缺陷及剩余限制见 [SAVE_AUDIT](../quality/SAVE_AUDIT_2026-11-29.md)。
+
 装备存档规则补充：物品的 attack/defense/magic_resistance/max_health 是有符号修正量，合法负代价与角色最终属性的非负约束分开。`PartyLoadout.carry_error()` 与 `LootItemDefinition`/`RunState` 一致；目录全部武器/护甲自动进入真实 JSON/结算回归，负属性替补的暂停/恢复亦覆盖。原因见 [ECHO-211](../quality/PLAYTEST_FIXES_2026-11-27.md)。
 
 战后 JSON 修复：地图普通 JSON 的整数可能被读取为 float。`PartyLoadout.canonical_json_carry()` 只规范已知合法整数字段，`SpringSaveValidation` 用磁盘语义预检，`SpringRun.from_dict()` 规范队员及待结算 carry；SessionCodec 快照继续严格类型校验。结算场景可注入隔离路径以测试真实确认按钮，默认游戏路径不变。原因与恢复边界见 [ECHO-210 记录](../quality/PLAYTEST_FIXES_2026-11-27.md)。

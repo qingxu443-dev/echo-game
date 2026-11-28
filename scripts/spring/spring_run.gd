@@ -559,7 +559,12 @@ static func from_dict(data: Dictionary) -> SpringRun:
 
 
 func save_to_file(path: String) -> bool:
-	return SaveFile.write_json(path, to_dict())
+	var image := to_dict()
+	var error := SpringSaveValidation.invalid_field(image)
+	if not error.is_empty():
+		push_warning("SpringRun.save_to_file: invalid field " + error)
+		return false
+	return SaveFile.write_json(path, image)
 
 
 static func load_from_file(path: String) -> SpringRun:

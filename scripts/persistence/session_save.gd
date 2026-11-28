@@ -7,6 +7,7 @@ const MAP_PATH := "res://scenes/spring/spring_map.tscn"
 static var pending: Dictionary = {}
 static var path_override: String = ""
 static var last_read_error: String = ""
+static var last_write_error: String = ""
 
 
 static func path() -> String:
@@ -17,8 +18,26 @@ static func path() -> String:
 
 
 static func write(data: Dictionary) -> bool:
-	if not valid(data): return false
-	return SaveFile.write_json(path(), {"version": VERSION, "data": SessionCodec.encode(data)})
+	last_write_error = ""
+	if not valid(data):
+		var detail := _write_validation_detail(data)
+		last_write_error = "暂停数据校验未通过，当前旅程仍保留，请更新游戏后重试。"
+		push_warning("SessionSave.write: validation failed: " + (detail if not detail.is_empty() else "battle rules"))
+		return false
+	if SaveFile.write_json(path(), {"version": VERSION, "data": SessionCodec.encode(data)}): return true
+	last_write_error = "无法写入暂停存档，当前旅程仍保留，请检查存档目录后重试。"
+	push_warning("SessionSave.write: file write failed: " + path())
+	return false
+
+
+static func _write_validation_detail(data: Dictionary) -> String:
+	if data.get("scene") != "battle": return "snapshot structure"
+	if not data.get("controller") is Dictionary: return "controller: expected Dictionary"
+	for field in ["controller", "run_state", "ap", "ledger", "fx", "view"]:
+		if not data.get(field, {}) is Dictionary: return field + ": expected Dictionary"
+	for field in ["actors", "intents", "statuses"]:
+		if not data.get(field, []) is Array: return field + ": expected Array"
+	return SessionValidation.battle_fields_error(data)
 
 
 static func read() -> Dictionary:

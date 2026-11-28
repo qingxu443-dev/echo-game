@@ -124,6 +124,11 @@ static func unscaled_max_health(actor) -> int:
 ## CONTRACT: _test_json_roundtrip_and_award
 static func canonical_json_carry(carry: Dictionary) -> Dictionary:
 	var result := carry.duplicate(true)
+	for slot in ["equipped_weapon", "equipped_armor"]:
+		_canonical_json_item(result.get(slot, {}))
+	var backpack: Variant = result.get("backpack", [])
+	if backpack is Array:
+		for item in backpack: _canonical_json_item(item)
 	var roles: Variant = result.get("party_loadouts", {})
 	if not roles is Dictionary: return result
 	var schema: Script = RunState
@@ -133,11 +138,14 @@ static func canonical_json_carry(carry: Dictionary) -> Dictionary:
 			var key := str(property.name)
 			if key in FIELDS and property.type == TYPE_INT and row.has(key): row[key] = _json_integer(row[key])
 		for slot in ["equipped_weapon", "equipped_armor"]:
-			var item: Variant = row.get(slot, {})
-			if not item is Dictionary: continue
-			for key in ["max_health", "attack", "defense", "magic_resistance"]:
-				if item.has(key): item[key] = _json_integer(item[key])
+			_canonical_json_item(row.get(slot, {}))
 	return result
+
+
+static func _canonical_json_item(item: Variant) -> void:
+	if not item is Dictionary: return
+	for key in ["max_health", "attack", "defense", "magic_resistance"]:
+		if item.has(key): item[key] = _json_integer(item[key])
 
 
 static func _json_integer(value: Variant) -> Variant:
@@ -153,6 +161,11 @@ static func carry_error(carry: Dictionary, json_numbers: bool = false) -> String
 	if not str(carry.get("party_owner_id", "")).is_empty() and not CharacterCatalog.has_definition(str(carry.party_owner_id)): return "party_owner_id: unknown character"
 	if not carry.get("party_loadouts", {}) is Dictionary: return "party_loadouts: expected Dictionary"
 	if not carry.get("party_retired", []) is Array: return "party_retired: expected Array"
+	if not carry.get("backpack", []) is Array: return "backpack: expected Array"
+	var items: Array = carry.get("backpack", []).duplicate()
+	for slot in ["equipped_weapon", "equipped_armor"]: items.append(carry.get(slot, {}))
+	for item in items:
+		if not _item_stats_valid(item): return "carry: invalid item stat"
 	for actor_id in carry.get("party_retired", []):
 		if not actor_id is String or not CharacterCatalog.has_definition(actor_id): return "party_retired: unknown character"
 	for actor_id in carry.get("party_loadouts", {}):
@@ -169,8 +182,13 @@ static func carry_error(carry: Dictionary, json_numbers: bool = false) -> String
 		for key in ["equipped_weapon", "equipped_armor"]:
 			var item: Dictionary = row.get(key, {})
 			if not item.is_empty() and str(item.get("kind", "")) != key.trim_prefix("equipped_"): return "party_loadouts: invalid equipment"
-			for stat in ["max_health", "attack", "defense", "magic_resistance"]:
-				# Item values are signed modifiers (dusk blade trades defense for
-				# attack). Only final actor stats and vitality are nonnegative.
-				if item.has(stat) and not item[stat] is int: return "party_loadouts: invalid equipment stat"
+			if not _item_stats_valid(item): return "party_loadouts: invalid equipment stat"
 	return ""
+
+
+static func _item_stats_valid(item: Variant) -> bool:
+	if not item is Dictionary: return false
+	# Item modifiers are signed; role bases and final HP stay nonnegative.
+	for stat in ["max_health", "attack", "defense", "magic_resistance"]:
+		if not item.get(stat, 0) is int: return false
+	return true

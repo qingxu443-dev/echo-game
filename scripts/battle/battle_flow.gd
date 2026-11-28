@@ -173,7 +173,9 @@ static func _apply_fragment_modules(unit, character_id: String) -> void:
 	if store == null:
 		push_warning("BattleFlow: fragment inventory is invalid; this encounter uses character base stats.")
 		return
-	var hp_bonus := store.total_bonus(character_id, "health")
+	for stat in FragmentCatalog.STAT_KEYS:
+		unit.fragment_bonuses[stat] = store.total_bonus(character_id, stat)
+	var hp_bonus: float = unit.fragment_bonuses.health
 	var old_max := maxi(1, int(unit.max_health))
 	var old_health := int(unit.health)
 	var new_max := maxi(1, roundi(float(old_max) * (1.0 + hp_bonus / 100.0)))

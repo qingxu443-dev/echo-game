@@ -162,6 +162,8 @@ func _test_equipped_modules_apply_to_battle() -> void:
 	_check(store.save(), "battle test loadout is saved")
 	Store.default_path_override = path
 	var battle = BattleControllerScript.new()
+	battle.run_state = RunState.new()
+	battle.run_state.reset()
 	root.add_child(battle)
 	var no_obstacles: Array[Vector2i] = []
 	var no_enemy_archetypes: Array[String] = []
@@ -170,6 +172,23 @@ func _test_equipped_modules_apply_to_battle() -> void:
 	var actor = battle.get_actor("sevrin")
 	_check(actor.attack == roundi(1150.0 * (1.0 + float(attack_module.attributes.attack) / 100.0)), "equipped attack percentage modifies the spawned character")
 	_check(is_equal_approx(actor.crit_rate, float(crit_module.attributes.crit_rate)), "equipped critical-rate modules reach combat runtime")
+	actor.health = 1000
+	battle.run_state.add_to_backpack({"id": &"fragment_probe_armor", "kind": "armor", "name": "复验护甲", "attack": 100, "max_health": 400})
+	battle.run_state.equip_from_backpack(0, actor)
+	_check(actor.attack == 1300, "equipping armor retains the captured 4% fragment attack bonus")
+	_check(actor.max_health == 4040 and actor.health == 1404, "equipment HP changes retain the captured 1% fragment multiplier")
+	battle.run_state.unequip_slot("armor", actor)
+	_check(actor.attack == 1196, "unequipping returns to fragment-scaled attack instead of removing the module")
+	_check(actor.max_health == 3636 and actor.health == 1000, "unequipping scaled HP is symmetric")
+	var fields: Dictionary = SessionCodec.decode(JSON.parse_string(JSON.stringify(SessionCodec.encode(SessionCodec.fields(actor)))))
+	var restored := BattleActor.new("sevrin", "player", Vector2i.ZERO, 3600)
+	SessionCodec.apply_fields(restored, fields)
+	_check(restored.fragment_bonuses == actor.fragment_bonuses, "fragment composition survives the actual JSON codec")
+	var restored_state := RunState.new()
+	restored_state.reset()
+	restored_state.add_to_backpack({"id": &"resume_armor", "kind": "armor", "name": "续行护甲", "attack": 100})
+	restored_state.equip_from_backpack(0, restored)
+	_check(restored.attack == 1300, "post-resume equipment uses the saved fragment composition")
 	actor.crit_rate = 100.0
 	actor.crit_damage = 200.0
 	var enemy = battle.get_actor("vanguard_00")

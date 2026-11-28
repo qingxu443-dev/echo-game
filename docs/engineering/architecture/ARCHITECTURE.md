@@ -222,6 +222,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 
 ## 审计范围、发现与处理
 
+合并后整合（`dee83a8`）：#111 已带入 `scripts/fragments/` 的目录、库存/装配和构筑评分，`communications_mail_service.gd` 负责本地邮件与幂等领取，营地的残片中心和通讯终端提供界面；这些不是在线邮箱或跨设备同步。BattleFlow 在开战时捕获角色残片属性，DamagePipeline 消费暴击，治疗效率仅供真实治疗使用。新加的 `BattleActor.fragment_bonuses` 让本场装备重算和 JSON 恢复使用同一组成，背包面板显示实际值；未有该字段的旧战斗保留默认组成，不猜测历史局外配置。
+
 2026-11-28 游玩流程复核：从 `0ef0186` 的真实场景入口复现并修复领队装备写错队员、地图生命效果被进战旧快照覆盖、旧战斗结算错用另一局磁盘地图、沙漏合法临时 AP 被存档拒绝，以及结算切换失败清空握手/重建 ID。地图统一同步领队生命快照，保留倒地并兼容旧健康副本；结算优先战前快照，只有无快照旧入口读盘，写入和切换失败不丢现场。逐项原因、位置、验证及人工游玩边界见 [实机修复记录](../quality/PLAYTEST_FIXES_2026-11-27.md)。
 
 2026-11-28 暂停恢复跟进：
@@ -274,6 +276,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 
 | 优先级 | 位置 / 范围 | 现状与影响 | 下一步 / 原因 |
 |---|---|---|---|
+| 中 / P1 | `SpringBattleBridge.restore_party_vitals()` 与残片生命 | 已复现：既有队伍下一战安装 +5% 生命，1890 被旧快照覆盖为 1800；同场装备重算修复不覆盖这个跨遭遇问题 | ECHO-207，先记录比例来源并实现旧档兼容；独立探针 `tools/probe_fragment_vitality.gd` 当前明确失败，勿以常规回归绿灯关闭 |
 | 中 | `battle_view.gd::_rotate_camera()`、`battle_skill_input.gd`、樱四技能入口 | 原始视角卡死和 AP 异常表象尚未复现；已修误移动、残留选择与费用提示，压力/逐次扣费回归通过 | 原设备按完整步骤复测，保留 AP 前后值及日志，不把压力通过写成未知根因已修 |
 | 中 | 教学、三模板两模式、目标 Windows 设备 | 自动化不能证明教学可理解、整局平衡、显示缩放可用或长期渲染性能达标 | ECHO-301～306、502/503 交人工记录；无最低配置/真人证据时不关闭验收 |
 | 中 | `spring_battle_bridge.gd`、`spring_shop.gd`、敌档与经济目录 | Boss 特殊败北规则、普通敌人及部分经济参数仍待定，当前参数可执行但尚未封版 | 按用户指令保留 Boss 裁决；依据人工收支/失败数据做 304/305 |

@@ -18,6 +18,9 @@ var magic_resistance: int
 var crit_rate: float = 0.0
 var crit_damage: float = 150.0
 var healing_efficiency: float = 0.0
+## Encounter snapshot; equipment recalculation must not reread the hub loadout.
+var fragment_bonuses: Dictionary = {}
+
 var attenuation_k: int = CombatMathScript.ATTENUATION_K
 ## Defeated / downed state is read through predicate methods, exactly like
 ## is_alive(): every state query on this class takes parentheses - is_alive(),
@@ -102,6 +105,11 @@ var last_armor_break_seq: int = -1
 var armor_broken_until_turn: int = -1
 ## Boss phase tracker (1 = normal, 2 = enraged at <= 50% HP with escort summon).
 var boss_phase: int = 1
+
+
+## CONTRACT: _test_equipped_modules_apply_to_battle
+func fragment_scaled(stat: String, amount: int) -> int:
+	return roundi(float(amount) * (1.0 + float(fragment_bonuses.get(stat, 0.0)) / 100.0))
 
 
 func _init(

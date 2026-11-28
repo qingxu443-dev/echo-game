@@ -197,8 +197,10 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 			if not normal_pool.is_empty():
 				var normal_reward: StringName = normal_pool[0]
 				if run.grant_collectible(normal_reward):
-					var normal_effect: Dictionary = run.apply_collectible_effect(normal_reward)
-					var effect_note: String = str(normal_effect.get("message", "已收纳，可在藏品栏中主动使用。"))
+					var effect_note: String = "已收纳，可在藏品栏中选择使用。"
+					if not SpringCollectibleCatalog.is_consumable(normal_reward):
+						var normal_effect: Dictionary = run.apply_collectible_effect(normal_reward)
+						effect_note = str(normal_effect.get("message", "效果已结算。"))
 					outcome["message"] = "普通战斗获得藏品「%s」：%s" % [run.collectible_name(normal_reward), effect_note]
 			else:
 				run.add_coins(20)

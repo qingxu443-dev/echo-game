@@ -126,6 +126,7 @@ func _test_one_trigger_per_character_per_turn() -> void:
 ## Two whole player turns of hurting, then the ground recovers on its own.
 func _test_hazard_expires_after_two_whole_turns() -> void:
 	var battle = _spawn("boss_petalfall", Vector2i(1, 3), Vector2i(3, 3))
+	battle.get_actor(HERO).health = 100000
 	_filled(battle)
 	battle.intents = PlannerScript.plan(battle)
 	# Laid during the enemy phase of turn 1; turns 2 and 3 are the two whole
@@ -155,6 +156,7 @@ func _test_standing_still_is_billed_each_whole_turn() -> void:
 	battle.intents.clear()
 	var hero = battle.get_actor(HERO)
 	HazardFieldScript.spawn(battle, [Vector2i(1, 1)], HazardFieldScript.KIND_BLIGHT, 263, "boss_petalfall_00", 2)
+	hero.health = 100000
 	var expected: int = CombatMathScript.calculate_damage(263, hero.defense)
 
 	var start: int = hero.health

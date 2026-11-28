@@ -186,7 +186,7 @@ func _test_rot_curse_strips_defense_once() -> void:
 	_check(DamageTypesScript.resistance_for(hero, "physical") == 195, "施法前樱的物理防御是 180")
 	battle.end_player_turn()
 	_check(hero.defense_penalty == 100, "诅咒剥掉 100 防御")
-	_check(DamageTypesScript.resistance_for(hero, "physical") == 80, "有效防御降到 80")
+	_check(DamageTypesScript.resistance_for(hero, "physical") == 95, "有效防御降到 95")
 	_check(battle.statuses.has_status(hero.actor_id, &"rot_curse"), "诅咒作为状态挂在目标身上")
 	# 不叠加：再来一次仍是 100，而不是 200。
 	enemy.skill_charge = enemy.skill_charge_max
@@ -206,7 +206,7 @@ func _test_rot_curse_expires_after_next_enemy_phase() -> void:
 	battle.turn_number = hero.defense_penalty_expiry_turn
 	battle.finish_enemy_phase_stepped()
 	_check(hero.defense_penalty == 0, "下一敌方阶段结束后防御恢复")
-	_check(DamageTypesScript.resistance_for(hero, "physical") == 195, "恢复后的有效防御回到 180")
+	_check(DamageTypesScript.resistance_for(hero, "physical") == 195, "恢复后的有效防御回到 195")
 	_check(_event_seen("enemy_curse_expired"), "事件流记录诅咒到期")
 
 

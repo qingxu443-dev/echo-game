@@ -106,7 +106,7 @@ func _test_sevrin_normal_attack() -> void:
 
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves on an adjacent enemy")
 	# 650 ATK x 1.0 against 450 defense: floor(650 * 1000 / 1450) = 448
-	_check(health_before - enemy.health == 793, "the normal attack deals full attack through defense")
+	_check(health_before - enemy.health == 448, "the normal attack deals full attack through defense")
 	_check(enemy.cell == Vector2i(3, 1), "Oathblade knocks the adjacent enemy back one tile")
 	_check(battle.ap.current == ap_before - 1, "the normal attack costs one AP")
 	battle.queue_free()
@@ -202,7 +202,7 @@ func _test_pierce_blossom_applies_the_mark_without_follow_up() -> void:
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Pierce Blossom resolves")
 	var dealt: int = health_before - enemy.health
 	# 600 ATK x 1.0 against 450 defense: floor(600 * 1000 / 1450) = 413
-	_check(dealt == 358, "the first hit deals its own damage only")
+	_check(dealt == 413, "the first hit deals its own damage only")
 	_check(battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the hit applies the petal mark")
 	battle.queue_free()
 
@@ -562,14 +562,14 @@ func _test_cast_uses_the_commanded_character() -> void:
 	# Sevrin's 650 attack against 450 defense: floor(650 * 1000 / 1450) = 448 (and knocks vanguard to (3, 1))
 	var before_sevrin: int = adjacent.health
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "Sevrin's normal attack resolves")
-	_check(before_sevrin - adjacent.health == 793, "Sevrin's attack uses Sevrin's attack stat")
+	_check(before_sevrin - adjacent.health == 448, "Sevrin's attack uses Sevrin's attack stat")
 
 	_check(battle.set_active_character("sakura"), "command switches to Sakura")
 	# Sakura at (3, 2) is now adjacent to the knocked-back vanguard at (3, 1).
 	# Sakura's 600 attack against 450 defense: floor(600 * 1000 / 1450) = 413
 	var before_sakura: int = adjacent.health
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Sakura's attack resolves after switching")
-	_check(before_sakura - adjacent.health == 358, "the same enemy takes Sakura's number, so the caster really changed")
+	_check(before_sakura - adjacent.health == 413, "the same enemy takes Sakura's number, so the caster really changed")
 	battle.queue_free()
 
 

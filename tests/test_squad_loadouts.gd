@@ -57,7 +57,14 @@ func _test_tutorial_roster_remains_fixed() -> void:
 
 func _test_v3_saves_migrate_without_losing_progress() -> void:
 	var legacy := {"version": 3, "seed": 17, "template_id": 1, "hero": {"health": 1500}}
-	var error := SpringRunMigrationScript.migrate_to_current(legacy)
+	var defaults := {
+		"hero_character_id": SpringRunScript.HERO_CHARACTER_ID,
+		"base_max_health": SpringRunScript.HERO_BASE_MAX_HEALTH,
+		"base_attack": SpringRunScript.HERO_BASE_ATTACK,
+		"base_defense": SpringRunScript.HERO_BASE_DEFENSE,
+		"base_magic_resistance": SpringRunScript.HERO_BASE_MAGIC_RESISTANCE,
+	}
+	var error := SpringRunMigrationScript.migrate_to_current(legacy, SpringRunScript.SAVE_VERSION, defaults)
 	_check(error.is_empty(), "Spring version 3 save migrates to version 4")
 	_check(int(legacy.get("version", 0)) == 4, "migration advances the save version")
 	_check(legacy.get("party_character_ids", []) == [], "legacy run has no forced new squad snapshot")

@@ -10,9 +10,9 @@ const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 
 func _run() -> void:
 	_test_lobby_routes_to_theme()
-	_test_compendium_uses_live_catalogs()
-	_test_enemy_roster_is_complete()
-	_test_navigation_and_map_handoff()
+	await _test_compendium_uses_live_catalogs()
+	await _test_enemy_roster_is_complete()
+	await _test_navigation_and_map_handoff()
 
 
 func _test_lobby_routes_to_theme() -> void:

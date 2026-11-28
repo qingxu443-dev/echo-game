@@ -112,6 +112,8 @@ static func set_team_members(index: int, values: Array[String], path: String = S
 		seen[character_id] = true
 		members.append(character_id)
 	var state := load_state(path)
+	if members.is_empty() and index == int(state.active_team):
+		return false
 	var team: Dictionary = state.teams[index]
 	team["members"] = members
 	state.teams[index] = team

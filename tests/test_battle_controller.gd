@@ -216,8 +216,8 @@ func _run() -> void:
 	_check(victory_battle.start_encounter(Vector2i(1, 1), [Vector2i(2, 1)]), "victory encounter starts")
 	victory_battle.beacons.clear()
 	var victory_intent = victory_battle.intents[0]
-	# Three Judgment Marks (435 + amplified 565 + 435 = 1435) defeat a 1200-HP enemy in 3 AP.
-	victory_battle.get_actor("vanguard_00").health = 1200
+	# Three DEF-scaled Judgment Marks defeat the 400-HP test enemy in 3 AP.
+	victory_battle.get_actor("vanguard_00").health = 400
 	_check(victory_battle.statuses.apply_status(&"oathkeeper_mark", "sevrin", "vanguard_00"), "enemy can receive a runtime status")
 	_check(victory_battle.request_oathkeeper_judgment_mark("vanguard_00"), "first confirmed skill spends AP")
 	_check(victory_battle.request_oathkeeper_judgment_mark("vanguard_00"), "second confirmed skill spends AP")

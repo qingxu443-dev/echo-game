@@ -52,8 +52,6 @@ static func load_state(path: String = SAVE_PATH) -> Dictionary:
 	return state
 
 static func save_state(state: Dictionary, path: String = SAVE_PATH) -> bool:
-	if path == SAVE_PATH and DisplayServer.get_name() == "headless":
-		return true
 	if state.get("teams", []) is not Array or state.teams.size() != TEAM_COUNT:
 		return false
 	if int(state.get("active_team", -1)) < 0 or int(state.get("active_team", -1)) >= TEAM_COUNT:

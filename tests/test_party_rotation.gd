@@ -164,15 +164,15 @@ func _test_stage_healing_and_restart() -> void:
 	_check(battle.actors.sevrin.health == hp, "stage advance captures recent item healing rather than restoring an earlier role snapshot")
 	battle.run_state.reset()
 	_check(battle.start_encounter(Vector2i(1, 5), [Vector2i(3, 5)]), "start a fresh run using the same controller")
-	_check(battle.actors.sevrin.health == 3600 and battle.run_state.party_retired.is_empty(), "restart does not recapture HP or death records from the discarded run")
+	_check(battle.actors.sevrin.health == 3200 and battle.run_state.party_retired.is_empty(), "restart does not recapture HP or death records from the discarded run")
 	battle.queue_free()
 
 
 func _run_party() -> SpringRun:
 	var run := SpringRun.begin(3)
 	run.party_character_ids.assign(["sevrin", "sakura", "dest_lee"])
-	run.hero_health = 1700
-	run.party_vitals = {"sevrin": {"health": 1700, "max_health": 3600}, "sakura": {"health": 900, "max_health": 1800}, "dest_lee": {"health": 800, "max_health": 1400}}
+	run.hero_health = 1600
+	run.party_vitals = {"sevrin": {"health": 1600, "max_health": 3200}, "sakura": {"health": 1050, "max_health": 2100}, "dest_lee": {"health": 800, "max_health": 1650}}
 	return run
 
 
@@ -227,18 +227,18 @@ func _test_run_retirement_and_equipment() -> void:
 	view.run_state.add_to_backpack({"id": &"rotation_armor", "kind": "armor", "name": "轮换护甲", "max_health": 400})
 	view.run_state.equip_from_backpack(0, battle.actors.sevrin)
 	_check(battle.request_switch_character("sakura"), "switch away from an equipped character")
-	_check(view.run_state.equipped_armor.is_empty() and battle.actors.sevrin.max_health == 4000, "worn gear stays on its owner without entering the shared backpack")
+	_check(view.run_state.equipped_armor.is_empty() and battle.actors.sevrin.max_health == 3600, "worn gear stays on its owner without entering the shared backpack")
 	_check(battle.request_switch_character("sevrin") and view.run_state.equipped_armor.get("id") == &"rotation_armor", "returning restores the same equipment slot")
-	_check(battle.actors.sevrin.health == 2100, "switching itself does not heal the equipped character")
+	_check(battle.actors.sevrin.health == 1600, "switching itself does not heal the equipped character")
 	battle._apply_damage("sevrin", 999999, "vanguard_00", "probe", "true")
 	_check(battle.active_character_id == "sakura", "death replaces an equipped front with the next role")
 	PartyLoadout.capture(battle)
 	var vitals := {}
 	for actor in battle.actors.values():
 		if actor.team == "player": vitals[actor.actor_id] = {"health": actor.health, "max_health": actor.max_health}
-	var result := {"result": "victory", "kind": "battle", "place": "battle_1", "hero_health": 900, "hero_max_health": 1800, "party_vitals": vitals, "carry": SpringBattleBridge.pack_carry(view.run_state)}
+	var result := {"result": "victory", "kind": "battle", "place": "battle_1", "hero_health": 1050, "hero_max_health": 2100, "party_vitals": vitals, "carry": SpringBattleBridge.pack_carry(view.run_state)}
 	SpringBattleBridge.settle_result(run, result)
-	_check(run.hero_character_id == "sakura" and run.hero_health == 900, "map scalar vitality now belongs to the surviving active role")
+	_check(run.hero_character_id == "sakura" and run.hero_health == 1050, "map scalar vitality now belongs to the surviving active role")
 	run = SpringRun.from_dict(run.to_dict())
 	_check(run != null and run.battle_carry.party_retired == ["sevrin"], "map JSON roundtrip preserves permanent retirement")
 	view.queue_free()
@@ -286,9 +286,9 @@ func _test_legacy_checkpoint() -> void:
 	var resumed = Scene.instantiate()
 	root.add_child(resumed)
 	_check(resumed.controller.single_active_party and _present(resumed.controller) == ["sakura"], "legacy checkpoint migrates to its previously commanded role")
-	_check(resumed.run_state.base_max_health == 1800, "legacy migration reconstructs the reserve's own equipment base")
+	_check(resumed.run_state.base_max_health == 2100, "legacy migration reconstructs the reserve's own equipment base")
 	_check(resumed.run_state.equipped_armor.is_empty(), "old leader equipment is not reassigned to the commanded teammate")
-	_check(resumed.controller.request_switch_character("sevrin") and resumed.controller.actors.sevrin.health == 2100, "migrated roles retain HP and can be switched normally")
+	_check(resumed.controller.request_switch_character("sevrin") and resumed.controller.actors.sevrin.health == 1600, "migrated roles retain HP and can be switched normally")
 	_check(resumed.run_state.equipped_armor.get("id") == &"legacy_armor", "old leader equipment remains on the old leader")
 	resumed.queue_free()
 	await process_frame
@@ -305,17 +305,17 @@ func _test_surviving_equipment_next_fight() -> void:
 	var vitals := {}
 	for actor in battle.actors.values():
 		if actor.team == "player": vitals[actor.actor_id] = {"health": actor.health, "max_health": actor.max_health}
-	SpringBattleBridge.settle_result(run, {"result": "victory", "kind": "elite", "place": "elite_1", "hero_health": 900, "hero_max_health": 1800, "party_vitals": vitals, "carry": SpringBattleBridge.pack_carry(view.run_state)})
+	SpringBattleBridge.settle_result(run, {"result": "victory", "kind": "elite", "place": "elite_1", "hero_health": 1050, "hero_max_health": 2100, "party_vitals": vitals, "carry": SpringBattleBridge.pack_carry(view.run_state)})
 	run = SpringRun.from_dict(run.to_dict())
 	view.queue_free()
 	await process_frame
 	var next = _scene(run)
-	_check(next.controller.active_character_id == "sakura" and next.controller.actors.sevrin.health == 2100, "cross-fight snapshot preserves the active choice and the equipped reserve's wounded HP")
+	_check(next.controller.active_character_id == "sakura" and next.controller.actors.sevrin.health == 1600, "cross-fight snapshot preserves the active choice and the equipped reserve's wounded HP")
 	_check(next.controller.request_switch_character("sevrin"), "a healthy equipped reserve can deploy next fight")
-	_check(next.run_state.equipped_armor.get("id") == &"survivor_armor" and next.controller.actors.sevrin.max_health == 4000, "worn armor and its maximum survive map JSON without duplication")
+	_check(next.run_state.equipped_armor.get("id") == &"survivor_armor" and next.controller.actors.sevrin.max_health == 3600, "worn armor and its maximum survive map JSON without duplication")
 	_check(next.run_state.backpack.is_empty() and next.run_state.party_loadouts.sakura.equipped_armor.is_empty(), "one equipped item never appears in another role or the shared bag")
 	next.run_state.unequip_slot("armor", next.controller.actors.sevrin)
-	_check(next.controller.actors.sevrin.max_health == 3600 and next.controller.actors.sevrin.health == 1700, "removing inherited armor symmetrically reclaims HP and maximum")
+	_check(next.controller.actors.sevrin.max_health == 3200 and next.controller.actors.sevrin.health == 1600, "removing inherited armor symmetrically reclaims HP and maximum")
 	next.queue_free()
 	await process_frame
 

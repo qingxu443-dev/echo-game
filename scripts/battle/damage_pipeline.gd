@@ -14,6 +14,7 @@ extends RefCounted
 
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
+const DestLeeSkillEffectsScript = preload("res://scripts/battle/dest_lee_skill_effects.gd")
 
 
 static func apply(
@@ -84,6 +85,8 @@ static func apply(
 	battle._emit_event("damage_applied", source_actor_id, target_actor_id, "action=%s type=%s public_intent=%s raw=%d absorbed=%d applied=%d health=%d shield=%d" % [action_id, damage_type, str(is_public_intent), amount, int(damage_result.get("absorbed", 0)), applied, target.health, target.shield])
 
 	if target.is_defeated():
+		# Snapshot death-time statuses before generic defeat cleanup removes them.
+		DestLeeSkillEffectsScript.on_target_defeated(battle, target, source_actor_id, action_id)
 		var removed_statuses: int = statuses.clear_actor(target_actor_id)
 		if removed_statuses > 0:
 			battle._emit_event("statuses_cleared", target_actor_id, "", "reason=actor_defeated count=%d" % removed_statuses)

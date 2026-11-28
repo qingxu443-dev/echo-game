@@ -418,13 +418,19 @@ static func continue_run(run) -> Dictionary:
 	if not run.spend_supplies(CONTINUE_SUPPLY_COST):
 		outcome["message"] = "补给不足。"
 		return outcome
+	# Member maxima already include module scaling; make the lead scalar follow the
+	# same source instead of recomputing 30% from the unscaled cap.
 	run.hero_health = maxi(1, int(round(float(run.effective_max_health()) * CONTINUE_HEALTH_FRACTION)))
 	for character_id in run.party_vitals:
 		var vitals: Dictionary = run.party_vitals[character_id]
 		var member_max: int = maxi(1, int(vitals.get("max_health", 1)))
 		vitals["health"] = maxi(1, int(round(float(member_max) * CONTINUE_HEALTH_FRACTION)))
 		run.party_vitals[character_id] = vitals
+		if String(character_id) == run.hero_character_id:
+			run.hero_health = int(vitals["health"])
+	var lead_vitals: Dictionary = run.party_vitals.get(run.hero_character_id, {})
+	var lead_max: int = int(lead_vitals.get("max_health", run.effective_max_health()))
 	run.revive_used = true
 	outcome["ok"] = true
-	outcome["message"] = "消耗 %d 份补给续行，回复至 %d / %d。" % [CONTINUE_SUPPLY_COST, run.hero_health, run.effective_max_health()]
+	outcome["message"] = "消耗 %d 份补给续行，回复至 %d / %d。" % [CONTINUE_SUPPLY_COST, run.hero_health, lead_max]
 	return outcome

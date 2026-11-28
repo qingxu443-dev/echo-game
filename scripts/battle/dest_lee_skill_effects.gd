@@ -78,12 +78,12 @@ static func _ignite(battle,target,amount:int)->void:
 	status.enemy_turns_remaining=3 if battle.phase==battle.BattlePhase.ENEMY else 2
 	battle._emit_event("status_applied",lee.actor_id,target.actor_id,"status=dest_lee_ignition stacks=%d turns=2"%status.stacks)
 static func begin_batch(battle)->void:
-	if battle.dest_lee_batch_depth==0:
-		battle.dest_lee_death_queue.clear()
-	battle.dest_lee_batch_depth+=1
+	if battle.ledger.dest_lee_batch_depth==0:
+		battle.ledger.dest_lee_death_queue.clear()
+	battle.ledger.dest_lee_batch_depth+=1
 static func end_batch(battle)->void:
-	battle.dest_lee_batch_depth=maxi(0,battle.dest_lee_batch_depth-1)
-	if battle.dest_lee_batch_depth==0:
+	battle.ledger.dest_lee_batch_depth=maxi(0,battle.ledger.dest_lee_batch_depth-1)
+	if battle.ledger.dest_lee_batch_depth==0:
 		_resolve_queue(battle)
 static func on_target_defeated(battle,target,source_id:String,action_id:String)->void:
 	if target==null or target.team!="enemy" or action_id==EMBER_ACTION or not battle.has_passive("dest_lee",&"dest_lee_death_embers"):
@@ -96,19 +96,19 @@ static func on_target_defeated(battle,target,source_id:String,action_id:String)-
 	var dot=action_id==DOT_ACTION and source_id=="dest_lee"
 	if not direct and not dot:
 		return
-	battle.dest_lee_death_queue.append({"actor_id":String(target.actor_id),"cell":target.cell,"stacks":status.stacks})
-	if battle.dest_lee_batch_depth==0:
+	battle.ledger.dest_lee_death_queue.append({"actor_id":String(target.actor_id),"cell":target.cell,"stacks":status.stacks})
+	if battle.ledger.dest_lee_batch_depth==0:
 		_resolve_queue(battle)
 static func _resolve_queue(battle)->void:
-	if battle.dest_lee_chain_active or battle.dest_lee_death_queue.is_empty():
+	if battle.ledger.dest_lee_chain_active or battle.ledger.dest_lee_death_queue.is_empty():
 		return
-	battle.dest_lee_chain_active=true
-	battle.dest_lee_chain_hit_targets.clear()
-	while not battle.dest_lee_death_queue.is_empty():
-		battle.dest_lee_death_queue.sort_custom(func(a,b):return String(a.actor_id)<String(b.actor_id))
-		_resolve_ember(battle,battle.dest_lee_death_queue.pop_front())
-	battle.dest_lee_chain_active=false
-	battle.dest_lee_chain_hit_targets.clear()
+	battle.ledger.dest_lee_chain_active=true
+	battle.ledger.dest_lee_chain_hit_targets.clear()
+	while not battle.ledger.dest_lee_death_queue.is_empty():
+		battle.ledger.dest_lee_death_queue.sort_custom(func(a,b):return String(a.actor_id)<String(b.actor_id))
+		_resolve_ember(battle,battle.ledger.dest_lee_death_queue.pop_front())
+	battle.ledger.dest_lee_chain_active=false
+	battle.ledger.dest_lee_chain_hit_targets.clear()
 static func _resolve_ember(battle,death:Dictionary)->void:
 	var lee=_lee(battle)
 	if lee==null:
@@ -125,8 +125,8 @@ static func _resolve_ember(battle,death:Dictionary)->void:
 			targets.append(actor)
 	targets.sort_custom(func(a,b):return String(a.actor_id)<String(b.actor_id))
 	for target in targets:
-		if not battle.dest_lee_chain_hit_targets.has(target.actor_id):
-			battle.dest_lee_chain_hit_targets[target.actor_id]=true
+		if not battle.ledger.dest_lee_chain_hit_targets.has(target.actor_id):
+			battle.ledger.dest_lee_chain_hit_targets[target.actor_id]=true
 			var dx=absi(target.cell.x-center.x)
 			var dy=absi(target.cell.y-center.y)
 			var mult=ORTHO if dx==0 or dy==0 else DIAGONAL

@@ -338,6 +338,7 @@ func _build_squads(root: VBoxContainer) -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
 	var activate := _make_button("设为当前出战", int(state.active_team) == selected_team_index)
+	activate.disabled = members.is_empty()
 	activate.pressed.connect(_activate_team)
 	footer.add_child(activate)
 	status_label = Label.new()
@@ -369,6 +370,7 @@ func _on_member_selected(option_index: int, slot: int) -> void:
 		if not value.is_empty():
 			compact.append(value)
 	if not SquadStoreScript.set_team_members(selected_team_index, compact):
+		_rebuild()
 		if status_label != null:
 			status_label.text = "保存失败：角色不能重复，且每队最多 3 人。"
 		return

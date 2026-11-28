@@ -103,6 +103,7 @@ func _confirm_and_return() -> void:
 		status_message = "奖励已安全入账，但结算标记清理失败。再次点击不会重复领取。"
 		queue_redraw()
 		return
+	SessionSave.clear()
 	var transition: Dictionary = outcome.get("region_transition", {})
 	if bool(transition.get("can_enter", false)):
 		RegionProgressionScript.set_pending_transition(run, transition)

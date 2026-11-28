@@ -21,6 +21,8 @@ static func select(view, index: int) -> void:
 		return
 	view.selected_skill = index
 	var target := "地格（可选空地）" if skill["mode"] == "cell" else ("自己或友军" if skill["mode"] == "ally" else "目标敌人")
+	if str(skill["id"]) == "sakura_flowing_wind":
+		target = "目标敌人或空地（可调整站位）"
 	view.status_message = "已选择「%s」，点击%s确认后消耗 %d AP；右键取消。" % [skill["name"], target, skill["cost"]]
 	view.queue_redraw()
 

@@ -10,6 +10,7 @@ func _run() -> void:
 	_test_unaffordable_continue_is_inert()
 	await _test_empty_tile_cast()
 	await _test_selected_attack_does_not_move()
+	await _test_flowing_wind_supports_empty_cell_dash()
 	await _test_sakura_ap_costs()
 	await _test_kill_refunds_are_visible()
 	await _test_deployment_visibility()
@@ -176,6 +177,31 @@ func _test_selected_attack_does_not_move() -> void:
 	_tap(view, P.cell_center(Vector2i(3, 4)))
 	_check(view.controller.ap.current == 3, "invalid attack target spends no AP")
 	_check(view.controller.get_active_character().cell == Vector2i(3, 3), "selected attack on empty tile cannot silently move")
+	view.queue_free()
+	await process_frame
+
+
+
+func _test_flowing_wind_supports_empty_cell_dash() -> void:
+	var view = _sakura_view()
+	var battle: BattleController = view.controller
+	var hero = battle.get_active_character()
+	var enemy = battle.get_actor("vanguard_00")
+	enemy.cell = Vector2i(6, 6)
+	var before_ap: int = battle.ap.current
+	var before_health: int = enemy.health
+	_select(view, "sakura_flowing_wind")
+	_check(view.selected_skill >= 0, "Flowing Wind remains selected after one skill-button tap")
+	_tap(view, P.cell_center(Vector2i(3, 1)))
+	_check(hero.cell == Vector2i(3, 1), "Flowing Wind can dash two cells to an empty tile")
+	_check(battle.ap.current == before_ap - 1, "empty-tile reposition costs exactly one AP")
+	_check(enemy.health == before_health, "empty-tile reposition does not require or invent a damage target")
+	_check(view.selected_skill == -1, "successful positional cast clears the skill selection")
+	enemy.cell = Vector2i(3, 0)
+	_select(view, "sakura_flowing_wind")
+	_tap(view, P.cell_center(enemy.cell))
+	_check(enemy.health < before_health, "Flowing Wind still strikes when an enemy is selected")
+	_check(battle.ap.current == before_ap - 2, "enemy-targeted dash also costs exactly one AP")
 	view.queue_free()
 	await process_frame
 

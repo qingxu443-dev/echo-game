@@ -167,6 +167,19 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 				canvas.draw_rect(pill, Color("#ffae52"), false, 1.4)
 				canvas.draw_string(ThemeDB.fallback_font, pill.position + Vector2(0.0, 13.0), "⚠ 命中触发反击!", HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 10, Color("#fff5e0"))
 		var skill_def = SkillRegistryScript.get_skill(StringName(sid))
+		if sid == "sakura_flowing_wind" and skill_def != null:
+			var dash_aims := {}
+			for y in range(controller.grid_size.y):
+				for x in range(controller.grid_size.x):
+					var aim_cell := Vector2i(x, y)
+					var landing := SkillEffects.flowing_wind_landing_cell(controller, skill_def, aim_cell)
+					if landing != Vector2i(-1, -1):
+						dash_aims[aim_cell] = true
+			BoardOverlayRegion.draw_boundary(canvas, dash_aims, P.GOLD, 1.2)
+			var hover_cell: Vector2i = fx_state.get("hover_cell", Vector2i(-1, -1))
+			var hover_landing := SkillEffects.flowing_wind_landing_cell(controller, skill_def, hover_cell)
+			if hover_landing != Vector2i(-1, -1):
+				BoardOverlayRegion.draw(canvas, {hover_landing: true}, BoardOverlayRegion.SKILL_FILL, BoardOverlayRegion.SKILL_LINE)
 		if skill_def != null:
 			for b_cell in controller.beacons:
 				var b: Dictionary = controller.beacons[b_cell]

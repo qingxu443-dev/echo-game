@@ -46,7 +46,8 @@ func _test_spring_encounters_use_the_selected_party() -> void:
 	_check(expanded.ally_cells[0] == Vector2i(2, 6), "second member uses the left deployment slot")
 	var invalid: Array[String] = ["sakura", "sakura"]
 	_check(SpringEncounterCatalogScript.build(&"B001", invalid) == null, "duplicate party members cannot enter an encounter")
-	_check(SpringEncounterCatalogScript.build(&"B001", ["sakura", "sevrin", "missing"]) == null, "unknown party members cannot enter an encounter")
+	var unknown_party: Array[String] = ["sakura", "sevrin", "missing"]
+	_check(SpringEncounterCatalogScript.build(&"B001", unknown_party) == null, "unknown party members cannot enter an encounter")
 
 func _test_tutorial_roster_remains_fixed() -> void:
 	var levels := LevelCatalogScript.create_prototype_levels()

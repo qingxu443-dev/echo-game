@@ -81,6 +81,7 @@ func _ready() -> void:
 	_init_motes()
 	refresh_save_summary()
 	_show_dialogue("瑟弗林", SEVRIN_LINES[0], 6.0)
+	roster_nav.announce_new_mail(self)
 	queue_redraw()
 
 func refresh_save_summary() -> void:

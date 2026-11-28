@@ -22,6 +22,8 @@ const DAMAGE_MAGICAL: StringName = &"magical"
 @export var max_range: int = 0
 @export var damage_type: StringName = DAMAGE_NONE
 @export var damage_multiplier: float = 0.0
+## Healing output coefficient used by support-build scoring and healing resolution.
+@export var healing_multiplier: float = 0.0
 ## Which runtime branch resolves this skill. Assigning it is the catalogue's
 ## job; a skill without one fails loudly in the runtime instead of doing nothing.
 @export var executor_id: StringName = &""
@@ -53,7 +55,7 @@ func is_valid() -> bool:
 		return false
 	if target_mode != TARGET_SELF and target_mode != TARGET_SELF_AND_ALLY and target_mode != TARGET_ACTOR and target_mode != TARGET_CELL and target_mode != TARGET_AREA:
 		return false
-	if damage_multiplier < 0.0:
+	if damage_multiplier < 0.0 or healing_multiplier < 0.0:
 		return false
 	if hits <= 0:
 		return false

@@ -28,7 +28,7 @@ func _ignite(b,id:String,stacks:int)->void:
 func _sheet()->void:
 	_check(C.has_definition("dest_lee"),"Dest Lee registered")
 	var s=C.get_definition("dest_lee")
-	_check(s.max_health==1400 and s.attack==430 and s.defense==130 and s.magic_resistance==100,"approved panel")
+	_check(s.max_health==1650 and s.attack==500 and s.defense==145 and s.magic_resistance==110,"approved panel")
 	_check(R.skills_for_character("dest_lee").size()==5,"five ordered slots")
 	for sk in R.active_skills_for_character("dest_lee"):
 		_check(Runtime.supports(sk.executor_id),"executor exists: "+String(sk.skill_id))
@@ -78,8 +78,8 @@ func _city_burn()->void:
 	var ah=a.health
 	var zh=z.health
 	_check(b.request_skill(&"dest_lee_city_burn"),"City Burn resolves")
-	_check(ah-a.health==Math.calculate_raw_damage(430,1.5),"direct target gets 100% plus 50% splash")
-	_check(zh-z.health==Math.calculate_raw_damage(430,0.5),"non-target gets one 50% splash")
+	_check(ah-a.health==Math.calculate_raw_damage(500,1.5),"direct target gets 100% plus 50% splash")
+	_check(zh-z.health==Math.calculate_raw_damage(500,0.5),"non-target gets one 50% splash")
 	_check(not b.statuses.has_status(a.actor_id,IGNITION),"direct target ignition cleared")
 	b.queue_free()
 func _death_embers()->void:
@@ -96,7 +96,7 @@ func _death_embers()->void:
 	var hp=near.health
 	_check(b.request_skill(&"sakura_pierce_blossom",dead.actor_id),"Sakura kills ignited enemy with Lee present")
 	_check(dead.is_defeated(),"original target defeated")
-	_check(hp-near.health==Math.calculate_raw_damage(430,0.8),"Death Embers hits orthogonal neighbour")
+	_check(hp-near.health==Math.calculate_raw_damage(500,0.8),"Death Embers hits orthogonal neighbour")
 	var s=b.statuses.get_status(near.actor_id,IGNITION)
 	_check(s!=null and s.stacks==1,"Death Embers ignites survivor")
 	b.queue_free()
@@ -110,7 +110,7 @@ func _daybreak()->void:
 	lee.ultimate_energy=5
 	var hp=e.health
 	_check(b.request_skill(&"dest_lee_daybreak_ends","",Vector2i(1,1)),"Daybreak targets own cell")
-	var expected=Math.calculate_raw_damage(430,0.45)*3+Math.calculate_raw_damage(430,0.85)
+	var expected=Math.calculate_raw_damage(500,0.45)*3+Math.calculate_raw_damage(500,0.85)
 	_check(hp-e.health==expected,"Daybreak resolves four rounds")
 	_check(lee.ultimate_energy==0,"Daybreak spends full energy")
 	var s=b.statuses.get_status(e.actor_id,IGNITION)

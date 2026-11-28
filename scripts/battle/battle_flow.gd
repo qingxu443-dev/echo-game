@@ -92,6 +92,10 @@ static func start_encounter(
 	battle.beacons.clear()
 	battle.dropped_loot.clear()
 	battle.statuses.clear_all()
+	battle.dest_lee_batch_depth = 0
+	battle.dest_lee_death_queue.clear()
+	battle.dest_lee_chain_active = false
+	battle.dest_lee_chain_hit_targets.clear()
 	battle.ledger.reset_for_encounter()
 	TacticalPressureScript.reset_turn_tolerance(battle)
 	battle.blocked_cells = candidate_blockers

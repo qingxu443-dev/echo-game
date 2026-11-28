@@ -62,7 +62,7 @@ func _test_snapshot_fields(data: Dictionary) -> void:
 		[["actors", 0, "stolen_equipment"], [3], "typed equipment rows"],
 		[["ap", "current"], "2", "string AP"],
 		[["ap", "current"], 2.0, "float AP"],
-		[["ap", "current"], 4, "AP beyond maximum"],
+		[["ap", "current"], 6, "AP beyond the temporary overflow limit"],
 		[["ap", "maximum"], 0, "empty maximum AP"],
 		[["controller", "phase"], "0", "string phase"],
 		[["controller", "active_character_id"], "missing", "unknown commanded member"],

@@ -103,7 +103,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | 模块 | 职责 | 关键约束 |
 |---|---|---|
 | `grid_rules.gd` | 纯网格校验、路径合法性、候选寻路（`find_path`，仅供 UI 提示）、曼哈顿距离；正交视线与玩家侧直线视线 | 无状态，不持有战斗数据；寻路产物须由 controller 复验 |
-| `ap_budget.gd` | 确定性 AP 账本：重置、消耗、退款、回合结束清零 | 仅在动作确认后扣除；退款走 `refund()`，不绕过账本 |
+| `ap_budget.gd` | 确定性 AP 账本：重置、消耗、退款及道具临时上限的共同入口 | 仅在动作确认后扣除；沙漏临时额外额度可暂停保存，换回合仍归基础池 |
 | `combat_math.gd` | 共享伤害公式，防御采用递减收益 | 物理走防御、法术走法抗 |
 | `encounter_laws.gd` | 校验、解析并解释关卡 K/AP 与当前预告声明 | 未支持参数拒绝；单场复制，默认兼容；双方初始/后召单位及临时预览共享生效 K |
 | `damage_types.gd` | 伤害类型的**封闭集合**（物理 / 法术 / 真伤）、抗性映射、真伤是否跳过减伤 | 集合外的类型在结算前被拒，避免拼写错误静默绕过全部防御 |
@@ -123,7 +123,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `intent_support.gd` | 规划器与专属技共用的几何工具：三格带、路径搜索、风筝取位、意图 id | 无状态；不产生意图，只算格子 |
 | `encounter_definition.gd` | 单关数据与布阵自洽校验 | 只描述配置，不持有运行时状态 |
 | `level_catalog.gd` | 三关 `.tres` 的固定播放顺序 | 不使用随机布阵与目录扫描 |
-| `run_state.gd` | 单局 Roguelite 状态：跨关血量、武器/护甲装备槽、背包、技能铭文强化与 `reset()` 清空 | 仅存活于单局内存，通关开新局或战败重开时全部清空 |
+| `run_state.gd` | 领队的跨关血量与武器/护甲槽、共享背包、技能铭文强化与 `reset()` 清空 | 不是每名队员独立装备；穿脱指向领队，消耗品指向当前角色，不能把其生命覆盖进领队存档 |
 | `loot_catalog.gd` | 遗迹宝箱战利品名册：显式引用 13 张 `data/loot/*.tres`，`to_dict()` 维持字典契约；掉落 RNG 可播种（默认种子 0 供无头可复现，新局按时间播种并记入 `run_state.loot_seed`） | 玩家与敌人共享同一份物品属性结构，保证对称抢宝规则 |
 | `loot_item_definition.gd` | 单件战利品数据（Resource）：类别、名称、描述、装备数值、消耗效果、铭文 `mod_id` 与敌方偷取载荷 `enemy_*` | 纯数据；改数值只动 `data/loot/*.tres` |
 
@@ -169,6 +169,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `theme_palette.gd` | 全部颜色与坐标常量、2.5D 等距菱形投影（`80×44`）与 4 对角 90° 旋转正反算（`cell_center` / `cell_at`）、共享绘制原语（闭合折线/等距椭圆）与立绘高度常量 |
 | `hud_view.gd` | 左下角主角大头头像与血条/护盾/AP/能量、顶部关名与战况、右上角敌方行动顺序与技能充能情报卡 |
 | `inventory_view.gd` | `[B]` 键开关的装备与背包弹窗：展示武器槽、护甲槽、背包物品与点击穿戴/卸下/使用交互 |
+| `battle_inventory_input.gd` | 背包点击和翻页调度；从遭遇首位确定装备领队，保留当前角色为道具/铭文目标，界面显示领队属性 |
 | `settlement_view.gd` | 结算面板、完好遗迹宝箱开箱战利品展示、三选一肉鸽强化与其点击区；`spring=true` 时只留「返回春之境」一个出口 |
 | `input_router.gd` | 触屏 / 鼠标 / 键盘 → `tap` / `skill` / `cancel` / `end_turn` / `rotate_camera` / `toggle_inventory` |
 | `main_menu.gd` | 启动菜单：黄昏背景与飘浮光尘、极简悬停横条、键盘与点击选中；两个选项（进入大厅 / 退出） |
@@ -220,6 +221,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 暂停快照携带已校验的 `custom_level` 数据。`SessionSave.stage()` 将该断点路由至自定义战斗场景，`BattleSession.restore()` 恢复对应定义和完整战斗状态，不将其当作教学第一关。自定义定义与春之境模式互斥，仍通过通用暂停预检。编辑稿、存读档、真实战斗和跨场景恢复由 `test_custom_levels.gd` 覆盖。
 
 ## 审计范围、发现与处理
+
+2026-11-28 游玩流程复核：从 `0ef0186` 的真实场景入口复现并修复领队装备写错队员、地图生命效果被进战旧快照覆盖、旧战斗结算错用另一局磁盘地图、沙漏合法临时 AP 被存档拒绝，以及结算切换失败清空握手/重建 ID。地图统一同步领队生命快照，保留倒地并兼容旧健康副本；结算优先战前快照，只有无快照旧入口读盘，写入和切换失败不丢现场。逐项原因、位置、验证及人工游玩边界见 [实机修复记录](../quality/PLAYTEST_FIXES_2026-11-27.md)。
 
 2026-11-28 暂停恢复跟进：
 

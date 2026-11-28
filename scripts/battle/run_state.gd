@@ -1,7 +1,7 @@
 class_name RunState
 extends RefCounted
 
-## Single-hero roguelite run state for Sevrin:
+## Leader equipment and persistent battle carry (Sevrin or the expedition lead):
 ## - Persists HP, skill mods, equipped weapon/armor, and backpack across stages.
 ## - Supports equipping, swapping, unequipping back to backpack, and using items.
 ## - reset() wipes everything cleanly at the end of a run.
@@ -233,7 +233,7 @@ func use_backpack_item(index: int, battle, actor) -> String:
 			hero_health = actor.health
 		var ap_gain: int = int(item.get("ap_gain", 0))
 		if ap_gain > 0 and battle != null and battle.ap != null:
-			battle.ap.current = mini(battle.ap.maximum + 2, battle.ap.current + ap_gain)
+			battle.ap.current = mini(APBudget.temporary_limit(battle.ap.maximum), battle.ap.current + ap_gain)
 		var sh_gain: int = int(item.get("shield_gain", 0))
 		if sh_gain > 0:
 			actor.grant_shield(actor.shield + sh_gain)

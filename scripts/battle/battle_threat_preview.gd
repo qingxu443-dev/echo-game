@@ -24,6 +24,7 @@ static func defender_at(battle, cell: Vector2i) -> BattleActor:
 	projected.health = hero.health
 	projected.shield = hero.shield
 	projected.defense_penalty = hero.defense_penalty
+	projected.attenuation_k = hero.attenuation_k
 	return projected
 
 

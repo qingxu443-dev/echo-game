@@ -8,6 +8,7 @@ static func capture(view: Node) -> Dictionary:
 	var battle: BattleController = view.controller
 	var data := {
 		"scene": "battle", "spring_mode": view.spring_mode, "level": view.current_level,
+		"encounter_override_id": str(view.encounter_override.level_id) if view.encounter_override != null else "",
 		"bridge": SpringBattleBridge.pending.duplicate(true),
 		"parent_run": SpringBattleBridge.suspended_map.duplicate(true),
 		"controller": SessionCodec.fields(battle, ["actors", "intents", "ap", "statuses", "ledger", "run_state"]),
@@ -35,6 +36,8 @@ static func restore(view: Node, data: Dictionary) -> bool:
 	else:
 		SpringBattleBridge.clear_pending()
 		view.levels = LevelCatalog.create_prototype_levels()
+		view.encounter_override = LevelCatalog.optional_encounter(StringName(str(data.get("encounter_override_id", ""))))
+		if view.encounter_override != null: view.levels.assign([view.encounter_override])
 	view.current_level = int(data.level)
 	view.run_state = RunState.new()
 	SessionCodec.apply_fields(view.run_state, data.run_state)

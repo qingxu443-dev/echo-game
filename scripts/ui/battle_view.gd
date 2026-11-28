@@ -43,6 +43,8 @@ var inventory_page: int = 0
 ## True when this scene was opened by the 春之境 map for a single fight. The
 ## campaign path (three lessons in a row) is untouched and stays the default.
 var spring_mode: bool = false
+## Optional isolated authoring scene; the normal tutorial playlist stays fixed.
+@export var encounter_override: EncounterDefinition
 
 func _ready() -> void:
 	var suspended := SessionSave.consume("battle")
@@ -54,6 +56,7 @@ func _ready() -> void:
 		_begin_spring_fight()
 		return
 	levels = LevelCatalogScript.create_prototype_levels()
+	if encounter_override != null: levels.assign([encounter_override])
 	run_state = RunStateScript.new()
 	controller = ControllerScript.new()
 	controller.run_state = run_state
@@ -136,6 +139,11 @@ func _start_level(index: int) -> void:
 	if index < 0 or index >= levels.size():
 		return
 	var level: EncounterDefinition = levels[index]
+	var law_error := EncounterLaws.describe_error(level.anomaly_overrides)
+	if not law_error.is_empty():
+		status_message = "关卡异象无效：" + law_error
+		queue_redraw()
+		return
 	selected_skill = -1
 	pending_rewards.clear()
 	# A rejected setup leaves the previous encounter untouched, so say so instead
@@ -143,7 +151,7 @@ func _start_level(index: int) -> void:
 	# §11.1 applies to the spring run: its fights start with a deployment phase.
 	# The tutorial lessons keep the old direct start, because their opening beats
 	# teach a turn action ("move one tile") rather than a placement.
-	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items, level.ward_nodes, level.deploy_cells, spring_mode, level.enemy_stat_multiplier):
+	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items, level.ward_nodes, level.deploy_cells, spring_mode, level.enemy_stat_multiplier, level.anomaly_overrides):
 		status_message = "关卡「%s」数据无效，未能开始。" % str(level.display_name_zh)
 		queue_redraw()
 		return

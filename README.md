@@ -96,6 +96,8 @@ python tools/fetch_windows_template.py
 
 ## 自动化测试与工程守卫
 
+关卡法则的可运行工程样板见 `scenes/examples/anomaly_demo.tscn`（编辑器 F6）：单场覆写 K/AP，普通教学路线不变。支持范围与尚未实现的预告语义见 [关卡法则覆写](docs/engineering/decisions/ENCOUNTER_LAW_OVERRIDES.md)。
+
 基线是**覆盖下限**，由 [`tests/framework/baseline.json`](tests/framework/baseline.json) 单独声明；当前套件数与断言数以运行输出为准，逐套件明细见 [`docs/engineering/quality/BASELINE.md`](docs/engineering/quality/BASELINE.md)。新增测试不需要改任何共享文档。
 
 ```bash

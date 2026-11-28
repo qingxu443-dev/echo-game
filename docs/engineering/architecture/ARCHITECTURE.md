@@ -100,6 +100,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `grid_rules.gd` | 纯网格校验、路径合法性、候选寻路（`find_path`，仅供 UI 提示）、曼哈顿距离；正交视线与玩家侧直线视线 | 无状态，不持有战斗数据；寻路产物须由 controller 复验 |
 | `ap_budget.gd` | 确定性 AP 账本：重置、消耗、退款、回合结束清零 | 仅在动作确认后扣除；退款走 `refund()`，不绕过账本 |
 | `combat_math.gd` | 共享伤害公式，防御采用递减收益 | 物理走防御、法术走法抗 |
+| `encounter_laws.gd` | 校验、解析并解释关卡 K/AP 与当前预告声明 | 未支持参数拒绝；单场复制，默认兼容；双方初始/后召单位及临时预览共享生效 K |
 | `damage_types.gd` | 伤害类型的**封闭集合**（物理 / 法术 / 真伤）、抗性映射、真伤是否跳过减伤 | 集合外的类型在结算前被拒，避免拼写错误静默绕过全部防御 |
 | `battle_intent.gd` | 敌方意图快照，actor / tile / area 三种锁定模式与 active→resolved/canceled 单向生命周期 | **预告展示与敌方执行使用同一份快照** |
 | `battle_status.gd` | 单个状态实例：触发次数（-1 为无限）、到期边界、叠层策略 | — |
@@ -236,6 +237,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 控制器宝箱/掉落职责提取后，模块行数存量豁免已清空。`BattleController` 仍持有战斗权威状态，协作者接收显式 battle 参数；新增机制应避免循环预加载和模块间暗改状态。当前报告不把待设计内容记作代码缺陷，具体未决关系见 [决策登记](../decisions/CURRENT_SCOPE_AND_DECISIONS.md)，验收步骤与反馈见 [Windows 交接](../../delivery/WINDOWS_DELIVERY.md)。
 
 2026-11-28 后续缺陷（中，已修）：`BattleFlow.start_encounter()` 原来只在初始化后乘属性倍率，`TacticalPressure._trigger_boss_enrage()` 直接按原档案生成护卫。Boss 战二阶段的攻击因此出现 1040/1120，而非该战 1.2 倍要求的 1248/1344。现由控制器持有遭遇倍率，EnemyActorFactory 在初始/援军两入口统一缩放生命、攻击、防御与法抗；技能固定伤害与基础招式倍率保持目录值。倍率随暂停快照保存，每次新遭遇重设；旧快照缺字段默认 1.0，保留旧进行中战斗的行为，不追溯重算已有单位属性。真实技能触发、控制器复用、JSON 暂停恢复和旧档均有回归。
+
+ECHO-601 第一阶段：EncounterDefinition 的 `anomaly_overrides` 经 EncounterLaws 校验，由 BattleFlow 设定单场 K/AP；单位和预览复制 K，后召援军同源读取。HUD 解释玩法影响，暂停保存有效配置与登记的样板 ID。可独立运行 `scenes/examples/anomaly_demo.tscn`；普通教学路线不变。多回合预告、可改写与锁定模式覆写仍未支持，配置会明确拒绝，详见 [关卡法则边界](../decisions/ENCOUNTER_LAW_OVERRIDES.md)。
 
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。
 

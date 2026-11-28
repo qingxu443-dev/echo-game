@@ -33,12 +33,14 @@ static func start_encounter(
 	ward_nodes: int = 0,
 	deploy_zone_cells: Array[Vector2i] = [],
 	defer_start: bool = false,
-	enemy_stat_multiplier: float = 1.0
+	enemy_stat_multiplier: float = 1.0, anomaly_overrides: Dictionary = {}
 ) -> bool:
 	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
 		return false
 	if not is_finite(enemy_stat_multiplier) or enemy_stat_multiplier <= 0.0:
 		return false
+	var laws := EncounterLaws.resolve(anomaly_overrides, battle.team_ap)
+	if laws.is_empty(): return false
 	if not GridRulesScript.is_inside_bounds(player_cell, battle.grid_size):
 		return false
 	if enemy_cells.is_empty():
@@ -87,7 +89,9 @@ static func start_encounter(
 			return false
 		candidate_enemy_cells[cell] = true
 
-	battle.ap.maximum = battle.team_ap
+	battle.ap.maximum = laws.ap_pool
+	battle.law_overrides = anomaly_overrides.duplicate(true)
+	battle.attenuation_k = laws.attenuation_k
 	battle.actors.clear()
 	battle.beacons.clear()
 	battle.dropped_loot.clear()
@@ -121,6 +125,7 @@ static func start_encounter(
 		unit.resource_max = sheet.resource_max
 		unit.ultimate_energy_max = maxi(1, sheet.ultimate_energy_max)
 		unit.resource_current = 0
+		unit.attenuation_k = battle.attenuation_k
 		if index == 0 and battle.run_state != null:
 			battle.run_state.apply_to_actor(unit)
 		battle.actors[character_id] = unit
@@ -133,7 +138,7 @@ static func start_encounter(
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
 		var enemy_id := "%s_%02d" % [archetype, index]
 		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
-		var enemy_unit = EnemyActorFactory.create(profile, enemy_id, cell, -1, battle.enemy_stat_multiplier)
+		var enemy_unit = EnemyActorFactory.create(profile, enemy_id, cell, -1, battle.enemy_stat_multiplier, battle.attenuation_k)
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		TacticalPressureScript.init_enemy_pressure(enemy_unit)

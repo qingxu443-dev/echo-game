@@ -190,6 +190,19 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 			loot_names.append(item_name)
 
 	match kind:
+		KIND_BATTLE:
+			# Ordinary victories automatically drop one random common collectible.
+			# Active consumables enter the stack; passive effects resolve immediately.
+			var normal_pool: Array[StringName] = roll_reward_choices(run, "normal", 1, int(result.get("seed", run.seed_value)))
+			if not normal_pool.is_empty():
+				var normal_reward: StringName = normal_pool[0]
+				if run.grant_collectible(normal_reward):
+					var normal_effect: Dictionary = run.apply_collectible_effect(normal_reward)
+					var effect_note: String = str(normal_effect.get("message", "已收纳，可在藏品栏中主动使用。"))
+					outcome["message"] = "普通战斗获得藏品「%s」：%s" % [run.collectible_name(normal_reward), effect_note]
+			else:
+				run.add_coins(20)
+				outcome["message"] = "普通战斗胜利。普通藏品已收集齐全，换得 20 花钿。"
 		KIND_ELITE:
 			# §14: three candidates, pick one, common or rare only.
 			var choices: Array[StringName] = roll_reward_choices(run, "elite", 3, int(result.get("seed", run.seed_value)))
@@ -214,6 +227,15 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 			else:
 				run.add_coins(60)
 				outcome["message"] = "击败了首领。藏品已收集齐全，换得 60 花钿。"
+			# Bosses also guarantee one unique relic while the relic pool remains.
+			var relic_rng := RandomNumberGenerator.new()
+			relic_rng.seed = hash("%d|boss_relic|%d" % [int(result.get("seed", run.seed_value)), run.battles_won])
+			var boss_relic: StringName = run.grant_random_relic(relic_rng)
+			if boss_relic != &"":
+				outcome["message"] += " 获得遗物「%s」。" % run.relic_name(boss_relic)
+			else:
+				run.add_coins(80)
+				outcome["message"] += " 遗物已收集齐全，换得 80 花钿。"
 			# §3: the next region requires both a persistent unlock and a real scene.
 			var transition: Dictionary = RegionProgressionScript.resolve_next(
 				RegionProgressionScript.REGION_SPRING,
@@ -256,7 +278,8 @@ static func roll_reward_choices(run, source: String, count: int, seed_value: int
 	var result: Array[StringName] = []
 	var candidates: Array[String] = []
 	for candidate_id in SpringCollectibleCatalog.candidates_for(source):
-		if not run.has_collectible(StringName(candidate_id)):
+		var candidate := StringName(candidate_id)
+		if SpringCollectibleCatalog.is_consumable(candidate) or not run.has_collectible(candidate):
 			candidates.append(candidate_id)
 	if candidates.is_empty():
 		return result

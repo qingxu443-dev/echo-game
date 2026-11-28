@@ -272,10 +272,10 @@ func _test_guard_counters_each_independent_enemy_intent() -> void:
 	var guardian = battle.get_actor("sevrin")
 	var attacker = battle.get_actor("vanguard_00")
 	_check(battle.statuses.apply_status(&"absolute_guard", guardian.actor_id, guardian.actor_id, 1, 1, -1, &"", &"replace"), "Absolute Guard status is active")
-	var before := attacker.health
+	var before: int = attacker.health
 	var first = IntentScript.new("counter_intent_one", attacker.actor_id, "light_shot", IntentScript.TargetMode.ACTOR_LOCKED, guardian.actor_id, guardian.cell, [guardian.cell], 100)
 	IntentResolverScript.absolute_guard_counter(battle, first)
-	var after_first := attacker.health
+	var after_first: int = attacker.health
 	var second = IntentScript.new("counter_intent_two", attacker.actor_id, "light_shot", IntentScript.TargetMode.ACTOR_LOCKED, guardian.actor_id, guardian.cell, [guardian.cell], 100)
 	IntentResolverScript.absolute_guard_counter(battle, second)
 	_check(after_first < before and attacker.health < after_first, "two independent actions from one enemy each trigger a counter")

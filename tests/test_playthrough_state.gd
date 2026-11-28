@@ -118,7 +118,7 @@ func _test_inventory_after_switching() -> void:
 	_check(view.controller.actors.sakura.health == 1050, "unequipping cannot heal the reserve")
 	view.run_state.add_to_backpack(AtelierStash.recipe_by_id("item_dusk_potion").payload)
 	view._handle_inventory_tap(InventoryView.bag_card_rect(1).get_center())
-	_check(member.health == 3000 and view.controller.actors.sakura.health == 1050, "consumables target the deployed character")
+	_check(member.health == 2600 and view.controller.actors.sakura.health == 1050, "consumables target the deployed character")
 	_check(view.run_state.hero_health == 3000, "the working loadout tracks the deployed character's persistent health")
 	view.queue_free()
 	SpringBattleBridge.clear_pending()

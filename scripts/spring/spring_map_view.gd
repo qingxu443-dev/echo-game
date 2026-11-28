@@ -505,7 +505,7 @@ func _draw_reward_choices() -> void:
 	draw_rect(panel, P.OVERLAY_BG, true)
 	draw_rect(panel, P.GOLD, false, 2.0)
 	draw_string(font, Vector2(216.0, 196.0), "精英战利品 · 三选一", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, P.GOLD_PALE)
-	draw_string(font, Vector2(216.0, 226.0), "只出现普通与稀有品质；已拥有的不会重复出现。", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
+	draw_string(font, Vector2(216.0, 226.0), "只出现普通与稀有品质；被动藏品不重复，主动消耗品可重复获得。", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
 	for index in range(run.reward_choices.size()):
 		var rect := reward_card_rect(index)
 		var collectible_id: StringName = run.reward_choices[index]

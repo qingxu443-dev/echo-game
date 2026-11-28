@@ -322,7 +322,13 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 	if outcome["message"].is_empty():
 		outcome["message"] = "；".join(parts) + "。"
 	else:
-		outcome["message"] += "（+%d 工坊残晶）" % win_shards
+		var extra_parts: Array[String] = []
+		if chests > 0:
+			extra_parts.append("保住 %d 个宝箱 · +%d 花钿" % [chests, coins])
+		if not loot_names.is_empty():
+			extra_parts.append("战利品：" + "、".join(loot_names))
+		extra_parts.append("+%d 工坊残晶" % win_shards)
+		outcome["message"] += "（" + "；".join(extra_parts) + "）"
 	if not (outcome.get("region_transition", {}) as Dictionary).is_empty() and bool(outcome.get("finished_run", false)):
 		last_transition_message = str(outcome.get("message", ""))
 	return outcome

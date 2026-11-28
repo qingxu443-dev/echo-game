@@ -140,7 +140,7 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	var battle_result: Dictionary = record.get("result", {})
 	var won := str(battle_result.get("result", "")) == "victory"
-	var title := "战斗胜利" if won else "战斗结束"
+	var title := "战斗胜利" if won else "战斗失败"
 	draw_string(font, Vector2(120.0, 122.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 34, Color("#f0dfb8"))
 	draw_string(font, Vector2(120.0, 148.0), "春之境 · 战后结算", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("#a9c1c7"))
 	if prepared:

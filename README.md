@@ -1,5 +1,7 @@
 # ECHO
 
+地块显示已统一：敌人攻击为不叠色红区，左侧按钮可显隐；移动范围默认隐藏，点击当前角色/头像显示；技能预览使用淡黄色与连续边界。源库更新和生命快照收尾见 [本批报告](docs/engineering/quality/BOARD_OVERLAYS_2026-11-28.md)。
+
 当前战斗采用**单人上场、队伍轮换**：我方回合点击左下队友头像或按 Tab 消耗 1 AP 换人，保留各自状态；死亡后本局退场并自动顺位接替。规则、真实渲染和已知问题见 [单人轮换交付记录](docs/engineering/quality/SINGLE_ACTIVE_PARTY_2026-11-28.md)。
 
 ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 回合制战术 Roguelite** 游戏。

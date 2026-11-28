@@ -1,5 +1,7 @@
 # ECHO 工程架构与全量审计报告
 
+当前地块显示补充：`BoardOverlayRegion` 统一柔和纯色填充与连续区域边界，`BoardMoveRange` 与真实移动请求共用路径规则，`BattleOverlayInput` 管攻击显隐和当前角色选区；显示状态保存在 `BattleFxState`。`SpringVitality` 统一区分原始生命上限和残片后的上限，避免战后 carry 再次缩放。逐项原因、证据和已知边界见 [地块与生命收尾报告](../quality/BOARD_OVERLAYS_2026-11-28.md)。
+
 最新实现补充：游戏入口统一启用单人轮换，队伍最多三名但只一名在场。`PartyRotation` 管付费切换、顺位退场和锁定接续，`PartyLoadout` 管每人装备与基础属性，`PartyPortraitView` 管头像；`BattleSession` / `SpringBattleBridge` 保存或迁移状态。见 [完整轮换交付记录](../quality/SINGLE_ACTIVE_PARTY_2026-11-28.md)。下文旧审计中的同时多人、免费切换、领队单槽和倒地复活属于历史实现。
 
 ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗林的三关教学遗迹，或经「春之境」章节页进入普通与困难探索。营地可编排瑟弗林、樱和德斯特·李，春之境最多三人出战，教学保持固定阵容。两种模式共用等距战斗和局外补给商行，各自持有局内状态。

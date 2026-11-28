@@ -35,6 +35,7 @@ static func draw_status(canvas: CanvasItem, controller, status_message: String, 
 	_draw_turn_and_ap(canvas, font, controller)
 	_draw_camera_controls(canvas, font, controller)
 	_draw_active_mods(canvas, font, controller)
+	BattleOverlayInput.draw_button(canvas, fx_state.get("attack_tiles_visible", true))
 	_draw_guide_banner(canvas, font, status_message)
 	_draw_portrait_card(canvas, font, controller)
 	_draw_incoming_threat_card(canvas, font, controller, fx_state)

@@ -76,6 +76,7 @@
 |---|---|
 | [`BASELINE`](engineering/quality/BASELINE.md) | 逐套件断言数、CI 口径、覆盖下限与历次变更记录 |
 | [`IMPLEMENTATION_DEBT_v1.0`](engineering/quality/IMPLEMENTATION_DEBT_v1.0_zh-CN.md) | 法则落地欠账：D-01 至 D-04 的现状与核对方式 |
+| [`BOARD_OVERLAYS_2026-11-28`](engineering/quality/BOARD_OVERLAYS_2026-11-28.md) | 源库接续、生命结算收尾、移动逻辑检查、纯色攻击/技能区域与显隐、真实渲染和已知边界 |
 | [`SINGLE_ACTIVE_PARTY_2026-11-28`](engineering/quality/SINGLE_ACTIVE_PARTY_2026-11-28.md) | 单人上场、1 AP 轮换、永久退场、状态/装备继承、真实渲染及已知问题 |
 | [`PLAYTEST_FIXES_2026-11-27`](engineering/quality/PLAYTEST_FIXES_2026-11-27.md) | 七项实机问题的定位、修复与回归记录 |
 

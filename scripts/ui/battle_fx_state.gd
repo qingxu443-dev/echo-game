@@ -17,6 +17,8 @@ const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const Palette = preload("res://scripts/ui/theme_palette.gd")
 const BoardThreatViewScript = preload("res://scripts/ui/board_threat_view.gd")
 
+var attack_tiles_visible: bool = true
+var move_actor_id: String = ""
 var time: float = 0.0
 var party_switch_left: float = 0.0
 var party_switch_id: String = ""
@@ -34,6 +36,7 @@ var acting_enemy_id: String = ""
 
 ## 新遭遇开始：清空所有瞬态 FX 并重置角色视觉位置到当前格。
 func reset_for_encounter(controller) -> void:
+	move_actor_id = ""
 	party_switch_left = 0.0
 	party_switch_id = ""
 	actor_visual_pos.clear()
@@ -166,6 +169,8 @@ func prepare_enemy_step() -> void:
 func snapshot(hover_cell: Vector2i) -> Dictionary:
 	return {
 		"time": time,
+		"attack_tiles_visible": attack_tiles_visible,
+		"move_actor_id": move_actor_id,
 		"party_switch_left": party_switch_left,
 		"party_switch_id": party_switch_id,
 		"hover_cell": hover_cell,

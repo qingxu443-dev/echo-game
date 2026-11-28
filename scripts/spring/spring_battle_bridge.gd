@@ -175,8 +175,11 @@ static func restore_party_vitals(battle, payload: Dictionary) -> void:
 
 ## Packs what the battle left behind so it can be written onto the run.
 static func pack_carry(run_state) -> Dictionary:
+	var mods: Array[String] = []
+	for mod_id in run_state.mods:
+		mods.append(String(mod_id))
 	return {
-		"mods": run_state.mods.duplicate(),
+		"mods": mods,
 		"equipped_weapon": run_state.equipped_weapon.duplicate(true),
 		"equipped_armor": run_state.equipped_armor.duplicate(true),
 		"backpack": run_state.backpack.duplicate(true),

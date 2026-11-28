@@ -227,7 +227,14 @@ func _test_elite_offers_three() -> void:
 	for collectible_id in CollectibleCatalogScript.candidates_for("elite"):
 		loaded.grant_collectible(StringName(collectible_id))
 	var exhausted: Array = BridgeScript.roll_reward_choices(loaded, "elite", 3, 5)
-	_check(exhausted.is_empty(), "a fully collected pool yields no candidates")
+	_check(exhausted.size() == 2, "only the two repeatable active consumables remain")
+	for remaining_id in exhausted:
+		_check(CollectibleCatalogScript.is_consumable(remaining_id), "remaining repeatable reward is an active consumable")
+	var coins_before: int = loaded.coins
+	var supplies_before: int = loaded.supplies
+	BridgeScript.settle_result(loaded, _result({"kind": BridgeScript.KIND_ELITE, "place": "elite"}))
+	_check(loaded.reward_choices.is_empty(), "an incomplete three-choice hand is not shown")
+	_check(loaded.coins >= coins_before + 40 and loaded.supplies >= supplies_before + 2, "an incomplete elite hand converts to resource compensation")
 
 
 func _test_boss_closes_the_region() -> void:

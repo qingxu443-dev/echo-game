@@ -213,7 +213,7 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 				# compensate rather than presenting a broken partial reward panel.
 				run.add_coins(40)
 				run.add_supplies(2)
-				outcome["message"] = "击败了精英。藏品已收集齐全，换得 40 花钿与 2 份补给。"
+				outcome["message"] = "击败了精英。可选藏品不足三件，换得 40 花钿与 2 份补给。"
 			else:
 				run.reward_choices.assign(choices)
 				outcome["reward_choices"] = choices

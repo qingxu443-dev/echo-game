@@ -443,7 +443,10 @@ static func can_afford(run, event_id: StringName, index: int) -> bool:
 				if run.supplies < need:
 					return false
 			"collectible":
-				if run.collectibles.size() < need:
+				var owned_count: int = run.collectibles.size()
+				for stack_count in run.collectible_consumables.values():
+					owned_count += int(stack_count)
+				if owned_count < need:
 					return false
 	return true
 

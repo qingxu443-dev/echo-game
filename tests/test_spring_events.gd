@@ -210,9 +210,17 @@ func _test_collectibles_never_duplicate() -> void:
 	var run := _fresh_run()
 	var satchel: Dictionary = CatalogScript.resolve(run, &"lost_traveler", 2)
 	_check(bool(satchel["ok"]), "the traveller's satchel resolves")
-	_check(run.collectibles.size() == 1, "the satchel yields exactly one collectible")
-	var owned: StringName = run.collectibles[0]
-	_check(not run.grant_collectible(owned), "the same collectible cannot be granted twice")
+	var satchel_total: int = run.collectibles.size()
+	for count in run.collectible_consumables.values():
+		satchel_total += int(count)
+	_check(satchel_total == 1, "the satchel yields exactly one collectible")
+	if not run.collectibles.is_empty():
+		var owned: StringName = run.collectibles[0]
+		_check(not run.grant_collectible(owned), "the same passive collectible cannot be granted twice")
+	else:
+		var active_id := StringName(run.collectible_consumables.keys()[0])
+		_check(run.grant_collectible(active_id), "an active consumable can be acquired more than once")
+		_check(int(run.collectible_consumables[String(active_id)]) == 2, "the second active copy stacks")
 
 	# Exhausting the pool must not hand out a duplicate; it reports &"" instead.
 	var exhausted := _fresh_run()

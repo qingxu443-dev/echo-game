@@ -14,7 +14,7 @@ extends RefCounted
 ## content, which is what "尚未确定" means in practice.
 
 const SAVE_PATH := "user://spring_run.json"
-const SAVE_VERSION: int = 3
+const SAVE_VERSION: int = 4
 
 ## The hero's battle-side baseline, mirroring `data/characters/sakura.tres`.
 ## §2 makes 樱 the narrative lead of 春之境, and this mode now fights as her
@@ -41,6 +41,8 @@ var dew: Dictionary = {"spring": 0, "summer": 0, "autumn": 0, "winter": 0}
 var dew_cap: int = 0
 var memory_pages: int = 0
 var relics: Array[StringName] = []
+## Stack counts for manually activated collectibles. Passive collectibles remain unique.
+var collectible_consumables: Dictionary = {}
 
 ## §11.2: health carries from fight to fight and is never restored by winning.
 ## The bonus is what relics and epic collectibles add for the rest of the run.
@@ -130,12 +132,16 @@ func dew_total() -> int:
 	return total
 
 
+func effective_dew_cap() -> int:
+	return maxi(0, dew_cap + SpringRelicCatalog.total_bonus(relics, "dew_cap"))
+
+
 ## §5.4: when the storage is full the player must be told, never silently
-## dropped. Returning false is that signal.
+## dropped. Relic capacity bonuses are included in the same shared four-season cap.
 func add_dew(kind: String, amount: int) -> bool:
 	if amount <= 0 or not dew.has(kind):
 		return false
-	if dew_total() + amount > dew_cap:
+	if dew_total() + amount > effective_dew_cap():
 		return false
 	dew[kind] = int(dew[kind]) + amount
 	return true
@@ -167,10 +173,19 @@ func add_memory_pages(amount: int) -> void:
 	memory_pages = maxi(0, memory_pages + amount)
 
 
-func add_relic(relic_id: StringName) -> void:
-	if relic_id == &"":
-		return
+func add_relic(relic_id: StringName) -> bool:
+	if relic_id == &"" or not SpringRelicCatalog.has_relic(relic_id) or relics.has(relic_id):
+		return false
 	relics.append(relic_id)
+	return true
+
+
+func grant_random_relic(rng: RandomNumberGenerator) -> StringName:
+	var candidates := SpringRelicCatalog.candidates_for(relics)
+	if candidates.is_empty():
+		return &""
+	var picked := StringName(candidates[rng.randi_range(0, candidates.size() - 1)])
+	return picked if add_relic(picked) else &""
 
 
 # --- hero vitals (§11.2) -----------------------------------------------------
@@ -216,14 +231,20 @@ func add_bonus_max_health(amount: int) -> void:
 # --- collectibles (§6.1) -----------------------------------------------------
 
 func has_collectible(collectible_id: StringName) -> bool:
+	if SpringCollectibleCatalog.is_consumable(collectible_id):
+		return int(collectible_consumables.get(String(collectible_id), 0)) > 0
 	return collectibles.has(collectible_id)
 
 
-## §6.1: no duplicates, ever. Returns false when the player already owns it.
+## Passive collectibles are unique; active consumables stack and can be collected again.
 func grant_collectible(collectible_id: StringName) -> bool:
-	if collectible_id == &"" or collectibles.has(collectible_id):
+	if collectible_id == &"" or not SpringCollectibleCatalog.has_collectible(collectible_id):
 		return false
-	if not SpringCollectibleCatalog.has_collectible(collectible_id):
+	if SpringCollectibleCatalog.is_consumable(collectible_id):
+		var key := String(collectible_id)
+		collectible_consumables[key] = int(collectible_consumables.get(key, 0)) + 1
+		return true
+	if collectibles.has(collectible_id):
 		return false
 	collectibles.append(collectible_id)
 	return true
@@ -235,7 +256,8 @@ func grant_collectible(collectible_id: StringName) -> bool:
 func grant_random_collectible(rng: RandomNumberGenerator, source: String = "event") -> StringName:
 	var candidates: Array[String] = []
 	for candidate_id in SpringCollectibleCatalog.candidates_for(source):
-		if not collectibles.has(StringName(candidate_id)):
+		var id := StringName(candidate_id)
+		if SpringCollectibleCatalog.is_consumable(id) or not collectibles.has(id):
 			candidates.append(candidate_id)
 	if candidates.is_empty():
 		return &""
@@ -261,9 +283,32 @@ func relic_name(relic_id: StringName) -> String:
 	return SpringRelicCatalog.name_of(relic_id)
 
 
-## Applies a collectible's effect. Resource kinds land immediately; the two that
-## need the map (a reveal) and the run (a stat) set state the map/bridge reads.
+## Passive effects resolve on acquisition. Active consumables are deliberately
+## excluded here and must pass through use_collectible() instead.
 func apply_collectible_effect(collectible_id: StringName) -> Dictionary:
+	if SpringCollectibleCatalog.is_consumable(collectible_id):
+		return {"ok": false, "message": "这件藏品需要主动使用。"}
+	return _apply_collectible_effect_data(collectible_id)
+
+
+func use_collectible(collectible_id: StringName) -> Dictionary:
+	var key := String(collectible_id)
+	var count: int = int(collectible_consumables.get(key, 0))
+	if count <= 0 or not SpringCollectibleCatalog.is_consumable(collectible_id):
+		return {"ok": false, "message": "没有可使用的这件藏品。"}
+	var result := _apply_collectible_effect_data(collectible_id)
+	if not bool(result.get("ok", false)):
+		return result
+	count -= 1
+	if count <= 0:
+		collectible_consumables.erase(key)
+	else:
+		collectible_consumables[key] = count
+	result["message"] = "使用「%s」：%s" % [collectible_name(collectible_id), str(result.get("message", ""))]
+	return result
+
+
+func _apply_collectible_effect_data(collectible_id: StringName) -> Dictionary:
 	var effect: Dictionary = SpringCollectibleCatalog.effect_of(collectible_id)
 	var result := {"ok": false, "message": ""}
 	if effect.is_empty():
@@ -278,16 +323,23 @@ func apply_collectible_effect(collectible_id: StringName) -> Dictionary:
 		"dew":
 			var dew_kind: String = str(effect.get("dew_kind", "spring"))
 			if not add_dew(dew_kind, int(effect.get("amount", 0))):
-				result["message"] = "四时花露已满，这一份没能收下。"
+				result["message"] = "四时花露容量不足，这件藏品没有消耗。"
 				return result
 		"max_health":
 			add_bonus_max_health(int(effect.get("amount", 0)))
+		"heal":
+			var healed: int = heal_hero(int(effect.get("amount", 0)))
+			if healed <= 0:
+				result["message"] = "生命已满，这件藏品没有消耗。"
+				return result
+			result["message"] = "恢复 %d 点生命。" % healed
 		"reveal_hidden":
 			pending_hidden_reveal = true
 		_:
 			return result
 	result["ok"] = true
-	result["message"] = SpringCollectibleCatalog.desc_of(collectible_id)
+	if str(result.get("message", "")).is_empty():
+		result["message"] = SpringCollectibleCatalog.desc_of(collectible_id)
 	return result
 
 
@@ -412,6 +464,7 @@ func to_dict() -> Dictionary:
 			"dew_cap": dew_cap,
 			"memory_pages": memory_pages,
 			"relics": relics.duplicate(),
+			"collectible_consumables": collectible_consumables.duplicate(true),
 		},
 		"hero": {
 			"health": hero_health,
@@ -450,6 +503,7 @@ static func _names_to_strings(values: Array) -> Array[String]:
 const MIGRATIONS := {
 	1: "_migrate_v1_to_v2",
 	2: "_migrate_v2_to_v3",
+	3: "_migrate_v3_to_v4",
 }
 
 
@@ -486,6 +540,14 @@ static func _migrate_v2_to_v3(data: Dictionary) -> Dictionary:
 	var hero: Dictionary = result.get("hero", {})
 	hero.erase("carry_max_health")
 	result["hero"] = hero
+	return result
+
+
+static func _migrate_v3_to_v4(data: Dictionary) -> Dictionary:
+	var result := data.duplicate(true)
+	var resources: Dictionary = result.get("resources", {})
+	resources["collectible_consumables"] = {}
+	result["resources"] = resources
 	return result
 
 
@@ -536,7 +598,16 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	run.memory_pages = int(resources.get("memory_pages", 0))
 	run.relics = []
 	for relic_id in resources.get("relics", []):
-		run.relics.append(StringName(relic_id))
+		var relic_key := StringName(relic_id)
+		if SpringRelicCatalog.has_relic(relic_key) and not run.relics.has(relic_key):
+			run.relics.append(relic_key)
+	run.collectible_consumables = {}
+	var saved_consumables: Dictionary = resources.get("collectible_consumables", {})
+	for item_id in saved_consumables:
+		var item_key := StringName(item_id)
+		var item_count: int = int(saved_consumables[item_id])
+		if SpringCollectibleCatalog.is_consumable(item_key) and item_count > 0:
+			run.collectible_consumables[String(item_key)] = item_count
 
 	# Everything below arrived with save version 2. A version-1 file simply has no
 	# such keys, and each default matches what version 1 meant, so old saves load.

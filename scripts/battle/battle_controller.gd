@@ -75,11 +75,6 @@ var damage_dealt: int = 0
 var damage_taken: int = 0
 var enemies_defeated: int = 0
 var statuses: BattleStatusCollection = StatusCollectionScript.new()
-## Transient synchronous state for Dest Lee multi-hit and death-ember batches.
-var dest_lee_batch_depth: int = 0
-var dest_lee_death_queue: Array[Dictionary] = []
-var dest_lee_chain_active: bool = false
-var dest_lee_chain_hit_targets: Dictionary = {}
 ## Which party member the player is currently commanding. Skills resolve their
 ## caster from here, so adding a character never means hardcoding an actor id.
 var active_character_id: String = ""

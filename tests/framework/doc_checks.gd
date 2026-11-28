@@ -31,9 +31,7 @@ const MAX_MODULE_LINES := 600
 ## 已经超标的存量文件：值 = 当前行数，只许减不许增。
 ## 加代码让它变红；拆到 600 行以内后请把条目删掉——留着会变成永久豁免，
 ## 而永久豁免和没有守卫是一回事。
-const MODULE_LINE_DEBT := {
-	"battle_controller.gd": 608,
-}
+const MODULE_LINE_DEBT := {}
 
 const TOTAL_SCAN_FILES := [
 	"README.md",

@@ -15,6 +15,8 @@ New-Item -ItemType Directory -Path $logs -Force | Out-Null
 $manifestPath = Join-Path $buildDir 'manifest.json'
 # A failed rerun must never leave an earlier success manifest beside its output.
 if (Test-Path -LiteralPath $manifestPath) { [IO.File]::Delete($manifestPath) }
+$handoffReadme = Join-Path $repoRoot 'docs/delivery/WINDOWS_PLAYTEST_README.txt'
+if (-not (Test-Path -LiteralPath $handoffReadme)) { throw "Missing playtest instructions: $handoffReadme" }
 if (-not $Godot) {
     $command = Get-Command godot -ErrorAction SilentlyContinue
     if ($command) { $Godot = $command.Source }
@@ -73,7 +75,7 @@ try {
         manual_validation = 'pending: interaction, full runs, performance and release acceptance'
     }
     $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifestPath -Encoding utf8
-    Copy-Item -LiteralPath (Join-Path $repoRoot 'docs/engineering/WINDOWS_PLAYTEST_README.txt') -Destination (Join-Path $buildDir 'README.txt') -Force
+    Copy-Item -LiteralPath $handoffReadme -Destination (Join-Path $buildDir 'README.txt') -Force
     $archive = Join-Path $buildDir 'ECHO_Windows_x64.zip'
     Compress-Archive -LiteralPath $executable, $manifestPath, $contentsPath, (Join-Path $buildDir 'README.txt'), $logs -DestinationPath $archive -Force
     Write-Output "WINDOWS_BUILD_OK $executable"

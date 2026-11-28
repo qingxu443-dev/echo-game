@@ -21,11 +21,22 @@ static func start(p_seed: int, hard_mode: bool, path: String, atelier_path: Stri
 	return fresh
 
 
-static func settle(run: SpringRun, path: String, atelier_path: String, shards: int) -> bool:
+static func settle(run: SpringRun, path: String, atelier_path: String, shards: int, settlement_id: String = "") -> bool:
+	var already_settled := not settlement_id.is_empty() and run.settled_battle_ids.has(settlement_id)
+	var run_image: Dictionary = run.to_dict()
+	if not settlement_id.is_empty() and not already_settled:
+		var settled_ids: Array = run_image.get("settled_battle_ids", []).duplicate()
+		settled_ids.append(settlement_id)
+		run_image["settled_battle_ids"] = settled_ids
 	if atelier_path == AtelierStash.SAVE_PATH and DisplayServer.get_name() == "headless":
-		return run.save_to_file(path)
+		if not run.save_to_file(path) and settlement_id.is_empty():
+			return false
+		if not settlement_id.is_empty() and not already_settled:
+			return SaveFile.write_json(path, run_image)
+		return true
 	var stash := AtelierStash.read_state(atelier_path)
 	if stash.is_empty():
 		return false
-	stash["shards"] = int(stash["shards"]) + shards
-	return SpringSaveTransaction.commit(path, atelier_path, run.to_dict(), stash)
+	if not already_settled:
+		stash["shards"] = int(stash["shards"]) + shards
+	return SpringSaveTransaction.commit(path, atelier_path, run_image, stash)

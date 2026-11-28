@@ -67,6 +67,7 @@ static func _migrate_v3_to_v4(data: Dictionary, defaults: Dictionary) -> Diction
 static func _migrate_v4_to_v5(data: Dictionary, _defaults: Dictionary) -> Dictionary:
 	var result: Dictionary = data.duplicate(true)
 	var resources: Dictionary = result.get("resources", {})
-	resources["collectible_consumables"] = {}
+	if not resources.has("collectible_consumables"):
+		resources["collectible_consumables"] = {}
 	result["resources"] = resources
 	return result

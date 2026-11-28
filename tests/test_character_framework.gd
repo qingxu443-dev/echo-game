@@ -215,8 +215,8 @@ func _test_second_hit_triggers_echo_return() -> void:
 
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the second Pierce Blossom resolves")
 	var dealt: int = health_before - enemy.health
-	# 358 from the hit plus floor(260 * 1000 / 1450) = 179 from the follow-up
-	_check(dealt == 537, "an already-marked target also takes the echo return")
+	# 413 from the hit plus floor(300 * 1000 / 1450) = 206 from the follow-up
+	_check(dealt == 619, "an already-marked target also takes the echo return")
 	battle.queue_free()
 
 
@@ -286,9 +286,9 @@ func _test_endless_fragrance_scales_with_intent() -> void:
 	_check(battle.request_skill(&"sakura_endless_fragrance"), "the ultimate resolves")
 	_check(sakura.ultimate_energy == 0, "the ultimate spends five energy")
 	# Three 20% segments and a finisher of 40% + 4x5% + 20% = 80%.
-	# floor(104*1000/1450)=71 x3 plus floor(416*1000/1450)=286
+	# floor(120*1000/1450)=82 x3 plus floor(480*1000/1450)=331
 	var dealt: int = health_before - enemy.health
-	_check(dealt == 499, "the cross hits four times with the intent-scaled finisher")
+	_check(dealt == 577, "the cross hits four times with the intent-scaled finisher")
 	_check(not battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the ultimate does not apply the mark")
 	battle.queue_free()
 
@@ -355,8 +355,8 @@ func _test_flowing_wind_respects_its_range() -> void:
 	var health_before: int = enemy.health
 	_check(inside.request_skill(&"sakura_flowing_wind", "vanguard_00"), "a target three cells away is inside the dash range")
 	_check(inside_sakura.cell == Vector2i(3, 1), "the dash lands two cells closer")
-	# floor(416 * 1000 / 1450) = 286
-	_check(health_before - enemy.health == 286, "the dash strikes once it arrives")
+	# floor(480 * 1000 / 1450) = 331
+	_check(health_before - enemy.health == 331, "the dash strikes once it arrives")
 	inside.queue_free()
 
 
@@ -699,7 +699,7 @@ func _test_every_sakura_action_grants_the_same_energy() -> void:
 ## to either constant shows up as a failure rather than a quiet rebalance.
 func _test_extreme_strengthens_the_next_active_skill() -> void:
 	# Flowing Wind at 极意: 80% dash strike plus the 40% second strike.
-	# floor(416*1000/1450) = 286, floor(208*1000/1450) = 143.
+	# floor(480*1000/1450) = 331, floor(240*1000/1450) = 165.
 	var dash = ControllerScript.new()
 	root.add_child(dash)
 	var dash_ids: Array[String] = ["sakura"]
@@ -710,7 +710,7 @@ func _test_extreme_strengthens_the_next_active_skill() -> void:
 	_check(dash_sakura.is_resource_full(), "four stacks is the 极意 state")
 	var before: int = dash_enemy.health
 	_check(dash.request_skill(&"sakura_flowing_wind", "vanguard_00"), "an extreme Flowing Wind resolves")
-	_check(before - dash_enemy.health == 429, "the dash strikes for 80% then follows up for 40%")
+	_check(before - dash_enemy.health == 496, "the dash strikes for 80% then follows up for 40%")
 	# Spent first, then the action's own gain applies (§19).
 	_check(dash_sakura.resource_current == 1, "using an enhanced skill spends the bar, then the action earns one")
 	dash.queue_free()
@@ -726,7 +726,7 @@ func _test_extreme_strengthens_the_next_active_skill() -> void:
 	plain_sakura.resource_current = 3
 	var plain_before: int = plain_enemy.health
 	_check(plain.request_skill(&"sakura_flowing_wind", "vanguard_00"), "a non-extreme Flowing Wind resolves")
-	_check(plain_before - plain_enemy.health == 286, "without 极意 the dash strikes once")
+	_check(plain_before - plain_enemy.health == 331, "without 极意 the dash strikes once")
 	plain.queue_free()
 
 	# 落英 at 极意: the rectangle grows and the echo return rises to 65%.

@@ -134,6 +134,12 @@ func _test_fragment_health_bonus_stacks_on_saved_vitals() -> void:
 	run.party_character_ids.assign(["sakura"])
 	run.hero_health = 900
 	run.party_vitals = {"sakura": {"health": 900, "max_health": 1800}}
+	run.sync_lead_vitals()
+	_check(run.hero_max_health == 1890, "map vitals expose the module-scaled maximum for healing")
+	run.hero_health = 100
+	_check(run.heal_fraction(0.5) == 945, "map healing restores a fraction of the scaled maximum")
+	run.hero_health = 945
+	run.sync_lead_vitals()
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare a wounded Sakura with a health module")
 	var view = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(view)

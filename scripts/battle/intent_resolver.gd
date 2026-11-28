@@ -270,10 +270,11 @@ static func _area_attack(battle, intent) -> void:
 	if intent.action_id in ["charged_strike", "aimed_shot", "ground_pulse", "blight_field", "spring_bloom", "sakura_shock"] and source != null:
 		source.skill_charge = 0
 	var hit_any := false
+	var targets: Array[String] = []
 	for actor_id in actors:
 		var target = actors[actor_id]
-		if target.team != "player" or not target.is_alive() or not intent.affected_cells.has(target.cell):
-			continue
+		if target.team == "player" and target.is_alive() and intent.affected_cells.has(target.cell): targets.append(actor_id)
+	for actor_id in targets:
 		battle._apply_damage(actor_id, intent.damage, intent.source_actor_id, intent.action_id, intent.damage_type, true, intent.intent_id)
 		hit_any = true
 	for area_cell in intent.affected_cells:

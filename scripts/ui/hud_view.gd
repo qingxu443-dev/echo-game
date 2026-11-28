@@ -42,10 +42,8 @@ static func draw_status(canvas: CanvasItem, controller, status_message: String, 
 	_draw_enemy_inspector_card(canvas, font, controller, fx_state)
 
 
-## Kept as a no-op stub so existing callers (battle_view.gd) stay compatible;
-## solo Sevrin's info now lives cleanly inside the bottom-left portrait card.
-static func draw_party(_canvas: CanvasItem, _controller) -> void:
-	pass
+static func draw_party(canvas: CanvasItem, controller) -> void:
+	PartyPortraitView.draw(canvas, controller)
 
 
 # --- top-left: turn + visual AP pips ----------------------------------------
@@ -216,7 +214,7 @@ static func _draw_incoming_threat_card(canvas: CanvasItem, font: Font, controlle
 	var hit_count: int = int(summary["hit_count"])
 	var rows: int = entries.size() + (1 if not caution.is_empty() else 0)
 	var h: float = 34.0 + float(rows) * 19.0 + 8.0
-	var rect := Rect2(P.PORTRAIT_CARD_RECT.position.x, P.PORTRAIT_CARD_RECT.position.y - h - 8.0, P.PORTRAIT_CARD_RECT.size.x, h)
+	var rect := Rect2(P.PORTRAIT_CARD_RECT.position.x, (PartyPortraitView.AREA.position.y - 24.0 if controller.single_active_party else P.PORTRAIT_CARD_RECT.position.y) - h - 8.0, P.PORTRAIT_CARD_RECT.size.x, h)
 	var lethal: bool = total_dmg > 0 and target_cell == hero.cell and total_dmg >= hero.health
 	var border := Color("#ff4d4f") if (hit_count > 0) else Color("#ffae52")
 	_draw_card(canvas, rect, Color(0.18, 0.08, 0.09, 0.96) if hit_count > 0 else Color(0.17, 0.13, 0.08, 0.96), border)

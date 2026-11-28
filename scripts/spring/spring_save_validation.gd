@@ -83,6 +83,8 @@ static func invalid_field(data: Dictionary) -> String:
 		if not _whole_number(hero.get(key, 0)) or hero.get(key, 0) < 0:
 			return "hero." + key
 	var carry: Dictionary = data.get("battle_carry", {})
+	var party_error := PartyLoadout.carry_error(carry)
+	if not party_error.is_empty(): return party_error
 	if not _list_of(carry.get("backpack", []), TYPE_DICTIONARY) or not _list_of(carry.get("mods", []), TYPE_STRING):
 		return "battle_carry.backpack / mods"
 	for key in ["equipped_weapon", "equipped_armor"]:

@@ -11,6 +11,8 @@ static func battle_fields_error(data: Dictionary) -> String:
 		excluded.assign(entry[2])
 		var error := SessionCodec.fields_error(entry[0], data.get(entry[1], {}), excluded)
 		if not error.is_empty(): return str(entry[1]) + "." + error
+	var party_error := PartyLoadout.carry_error(data.get("run_state", {}))
+	if not party_error.is_empty(): return party_error
 	var view_script: Script = load("res://scripts/ui/battle_view.gd")
 	var error := SessionCodec.fields_error(view_script, _select(data.get("view", {}), BattleSession.VIEW_FIELDS))
 	if not error.is_empty(): return "view." + error
@@ -63,6 +65,7 @@ static func _vector(value: Variant) -> bool:
 
 
 static func _fx_error(fx: Dictionary) -> String:
+	if not _number(fx.get("party_switch_left", 0.0)) or float(fx.get("party_switch_left", 0.0)) < 0.0 or float(fx.get("party_switch_left", 0.0)) > BattleFxState.PARTY_SWITCH_DURATION: return "party_switch_left: invalid clock"
 	for field in ["actor_visual_pos", "actor_lunge"]:
 		for value in fx.get(field, {}).values():
 			if not _vector(value): return field + ": expected finite Vector2 values"

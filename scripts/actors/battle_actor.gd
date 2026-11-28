@@ -27,10 +27,13 @@ var attenuation_k: int = CombatMathScript.ATTENUATION_K
 ## is_defeated(), is_downed(), blocks_cell(). The property/method mix is how
 ## the downed-tap break hid inside a green suite (#34), so it is gone.
 var _is_defeated: bool = false
-## Design plan §12: a party member at zero health is downed, not gone. A downed
+## Legacy engine §12: a party member at zero health can be downed. Rotation
+## scenes retire the role through PartyRotation instead. A downed
 ## unit cannot act and cannot be targeted, but it keeps its cell, so it still
 ## blocks movement until revived. Enemies have no downed state - they simply die.
 var _is_downed: bool = false
+## Rotation reserves keep their data while remaining outside field combat.
+var is_benched: bool = false
 var shield: int = 0
 ## Independent ultimate-energy pool. The ceiling comes from the character sheet
 ## so a character with a bigger pool is data, not a code branch; enemies keep the
@@ -264,8 +267,12 @@ func apply_damage_with_result(
 		"was_critical": was_critical
 	}
 
-func is_alive() -> bool:
+func is_available() -> bool:
 	return not _is_defeated and health > 0
+
+
+func is_alive() -> bool:
+	return not is_benched and is_available()
 
 
 func is_defeated() -> bool:
@@ -309,7 +316,7 @@ func is_resource_full() -> bool:
 ## Whether this unit still occupies its cell. A downed body does: §12 says the
 ## cell stays blocked until the unit is revived and moved.
 func blocks_cell() -> bool:
-	return is_alive() or is_downed()
+	return not is_benched and (is_alive() or is_downed())
 
 
 ## Bring a downed unit back at the given health. Reviving a unit that is not

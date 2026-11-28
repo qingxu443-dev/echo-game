@@ -82,6 +82,9 @@ var statuses: BattleStatusCollection = StatusCollectionScript.new()
 ## Which party member the player is currently commanding. Skills resolve their
 ## caster from here, so adding a character never means hardcoding an actor id.
 var active_character_id: String = ""
+## Game scenes enable rotation; the default retains the low-level legacy rules.
+var single_active_party: bool = false
+var party_order: Array[String] = []
 ## 单场战斗的机制记账（护盾 / 誓约 / 绝对防御 / 职业资源 / 召唤 / 地格 / 免费移动）。
 ## 字段与键语义见 BattleLedger；controller 自身不再平铺这些字典。
 var ledger: BattleLedger = BattleLedger.new()
@@ -314,13 +317,17 @@ func get_actor(actor_id: String):
 	return actors.get(actor_id)
 
 
+func request_switch_character(character_id: String) -> bool:
+	return PartyRotation.request_switch(self, character_id) if single_active_party else set_active_character(character_id)
+
+
 func get_active_character():
 	return actors.get(active_character_id)
 
 
-## Switch command to another living party member. Costs nothing: the AP pool is
-## shared, so switching is a free choice about who spends it.
+## Legacy simultaneous-party command selector. Game scenes use the paid request.
 func set_active_character(character_id: String) -> bool:
+	if single_active_party: return PartyRotation.request_switch(self, character_id)
 	if not actors.has(character_id):
 		return false
 	var candidate = actors[character_id]
@@ -344,12 +351,12 @@ func get_defender():
 	return null
 
 
-## Living, non-downed party members in a stable order, for the switch control.
+## Available roles in stable order, including healthy rotation reserves.
 func get_switchable_characters() -> Array[String]:
 	var ids: Array[String] = []
 	for actor_id in actors:
 		var actor = actors[actor_id]
-		if actor.team == "player" and actor.is_alive():
+		if actor.team == "player" and (actor.is_available() if single_active_party else actor.is_alive()):
 			ids.append(String(actor_id))
 	return ids
 

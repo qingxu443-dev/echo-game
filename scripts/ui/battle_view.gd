@@ -61,6 +61,7 @@ func _ready() -> void:
 	if encounter_override != null: levels.assign([encounter_override])
 	run_state = RunStateScript.new()
 	controller = ControllerScript.new()
+	controller.single_active_party = true
 	controller.run_state = run_state
 	add_child(controller)
 	controller.battle_event.connect(_on_battle_event)
@@ -101,6 +102,7 @@ func _begin_spring_fight() -> void:
 	run_state = RunStateScript.new()
 	SpringBattleBridgeScript.apply_payload(run_state, payload)
 	controller = ControllerScript.new()
+	controller.single_active_party = true
 	controller.run_state = run_state
 	add_child(controller)
 	controller.battle_event.connect(_on_battle_event)
@@ -119,7 +121,8 @@ func _restore_spring_party_vitals(payload: Dictionary) -> void:
 	SpringBattleBridgeScript.restore_party_vitals(controller, payload)
 
 func _return_to_map() -> void:
-	var hero = _spring_run_lead()
+	PartyLoadout.capture(controller)
+	var hero = controller.get_active_character()
 	var payload: Dictionary = SpringBattleBridgeScript.pending
 	var party_vitals: Dictionary = {}
 	for actor_id in controller.actors:
@@ -317,27 +320,22 @@ func _end_player_turn() -> void:
 		status_message = "【敌方回合】敌方正在结算攻势…"
 	queue_redraw()
 
-## Cycles command to the next living party member. Free: the AP pool is shared,
-## so switching is a decision about who spends it, not a resource of its own.
+## Tab uses the same paid action as the teammate portraits.
 func _switch_character() -> void:
 	var roster: Array[String] = controller.get_switchable_characters()
 	if roster.size() <= 1:
-		status_message = "队伍中只有一名可行动角色。"
-		queue_redraw()
+		status_message = "没有可轮换的替补。"
 		return
 	var current_index: int = roster.find(controller.active_character_id)
-	var next_id: String = roster[(current_index + 1) % roster.size()]
-	if controller.set_active_character(next_id):
-		selected_skill = -1
-		skill_bar = SkillBarViewScript.build_entries(controller)
-		# The rest of the screen is Chinese; the raw actor id ("sakura") is not
-		# what the player sees on the token or in the HUD.
-		var member = controller.get_actor(next_id)
-		var label: String = next_id
-		if member != null and not String(member.display_name_zh).is_empty():
-			label = String(member.display_name_zh)
-		status_message = "已切换到 %s。" % label
+	_request_party_switch(roster[(current_index + 1) % roster.size()])
+
+
+func _request_party_switch(actor_id: String) -> void:
+	if fx.party_switch_left > 0.0: return
+	if not controller.request_switch_character(actor_id):
+		status_message = "只能在我方回合花费 1 AP 切换至存活替补。"
 	queue_redraw()
+
 
 func _cancel_target_selection() -> void:
 	if selected_skill < 0:
@@ -382,6 +380,10 @@ func _handle_tap(position: Vector2) -> void:
 		return
 	if controller.phase == ControllerScript.BattlePhase.FINISHED:
 		_handle_settlement_tap(position)
+		return
+	var party_id := PartyPortraitView.hit(controller, position)
+	if not party_id.is_empty():
+		_request_party_switch(party_id)
 		return
 	if controller.phase == ControllerScript.BattlePhase.DEPLOY:
 		_handle_deploy_tap(position)
@@ -534,7 +536,7 @@ func _on_battle_event(event: Dictionary) -> void:
 		selected_skill = int(out_selected[0])
 
 	# 技能栏重建仍由 view 负责（需要 controller 的当前角色数据）
-	if event_type == "player_turn_started":
+	if event_type in ["player_turn_started", "party_switched"]:
 		skill_bar = SkillBarViewScript.build_entries(controller)
 
 	queue_redraw()
@@ -544,9 +546,9 @@ func _on_battle_finished(result: String) -> void:
 	var rewards_saved := BattleRewards.settle(controller, spring_mode, atelier_save_path)
 	if result == "victory":
 		pending_rewards = controller.collect_remaining_chests()
-		var hero = _spring_run_lead() if spring_mode else controller.get_active_character()
+		var hero = controller.get_active_character()
 		if hero != null and run_state != null:
-			run_state.sync_from_actor(hero)
+			PartyLoadout.capture(controller) if controller.single_active_party else run_state.sync_from_actor(hero)
 		if spring_mode:
 			status_message = "战斗胜利！保住 %d 个遗迹宝箱，战利品已收入背包。按 B 查看，或点「返回春之境」继续探索。" % pending_rewards.size()
 		else:
@@ -554,7 +556,7 @@ func _on_battle_finished(result: String) -> void:
 	else:
 		pending_rewards.clear()
 		if spring_mode:
-			status_message = "战斗失败。返回春之境后可消耗补给续行一次。"
+			status_message = "全员退场，本局探索结束。返回春之境结算。"
 		else:
 			status_message = "遭遇战失败，点击重开将清空本局装备与背包重新开始。"
 	if not rewards_saved:

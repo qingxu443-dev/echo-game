@@ -1,7 +1,7 @@
 class_name RunState
 extends RefCounted
 
-## Leader equipment and persistent battle carry (Sevrin or the expedition lead):
+## Working equipment slot and persistent battle carry for the deployed role:
 ## - Persists HP, skill mods, equipped weapon/armor, and backpack across stages.
 ## - Supports equipping, swapping, unequipping back to backpack, and using items.
 ## - reset() wipes everything cleanly at the end of a run.
@@ -22,6 +22,9 @@ var equipped_weapon: Dictionary = {}
 var equipped_armor: Dictionary = {}
 var backpack: Array[Dictionary] = []
 var initialized: bool = false
+var party_loadouts: Dictionary = {}
+var party_retired: Array[String] = []
+var party_owner_id: String = ""
 ## Loot RNG seed of the current run, set by the battle view when a fresh run
 ## begins. 0 in headless tests (fixed default seed - reproducible rolls).
 var loot_seed: int = 0
@@ -87,6 +90,9 @@ func reset(p_max_health: int = 3600, p_attack: int = 1150, p_defense: int = 350,
 	bonus_max_health = 0
 	hero_max_health = base_max_health
 	hero_health = base_max_health
+	party_loadouts.clear()
+	party_retired.clear()
+	party_owner_id = ""
 	mods.clear()
 	equipped_weapon = {}
 	equipped_armor = {}

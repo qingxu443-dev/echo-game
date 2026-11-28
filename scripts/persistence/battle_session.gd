@@ -7,6 +7,7 @@ const CONTROLLER_CONTAINERS: Array[String] = ["actors", "intents", "ap", "status
 
 static func capture(view: Node) -> Dictionary:
 	var battle: BattleController = view.controller
+	PartyLoadout.capture(battle)
 	var data := {
 		"scene": "battle", "spring_mode": view.spring_mode, "level": view.current_level,
 		"encounter_override_id": str(view.encounter_override.level_id) if view.encounter_override != null else "",
@@ -80,6 +81,7 @@ static func restore(view: Node, data: Dictionary) -> bool:
 		if not battle.statuses._statuses_by_actor.has(status.target_actor_id):
 			battle.statuses._statuses_by_actor[status.target_actor_id] = {}
 		battle.statuses._statuses_by_actor[status.target_actor_id][status.status_id] = status
+	PartyRotation.migrate_session(battle)
 	UiPalette.camera_quadrant = int(data.get("camera", 0))
 	UiPalette.board_grid_size = battle.grid_size
 	SessionCodec.apply_fields(view.fx, data.get("fx", {}))

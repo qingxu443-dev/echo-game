@@ -124,10 +124,10 @@ static func trigger_for(battle, actor) -> int:
 ## Stay damage for everyone standing on a tile at the start of their turn.
 static func tick_player_turn_start(battle) -> int:
 	var total := 0
-	for actor_id in battle.actors:
-		var actor = battle.actors[actor_id]
-		if actor.team != "player":
-			continue
+	var targets: Array = []
+	for actor in battle.actors.values():
+		if actor.team == "player" and actor.is_alive(): targets.append(actor)
+	for actor in targets:
 		total += trigger_for(battle, actor)
 	return total
 

@@ -240,8 +240,8 @@ func _test_deployment_visibility() -> void:
 	_check(view.fx.actor_visual_pos["sakura"] == P.cell_center(hero.cell), "confirmation snaps the first visible frame to the chosen tile")
 	battle.start_encounter(Vector2i(3, 6), [Vector2i(3, 1)], [], [], ["sevrin", "sakura"], [Vector2i(4, 6)], [], 0, [], true)
 	_check(battle.request_deploy(Vector2i(4, 6)), "an undeployed hidden placeholder does not occupy a deploy tile")
-	_check(not battle.request_deploy(Vector2i(4, 6)), "a confirmed party deployment still occupies its tile")
-	_check(battle.request_deploy(Vector2i(5, 6)) and battle.request_begin_battle(), "both party members deploy without overlap")
+	_check(battle.request_deploy(Vector2i(4, 6)), "the sole deployed member can confirm its current tile again")
+	_check(battle.request_deploy(Vector2i(5, 6)) and battle.request_begin_battle(), "only the front member deploys; reserves remain off-board")
 	view.queue_free()
 	await process_frame
 

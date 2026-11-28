@@ -3,6 +3,7 @@ extends RefCounted
 
 
 static func lead_actor(view):
+	if view.controller.single_active_party: return view.controller.get_active_character()
 	var level: EncounterDefinition = view._current_level()
 	if level != null and not level.character_ids.is_empty():
 		return view.controller.actors.get(level.character_ids[0])

@@ -243,5 +243,24 @@ func _test_feast_of_hidden_hoard() -> void:
 	var coins_before: int = run.coins
 	var result: Dictionary = CatalogScript.resolve(run, &"hidden_hoard", 0)
 	_check(bool(result["ok"]), "the hidden hoard opens")
-	_check(run.coins == coins_before + 40, "the hoard pays 40 coins")
-	_check(run.collectibles.size() == 1, "the hoard yields a collectible")
+	_check(run.coins >= coins_before + 40, "the hoard pays 40 coins plus any immediate coin collectible")
+	var total_collectibles: int = run.collectibles.size()
+	for count in run.collectible_consumables.values():
+		total_collectibles += int(count)
+	_check(total_collectibles == 1, "the hoard yields one collectible")
+	_check(run.relics.size() == 1, "the hidden hoard also grants one unique relic")
+	if not run.collectibles.is_empty():
+		var gained: StringName = run.collectibles[0]
+		match String(gained):
+			"col_dried_ration":
+				_check(run.supplies >= 23, "passive supply collectibles apply when obtained")
+			"col_memory_scrap":
+				_check(run.memory_pages >= 2, "passive page collectibles apply when obtained")
+			"col_spring_vial":
+				_check(run.dew_total() >= 3, "passive dew collectibles apply when obtained")
+			"col_old_map":
+				_check(run.pending_hidden_reveal, "passive map collectibles apply when obtained")
+			"col_petal_purse":
+				_check(run.coins >= coins_before + 100, "passive coin collectibles apply when obtained")
+	else:
+		_check(not run.collectible_consumables.is_empty(), "active collectibles are stored for later use")

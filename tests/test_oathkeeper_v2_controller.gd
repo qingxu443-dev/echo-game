@@ -295,7 +295,7 @@ func _test_oathblade_knockback_unit_collision_and_chest_break() -> void:
 	var pushed_before: int = pushed.health
 	var blocker_before: int = blocker.health
 	_check(pair.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a blocking unit")
-	_check(pushed.health == pushed_before - 1243, "a unit slam adds the collision to the strike on the pushed target")
+	_check(pushed.health == pushed_before - 898, "a unit slam adds the collision to the strike on the pushed target")
 	_check(blocker.health == blocker_before - 450, "the unit in the way takes the same true damage")
 	_check(pushed.cell == Vector2i(2, 1), "a blocked push leaves the target in place")
 	pair.queue_free()

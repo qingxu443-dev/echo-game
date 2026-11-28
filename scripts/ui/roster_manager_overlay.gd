@@ -25,13 +25,13 @@ var member_options: Array[OptionButton] = []
 
 const GLOSSARY := {
 	"blade_intent": {"title": "剑意", "body": "樱的专属战斗资源，上限为 4 点。攻击与移动可积累剑意；达到 4 层进入极意状态。无尽芳华的终结斩每层剑意提高 5%，满层时另有 20% 加成。"},
-	"extreme": {"title": "极意", "body": "樱达到 4 点剑意后进入的强化状态。强化流风与落英的后续效果；具体消耗与强化范围以对应技能说明和当前战斗规则为准。"},
+	"extreme": {"title": "极意", "body": "剑意达到 4 点时可触发。下一次流风或落英获得强化并消耗全部剑意：流风追加强化追击，落英扩大前方攻击区域。普通攻击与无尽芳华不会消耗这次强化。"},
 	"petal_mark": {"title": "残香", "body": "樱施加在敌人身上的标记，持续 3 个敌方阶段。再次攻击带有残香的相邻敌人时，可触发一次回锋追击，基础倍率为 50% ATK；特定强化可提高倍率。"},
 	"echo_return": {"title": "回锋", "body": "樱对带有残香且仍与自己相邻的敌人触发的自动追加攻击。基础伤害为 50% ATK；每回合首次回锋还会额外积累剑意。"},
 	"oath": {"title": "守誓", "body": "瑟弗林的专属被动层数。敌方主动攻击命中瑟弗林时获得守誓，最多 3 层；誓盾庇护会消耗当前全部层数强化护盾。"},
 	"judgment": {"title": "易伤印记", "body": "裁决印记施加的负面标记：目标下一次受到伤害时额外承受 30% 伤害，触发后消耗。"},
 	"ignite": {"title": "引燃", "body": "德斯特·李的专属负面状态，最多 2 层。1 层在敌方阶段结束造成 25% ATK 法术伤害；2 层造成 40% ATK。持续时间与刷新规则按技能说明执行。"},
-	"death_embers": {"title": "死亡余烬", "body": "带有引燃的敌人死亡时触发的连锁爆炸机制。以死亡格为中心影响 3×3 区域，伤害与引燃层数、方向有关；同一连锁内目标不会重复承受爆炸伤害。"},
+	"death_embers": {"title": "死亡余烬", "body": "带有引燃的敌人死亡时触发连锁爆炸。以死亡格为中心影响 3×3 区域：正交方向造成 80% ATK 法术伤害，斜向造成 40%。命中的敌人会获得 1 层引燃；同一连锁内每个目标最多承受一次爆炸伤害，不会递归触发。"},
 }
 
 func _ready() -> void:
@@ -128,17 +128,19 @@ func _build_header(root: VBoxContainer) -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(spacer)
-	var roster_button := _make_button("角色总览", current_mode == "characters")
-	roster_button.pressed.connect(open_characters)
-	header.add_child(roster_button)
-	var squad_button := _make_button("队伍编成", current_mode == "squads")
-	squad_button.pressed.connect(open_squads)
-	header.add_child(squad_button)
 	var close_button := _make_button("关闭", false)
 	close_button.pressed.connect(_close)
 	header.add_child(close_button)
-	var rule := HSeparator.new()
-	root.add_child(rule)
+	var navigation := HBoxContainer.new()
+	navigation.add_theme_constant_override("separation", 8)
+	root.add_child(navigation)
+	var roster_button := _make_button("角色总览", current_mode == "characters")
+	roster_button.pressed.connect(open_characters)
+	navigation.add_child(roster_button)
+	var squad_button := _make_button("队伍编成", current_mode == "squads")
+	squad_button.pressed.connect(open_squads)
+	navigation.add_child(squad_button)
+	root.add_child(HSeparator.new())
 
 func _build_characters(root: VBoxContainer) -> void:
 	var definitions := CharacterCatalogScript.all_definitions()
@@ -150,9 +152,14 @@ func _build_characters(root: VBoxContainer) -> void:
 	if selected_character_id.is_empty() or not CharacterCatalogScript.has_definition(selected_character_id):
 		selected_character_id = String(definitions[0].character_id)
 
+	var card_scroll := ScrollContainer.new()
+	card_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	card_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	card_scroll.custom_minimum_size.y = 70
+	root.add_child(card_scroll)
 	var card_row := HBoxContainer.new()
 	card_row.add_theme_constant_override("separation", 10)
-	root.add_child(card_row)
+	card_scroll.add_child(card_row)
 	for definition in definitions:
 		var character_id := String(definition.character_id)
 		var card := _make_button("%s\n%s" % [definition.display_name_zh, definition.role_label_zh], character_id == selected_character_id)
@@ -227,7 +234,16 @@ func _skill_panel(skill: SkillDefinition, character_id: String) -> Control:
 		damage = "%s · %.0f%% ATK" % ["物理伤害" if skill.damage_type == SkillDefinition.DAMAGE_PHYSICAL else "法术伤害", skill.damage_multiplier * 100.0]
 		if skill.hits > 1:
 			damage += " · %d 段" % skill.hits
-	meta.text = "%s    目标：%s    范围：%s    %s" % [cost, target, range_text, damage]
+		if not skill.hit_multipliers.is_empty():
+			var segments: Array[String] = []
+			for multiplier in skill.hit_multipliers:
+				segments.append("%.0f%%" % (multiplier * 100.0))
+			damage += "（%s）" % " / ".join(segments)
+	var shape_text := "单体"
+	match skill.shape:
+		SkillDefinition.SHAPE_CROSS: shape_text = "十字范围"
+		SkillDefinition.SHAPE_FAN: shape_text = "%d×%d 前方区域" % [skill.shape_width, skill.shape_depth]
+	meta.text = "%s    目标：%s    范围：%s    形状：%s    %s" % [cost, target, range_text, shape_text, damage]
 	meta.add_theme_color_override("font_color", BLUE)
 	meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(meta)
@@ -265,7 +281,10 @@ func _on_meta_clicked(meta: Variant) -> void:
 	if entry.is_empty():
 		return
 	glossary_label.text = "[color=#d4b77b][b]%s[/b][/color]\n%s" % [str(entry.title), str(entry.body)]
+	var viewport_size := get_viewport_rect().size
 	var origin := get_global_mouse_position() + Vector2(12, 12)
+	origin.x = clampf(origin.x, 8.0, maxf(8.0, viewport_size.x - 318.0))
+	origin.y = clampf(origin.y, 8.0, maxf(8.0, viewport_size.y - 178.0))
 	glossary_popup.popup(Rect2i(Vector2i(origin), Vector2i(310, 170)))
 
 func _build_squads(root: VBoxContainer) -> void:

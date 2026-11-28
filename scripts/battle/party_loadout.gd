@@ -118,7 +118,35 @@ static func unscaled_max_health(actor) -> int:
 	return _unscaled(actor, "health", actor.max_health)
 
 
-static func carry_error(carry: Dictionary) -> String:
+## Plain map JSON loses int/float distinctions. Normalize only known integer
+## fields, only when their values are finite, integral and safely representable.
+## SessionCodec snapshots retain their original strict typed validation.
+## CONTRACT: _test_json_roundtrip_and_award
+static func canonical_json_carry(carry: Dictionary) -> Dictionary:
+	var result := carry.duplicate(true)
+	var roles: Variant = result.get("party_loadouts", {})
+	if not roles is Dictionary: return result
+	var schema: Script = RunState
+	for row in roles.values():
+		if not row is Dictionary: continue
+		for property in schema.get_script_property_list():
+			var key := str(property.name)
+			if key in FIELDS and property.type == TYPE_INT and row.has(key): row[key] = _json_integer(row[key])
+		for slot in ["equipped_weapon", "equipped_armor"]:
+			var item: Variant = row.get(slot, {})
+			if not item is Dictionary: continue
+			for key in ["max_health", "attack", "defense", "magic_resistance"]:
+				if item.has(key): item[key] = _json_integer(item[key])
+	return result
+
+
+static func _json_integer(value: Variant) -> Variant:
+	if value is float and is_finite(value) and value == floorf(value) and value >= -9.223372036854775e18 and value < 9.223372036854775e18: return int(value)
+	return value
+
+
+static func carry_error(carry: Dictionary, json_numbers: bool = false) -> String:
+	if json_numbers: carry = canonical_json_carry(carry)
 	if not carry.get("single_active_party", false) is bool: return "single_active_party: expected bool"
 	if not carry.get("party_owner_id", "") is String: return "party_owner_id: expected String"
 	if not str(carry.get("party_owner_id", "")).is_empty() and not CharacterCatalog.has_definition(str(carry.party_owner_id)): return "party_owner_id: unknown character"

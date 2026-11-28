@@ -1,5 +1,7 @@
 # ECHO 工程架构与全量审计报告
 
+战后 JSON 修复：地图普通 JSON 的整数可能被读取为 float。`PartyLoadout.canonical_json_carry()` 只规范已知合法整数字段，`SpringSaveValidation` 用磁盘语义预检，`SpringRun.from_dict()` 规范队员及待结算 carry；SessionCodec 快照继续严格类型校验。结算场景可注入隔离路径以测试真实确认按钮，默认游戏路径不变。原因与恢复边界见 [ECHO-210 记录](../quality/PLAYTEST_FIXES_2026-11-27.md)。
+
 当前地块显示补充：`BoardOverlayRegion` 统一柔和纯色填充与连续区域边界，`BoardMoveRange` 与真实移动请求共用路径规则，`BattleOverlayInput` 管攻击显隐和当前角色选区；显示状态保存在 `BattleFxState`。`SpringVitality` 统一区分原始生命上限和残片后的上限，避免战后 carry 再次缩放。逐项原因、证据和已知边界见 [地块与生命收尾报告](../quality/BOARD_OVERLAYS_2026-11-28.md)。
 
 最新实现补充：游戏入口统一启用单人轮换，队伍最多三名但只一名在场。`PartyRotation` 管付费切换、顺位退场和锁定接续，`PartyLoadout` 管每人装备与基础属性，`PartyPortraitView` 管头像；`BattleSession` / `SpringBattleBridge` 保存或迁移状态。见 [完整轮换交付记录](../quality/SINGLE_ACTIVE_PARTY_2026-11-28.md)。下文旧审计中的同时多人、免费切换、领队单槽和倒地复活属于历史实现。

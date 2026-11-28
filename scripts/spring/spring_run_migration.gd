@@ -13,7 +13,7 @@ const MIGRATIONS := {
 
 ## 就地把 data 推到 SpringRun.SAVE_VERSION。返回空串表示成功，否则返回拒绝原因。
 ## 未来版本（比本程序新）一律拒绝：读得动不代表读得对。
-static func _migrate_to_current(data: Dictionary) -> String:
+static func migrate_to_current(data: Dictionary) -> String:
 	var version: int = int(data.get("version", 1))
 	if version > SpringRun.SAVE_VERSION:
 		return "save is version %d, this build reads up to %d" % [version, SpringRun.SAVE_VERSION]
@@ -33,7 +33,7 @@ static func _migrate_to_current(data: Dictionary) -> String:
 
 static func _migrate_v1_to_v2(data: Dictionary) -> Dictionary:
 	# v2 只是加了字段，每个默认值都等于 v1 的语义，所以这一步不改写任何东西。
-	# 留一个空迁移是有意的：表必须覆盖每一个中间版本，否则 1 → 3 会找不到路。
+	# 留一个空迁移是有意的：表必须覆盖每一个中间版本，否则 1 → 4 会找不到路。
 	return data
 
 

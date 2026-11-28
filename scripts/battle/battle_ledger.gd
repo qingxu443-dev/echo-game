@@ -37,6 +37,11 @@ var rewards_settled: bool = false
 var pressure_sequence: int = 0
 var pressure_refund_turn: int = -1
 var pressure_refund_count: int = 0
+## Synchronous, non-persistent settlement state for Dest Lee multi-hit chains.
+var dest_lee_batch_depth: int = 0
+var dest_lee_death_queue: Array[Dictionary] = []
+var dest_lee_chain_active: bool = false
+var dest_lee_chain_hit_targets: Dictionary = {}
 
 
 ## 每场遭遇开始时清空全部账本。旧版分散在 BattleFlow.start_encounter 的
@@ -57,6 +62,10 @@ func reset_for_encounter() -> void:
 	pressure_sequence = 0
 	pressure_refund_turn = -1
 	pressure_refund_count = 0
+	dest_lee_batch_depth = 0
+	dest_lee_death_queue.clear()
+	dest_lee_chain_active = false
+	dest_lee_chain_hit_targets.clear()
 
 
 ## 每个玩家回合开始时只清"每回合一次"的账本；跨回合账本保持不变。

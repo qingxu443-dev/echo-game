@@ -66,7 +66,7 @@ func _party_run() -> SpringRun:
 	var run := SpringRun.begin(3)
 	run.party_character_ids.assign(["sakura", "sevrin"])
 	run.hero_health = 900
-	run.party_vitals = {"sakura": {"health": 900, "max_health": 1800}, "sevrin": {"health": 1700, "max_health": 3600}}
+	run.party_vitals = {"sakura": {"health": 1050, "max_health": 2100}, "sevrin": {"health": 1600, "max_health": 3200}}
 	return run
 
 
@@ -92,7 +92,7 @@ func _test_map_vitals_enter_the_next_fight() -> void:
 		root.add_child(view)
 		_check(view.controller.actors.sakura.health == expected_health, "map effect health survives actual battle entry: " + effect)
 		_check(view.controller.actors.sakura.max_health == expected_max, "map effect max health survives actual battle entry: " + effect)
-		_check(view.controller.actors.sevrin.health == 1700 and view.controller.actors.sevrin.max_health == 3600, "map effect does not change another member")
+		_check(view.controller.actors.sevrin.health == 1600 and view.controller.actors.sevrin.max_health == 3200, "map effect does not change another member")
 		view.queue_free()
 		SpringBattleBridge.clear_pending()
 		await process_frame
@@ -112,7 +112,7 @@ func _test_inventory_after_switching() -> void:
 	view.run_state.add_to_backpack({"id": &"audit_armor", "kind": "armor", "name": "审计护甲", "max_health": 400})
 	view._handle_inventory_tap(InventoryView.bag_card_rect(0).get_center())
 	_check(member.max_health == before[0] + 400 and member.health == before[1] + 400, "equipping updates only the deployed character's own loadout")
-	_check(view.controller.actors.sakura.max_health == 1800 and view.controller.actors.sakura.health == 900, "reserve vitality is unchanged by active equipment")
+	_check(view.controller.actors.sakura.max_health == 2100 and view.controller.actors.sakura.health == 1050, "reserve vitality is unchanged by active equipment")
 	view._handle_inventory_tap(InventoryView.ARMOR_SLOT_RECT.get_center())
 	_check([member.max_health, member.health, member.attack, member.defense, member.magic_resistance] == before, "unequipping symmetrically returns the active character's bonus")
 	_check(view.controller.actors.sakura.health == 900, "unequipping cannot heal the reserve")
@@ -141,7 +141,7 @@ func _test_restored_battle_parent() -> void:
 	var view = Scene.instantiate()
 	root.add_child(view)
 	_check(view.spring_mode and SpringBattleBridge.restore_map, "normal scene entry restores the suspended battle and parent map")
-	var result := {"result": "victory", "place": "battle_1", "kind": "battle", "hero_health": 800, "hero_max_health": 1800}
+	var result := {"result": "victory", "place": "battle_1", "kind": "battle", "hero_health": 900, "hero_max_health": 2100}
 	Handoff.open(view, result, path, func(_tree, _scene): return OK)
 	var stored := SpringRun.load_from_file(path)
 	_check(stored != null and stored.seed_value == int(expected.seed), "settlement follows the suspended battle's own map, not a newer on-disk journey")

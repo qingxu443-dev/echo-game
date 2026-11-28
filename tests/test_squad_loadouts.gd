@@ -29,6 +29,7 @@ func _test_three_persistent_teams() -> void:
 	_check(SquadStoreScript.team_name(1, TEST_SAVE_PATH) == "春日远征", "renamed squad persists")
 	_check(SquadStoreScript.set_team_members(1, ["sevrin", "sakura"], TEST_SAVE_PATH), "a squad can save two distinct characters")
 	_check(SquadStoreScript.set_active_team(1, TEST_SAVE_PATH), "a populated squad can become active")
+	_check(not SquadStoreScript.set_team_members(1, [], TEST_SAVE_PATH), "the active squad cannot be emptied")
 	_check(SquadStoreScript.active_character_ids(TEST_SAVE_PATH) == ["sevrin", "sakura"], "active squad order is preserved after reload")
 	_check(not SquadStoreScript.set_active_team(2, TEST_SAVE_PATH), "an empty squad cannot become the active formation")
 

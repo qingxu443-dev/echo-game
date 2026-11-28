@@ -474,7 +474,14 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	# 先把旧档推到当前版本，再读任何字段。迁移表放在文件末尾，加版本时只加
 	# 一行；以前是一串 `if version < N` 散在读字段的逻辑中间，第三个版本
 	# 进来时已经很难看出「哪一段属于哪一次升级」。
-	var version_problem: String = SaveMigrationScript.migrate_to_current(data)
+	var migration_defaults := {
+		"hero_character_id": HERO_CHARACTER_ID,
+		"base_max_health": HERO_BASE_MAX_HEALTH,
+		"base_attack": HERO_BASE_ATTACK,
+		"base_defense": HERO_BASE_DEFENSE,
+		"base_magic_resistance": HERO_BASE_MAGIC_RESISTANCE,
+	}
+	var version_problem: String = SaveMigrationScript.migrate_to_current(data, SAVE_VERSION, migration_defaults)
 	if not version_problem.is_empty():
 		push_error("SpringRun.from_dict: %s" % version_problem)
 		return null

@@ -77,7 +77,8 @@ func _test_v3_saves_migrate_without_losing_progress() -> void:
 func _test_spring_snapshots_selected_party_and_health() -> void:
 	var run = SpringRunScript.begin(29)
 	run.hero_health = 900
-	run.party_character_ids = ["sevrin", "sakura"]
+	var selected_party: Array[String] = ["sevrin", "sakura"]
+	run.party_character_ids.assign(selected_party)
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"test_place"), "a Spring fight accepts the selected party snapshot")
 	_check(run.hero_character_id == "sevrin", "the first selected member becomes the expedition lead")
 	_check(run.hero_base_max_health == 3600 and run.hero_health == 1800, "changing lead preserves the previous health ratio")

@@ -227,8 +227,8 @@ func _test_echo_kill_pays_a_kill_stack() -> void:
 	var sakura = battle.get_actor("sakura")
 	var enemy = battle.get_actor("vanguard_00")
 	sakura.resource_current = 0
-	# 305 from the strike leaves 95 of 400; the 152 follow-up is lethal.
-	enemy.health = 400
+	# 413 from the strike leaves 87 of 500; the 206 follow-up is lethal.
+	enemy.health = 500
 	SkillEffectsScript.apply_petal_mark(battle, sakura, enemy)
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the strike resolves")
 	_check(not enemy.is_alive(), "the echo return lands the killing blow")
@@ -315,9 +315,9 @@ func _test_falling_petals_covers_the_rectangle_in_front() -> void:
 	_check(skill.shape_width == 3 and skill.shape_depth == 2, "the footprint is three across and two deep")
 	_check(battle.request_skill(&"sakura_falling_petals", "vanguard_00"), "Falling Petals resolves")
 
-	# Three segments of 30%: floor(156 * 1000 / 1450) = 107 each, so 321.
-	_check(near_before - near.health == 321, "the aimed target takes all three segments")
-	_check(side_before - side.health == 321, "a target beside the axis is inside the block and also takes three")
+	# Three segments of 30%: floor(180 * 1000 / 1450) = 124 each, so 372.
+	_check(near_before - near.health == 372, "the aimed target takes all three segments")
+	_check(side_before - side.health == 372, "a target beside the axis is inside the block and also takes three")
 	_check(outside.health == outside_before, "an enemy outside the block is untouched")
 	_check(beyond_depth.health == beyond_before, "an enemy four cells ahead is beyond the two-cell depth")
 	_check(battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the block applies the mark")
@@ -743,9 +743,9 @@ func _test_extreme_strengthens_the_next_active_skill() -> void:
 	var near_before: int = near.health
 	var outside_before: int = outside.health
 	_check(petals.request_skill(&"sakura_falling_petals", "vanguard_00"), "an extreme Falling Petals resolves")
-	# 321 from three segments, plus 65% echo: floor(338*1000/1450) = 233.
-	_check(near_before - near.health == 554, "the marked target takes the segments and a 65% echo return")
-	_check(outside_before - outside.health == 321, "the expanded block reaches one extra row")
+	# 372 from three segments, plus 65% echo: floor(390*1000/1450) = 268.
+	_check(near_before - near.health == 640, "the marked target takes the segments and a 65% echo return")
+	_check(outside_before - outside.health == 372, "the expanded block reaches one extra row")
 	petals.queue_free()
 
 	# 极意 is not spent by the other actions.

@@ -28,6 +28,14 @@ const HERO_BASE_MAGIC_RESISTANCE: int = 111
 ## The character sheet the spring battles deploy.
 const HERO_CHARACTER_ID: String = "sakura"
 
+## The run lead follows the first character in its snapshotted squad. These
+## values are captured from the character sheet so SpringRun stays battle-agnostic.
+var hero_character_id: String = HERO_CHARACTER_ID
+var hero_base_max_health: int = HERO_BASE_MAX_HEALTH
+var hero_base_attack: int = HERO_BASE_ATTACK
+var hero_base_defense: int = HERO_BASE_DEFENSE
+var hero_base_magic_resistance: int = HERO_BASE_MAGIC_RESISTANCE
+
 ## §5.1: 补给 is shared by the whole party, not carried per character.
 var seed_value: int = 0
 var template_id: int = 1
@@ -180,7 +188,7 @@ func add_relic(relic_id: StringName) -> void:
 # --- hero vitals (§11.2) -----------------------------------------------------
 
 func effective_max_health() -> int:
-	return maxi(1, maxi(HERO_BASE_MAX_HEALTH + bonus_max_health, carry_max_health))
+	return maxi(1, maxi(hero_base_max_health + bonus_max_health, carry_max_health))
 
 
 ## Returns how much was actually restored, so the caller can say "回复 37 点"
@@ -421,6 +429,11 @@ func to_dict() -> Dictionary:
 			"health": hero_health,
 			"bonus_max_health": bonus_max_health,
 			"carry_max_health": carry_max_health,
+			"character_id": hero_character_id,
+			"base_max_health": hero_base_max_health,
+			"base_attack": hero_base_attack,
+			"base_defense": hero_base_defense,
+			"base_magic_resistance": hero_base_magic_resistance,
 		},
 		"collectibles": _names_to_strings(collectibles),
 		"battle_carry": battle_carry.duplicate(true),
@@ -499,6 +512,13 @@ static func _migrate_v2_to_v3(data: Dictionary) -> Dictionary:
 static func _migrate_v3_to_v4(data: Dictionary) -> Dictionary:
 	var result: Dictionary = data.duplicate(true)
 	result["party_character_ids"] = []
+	var hero: Dictionary = result.get("hero", {})
+	hero["character_id"] = HERO_CHARACTER_ID
+	hero["base_max_health"] = HERO_BASE_MAX_HEALTH
+	hero["base_attack"] = HERO_BASE_ATTACK
+	hero["base_defense"] = HERO_BASE_DEFENSE
+	hero["base_magic_resistance"] = HERO_BASE_MAGIC_RESISTANCE
+	result["hero"] = hero
 	result["party_vitals"] = {}
 	return result
 
@@ -556,9 +576,15 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	# such keys, and each default matches what version 1 meant, so old saves load.
 	# Anything version-specific has already been handled by _migrate_to_current.
 	var hero: Dictionary = data.get("hero", {})
+	run.hero_character_id = str(hero.get("character_id", HERO_CHARACTER_ID))
+	run.hero_base_max_health = maxi(1, int(hero.get("base_max_health", HERO_BASE_MAX_HEALTH)))
+	run.hero_base_attack = maxi(0, int(hero.get("base_attack", HERO_BASE_ATTACK)))
+	run.hero_base_defense = maxi(0, int(hero.get("base_defense", HERO_BASE_DEFENSE)))
+	run.hero_base_magic_resistance = maxi(0, int(hero.get("base_magic_resistance", HERO_BASE_MAGIC_RESISTANCE)))
 	run.bonus_max_health = maxi(0, int(hero.get("bonus_max_health", 0)))
 	run.carry_max_health = maxi(0, int(hero.get("carry_max_health", 0)))
 	run.hero_health = clampi(int(hero.get("health", run.effective_max_health())), 1, run.effective_max_health())
+	run.hero_max_health = run.effective_max_health()
 	for collectible_id in data.get("collectibles", []):
 		run.collectibles.append(StringName(collectible_id))
 	var carry: Dictionary = data.get("battle_carry", {})

@@ -7,7 +7,7 @@ const EventViewScript = preload("res://scripts/spring/spring_event_view.gd")
 const ShopViewScript = preload("res://scripts/spring/spring_shop_view.gd")
 const EventCatalogScript = preload("res://scripts/spring/spring_event_catalog.gd")
 const BridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
-const CollectibleCatalogScript = preload("res://scripts/spring/spring_collectible_catalog.gd")
+const CollectibleOverlayViewScript = preload("res://scripts/spring/spring_collectible_overlay_view.gd")
 const EndingScript = preload("res://scripts/spring/spring_ending.gd")
 const RouteOverlayScript = preload("res://scripts/spring/spring_route_overlay.gd")
 
@@ -136,11 +136,11 @@ func _draw() -> void:
 	elif shop_open:
 		ShopViewScript.draw(self, run.shop, run, shop_tab, shop_sell_page, shop_message)
 	elif not run.reward_choices.is_empty():
-		_draw_reward_choices()
+		CollectibleOverlayViewScript.draw_reward_choices(self)
 	elif collectible_open:
-		_draw_collectibles()
+		CollectibleOverlayViewScript.draw_collectibles(self)
 	elif run.revive_prompt:
-		_draw_revive_prompt()
+		CollectibleOverlayViewScript.draw_revive_prompt(self)
 
 func _draw_background() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW), Color("#12171a"), true)
@@ -348,7 +348,7 @@ func _gui_input(event: InputEvent) -> void:
 			SceneTravel.change(get_tree(), MENU_SCENE_PATH)
 		return
 	if collectible_open:
-		_handle_collectible_tap(point)
+		CollectibleOverlayViewScript.handle_collectible_tap(self, point)
 		queue_redraw()
 		accept_event()
 		return
@@ -498,91 +498,9 @@ func _reveal_hidden_place() -> void:
 			return
 	status_message += " 地图上已经没有能藏东西的地方了。"
 
-func _draw_reward_choices() -> void:
-	var font := ThemeDB.fallback_font
-	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
-	var panel := Rect2(180.0, 140.0, 920.0, 420.0)
-	draw_rect(panel, P.OVERLAY_BG, true)
-	draw_rect(panel, P.GOLD, false, 2.0)
-	draw_string(font, Vector2(216.0, 196.0), "精英战利品 · 三选一", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, P.GOLD_PALE)
-	draw_string(font, Vector2(216.0, 226.0), "只出现普通与稀有品质；被动藏品不重复，主动消耗品可重复获得。", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
-	for index in range(run.reward_choices.size()):
-		var rect := reward_card_rect(index)
-		var collectible_id: StringName = run.reward_choices[index]
-		draw_rect(rect, P.PANEL, true)
-		draw_rect(rect, P.BUTTON_BORDER, false, 1.4)
-		draw_string(font, rect.position + Vector2(18.0, 30.0), CollectibleCatalogScript.name_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 36.0, 18, P.GOLD_LIGHT)
-		draw_string(font, rect.position + Vector2(18.0, 56.0), CollectibleCatalogScript.rarity_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.CYAN)
-		draw_string(font, rect.position + Vector2(18.0, 84.0), CollectibleCatalogScript.desc_of(collectible_id), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 36.0, 13, P.TEXT_BODY)
-
 func reward_card_rect(index: int) -> Rect2:
-	return Rect2(216.0 + float(index) * 300.0, 260.0, 280.0, 180.0)
+	return CollectibleOverlayViewScript.reward_card_rect(index)
 
-func _draw_collectibles() -> void:
-	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
-	draw_rect(COLLECTIBLE_PANEL, P.OVERLAY_BG, true)
-	draw_rect(COLLECTIBLE_PANEL, P.GOLD, false, 2.0)
-	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(336.0, 150.0), "藏品", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, P.GOLD_PALE)
-	draw_string(font, Vector2(336.0, 178.0), "被动藏品自动生效；主动消耗品可在这里选择使用。", HORIZONTAL_ALIGNMENT_LEFT, 590.0, 13, P.TEXT_MUTED)
-	draw_rect(COLLECTIBLES_CLOSE, P.BUTTON_BG, true)
-	draw_rect(COLLECTIBLES_CLOSE, P.BUTTON_BORDER, false, 1.2)
-	draw_string(font, COLLECTIBLES_CLOSE.position + Vector2(18.0, 23.0), "关闭", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.BUTTON_TEXT)
-	var row: int = 0
-	for item_id in CollectibleCatalogScript.all_ids():
-		var id := StringName(item_id)
-		var consumable: bool = CollectibleCatalogScript.is_consumable(id)
-		var count: int = int(run.collectible_consumables.get(item_id, 0)) if consumable else (1 if run.collectibles.has(id) else 0)
-		if count <= 0:
-			continue
-		var y: float = 212.0 + float(row) * 46.0
-		draw_string(font, Vector2(336.0, y + 16.0), CollectibleCatalogScript.name_of(id), HORIZONTAL_ALIGNMENT_LEFT, 190.0, 15, P.GOLD_LIGHT if consumable else P.TEXT_BODY)
-		draw_string(font, Vector2(540.0, y + 16.0), CollectibleCatalogScript.desc_of(id), HORIZONTAL_ALIGNMENT_LEFT, 290.0, 12, P.TEXT_MUTED)
-		if consumable:
-			var use_rect := Rect2(850.0, y - 8.0, 96.0, 30.0)
-			draw_rect(use_rect, P.BUTTON_BG, true)
-			draw_rect(use_rect, P.BUTTON_BORDER, false, 1.0)
-			draw_string(font, use_rect.position + Vector2(30.0, 20.0), "使用 ×%d" % count, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.BUTTON_TEXT)
-		else:
-			draw_string(font, Vector2(884.0, y + 14.0), "已生效", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.CYAN)
-		row += 1
-	if row == 0:
-		draw_string(font, Vector2(336.0, 250.0), "尚未获得藏品。", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.TEXT_MUTED)
-
-
-func _handle_collectible_tap(point: Vector2) -> void:
-	if COLLECTIBLES_CLOSE.has_point(point):
-		collectible_open = false
-		return
-	var row: int = 0
-	for item_id in CollectibleCatalogScript.all_ids():
-		var id := StringName(item_id)
-		var consumable: bool = CollectibleCatalogScript.is_consumable(id)
-		var count: int = int(run.collectible_consumables.get(item_id, 0)) if consumable else (1 if run.collectibles.has(id) else 0)
-		if count <= 0:
-			continue
-		if consumable:
-			var use_rect := Rect2(850.0, 204.0 + float(row) * 46.0, 96.0, 30.0)
-			if use_rect.has_point(point):
-				var used: Dictionary = run.use_collectible(id)
-				status_message = str(used.get("message", ""))
-				if bool(used.get("ok", false)):
-					_save()
-				return
-		row += 1
-
-
-func _draw_revive_prompt() -> void:
-	var font := ThemeDB.fallback_font
-	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
-	var panel := Rect2(300.0, 240.0, 680.0, 240.0)
-	draw_rect(panel, P.OVERLAY_BG, true)
-	draw_rect(panel, P.WARN, false, 2.0)
-	draw_string(font, Vector2(340.0, 296.0), "这一处失守了", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, P.WARN)
-	draw_string(font, Vector2(340.0, 330.0), "每个区域可以续行一次：消耗 %d 份补给，回复至三成生命。" % BridgeScript.CONTINUE_SUPPLY_COST, HORIZONTAL_ALIGNMENT_LEFT, 600.0, 14, P.TEXT_BODY)
-	draw_string(font, Vector2(340.0, 356.0), "现有补给 %d 份。" % run.supplies, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
-	_draw_button(REVIVE_YES, "续行", BridgeScript.can_continue(run))
-	_draw_button(REVIVE_NO, "结束本局", true)
 
 func _handle_event_tap(point: Vector2) -> void:
 	var event_id := _event_id_for(event_place)

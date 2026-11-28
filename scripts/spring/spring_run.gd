@@ -271,9 +271,22 @@ func grant_random_collectible(rng: RandomNumberGenerator, source: String = "even
 ## §7.4 / 神秘收藏家: handing one over removes the newest, which is the one the
 ## player just saw in the log.
 func consume_collectible() -> StringName:
-	if collectibles.is_empty():
-		return &""
-	return collectibles.pop_back()
+	if not collectibles.is_empty():
+		return collectibles.pop_back()
+	# Active consumables may also be traded; use a stable id order when no
+	# passive collectible is available so the exchange remains reproducible.
+	var active_ids: Array = collectible_consumables.keys()
+	active_ids.sort()
+	for item_id in active_ids:
+		var count: int = int(collectible_consumables[item_id])
+		if count <= 0:
+			continue
+		if count == 1:
+			collectible_consumables.erase(item_id)
+		else:
+			collectible_consumables[item_id] = count - 1
+		return StringName(item_id)
+	return &""
 
 
 func collectible_name(collectible_id: StringName) -> String:

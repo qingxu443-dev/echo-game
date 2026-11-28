@@ -92,7 +92,7 @@ func _test_spring_snapshots_selected_party_and_health() -> void:
 	var restored = SpringRunScript.from_dict(run.to_dict())
 	_check(restored != null, "the updated Spring save round-trips")
 	_check(restored.party_character_ids == ["sevrin", "sakura"], "the selected party survives save and reload")
-	_check(int(restored.party_vitals.sakura.health) == 900, "individual member health survives save and reload")
+	_check(int(restored.party_vitals.sakura.health) == 1050, "individual member health survives save and reload")
 	SpringBattleBridgeScript.clear_pending()
 
 func _test_party_vitals_enter_the_battle_scene() -> void:
@@ -143,7 +143,7 @@ func _test_fragment_health_bonus_stacks_on_saved_vitals() -> void:
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare a wounded Sakura with a health module")
 	var view = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(view)
-	_check(view.controller.actors.sakura.max_health == 2205, "the saved 1800 cap is scaled once by the equipped 5% module")
+	_check(view.controller.actors.sakura.max_health == 2205, "the saved 2100 cap is scaled once by the equipped 5% module")
 	_check(view.controller.actors.sakura.health == 1103, "wounded health keeps its ratio instead of growing for free")
 	var carried := SpringBattleBridgeScript.pack_carry(view.run_state)
 	var saved := {}

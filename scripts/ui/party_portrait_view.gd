@@ -31,7 +31,8 @@ static func draw(canvas: CanvasItem, controller) -> void:
 		canvas.draw_rect(rect, Color("#343027") if active else P.PANEL, true)
 		canvas.draw_rect(rect, P.GOLD_LIGHT if active else (P.WARN if retired else P.PANEL_BORDER), false, 1.5)
 		var image_rect := Rect2(rect.position + Vector2(5, 5), Vector2(36, 45))
-		var texture := BoardObjectsView._load_cached_texture("res://assets/actors/portraits/%s.png" % actor.character_id)
+		var portrait_path: String = actor.portrait_path if not actor.portrait_path.is_empty() else "res://assets/actors/portraits/%s.png" % actor.character_id
+		var texture := BoardObjectsView._load_cached_texture(portrait_path)
 		if texture != null: canvas.draw_texture_rect(texture, image_rect, false, tint)
 		else: canvas.draw_string(font, image_rect.position + Vector2(6, 29), actor.glyph, HORIZONTAL_ALIGNMENT_LEFT, 30, 22, tint)
 		canvas.draw_string(font, rect.position + Vector2(45, 19), actor.display_name_zh, HORIZONTAL_ALIGNMENT_LEFT, 43, 9 if actor.display_name_zh.length() > 3 else 11, P.TEXT if active else P.TEXT_DIM)

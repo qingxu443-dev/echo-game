@@ -88,6 +88,13 @@ static func prepare(run, encounter_id: StringName, place_id: StringName, kind: S
 		run.party_character_ids = SquadLoadoutStoreScript.active_character_ids()
 	if run.party_character_ids.is_empty():
 		run.party_character_ids = [SpringRun.HERO_CHARACTER_ID]
+	if run.party_character_ids.size() > 3:
+		return false
+	var seen_party: Dictionary = {}
+	for character_id in run.party_character_ids:
+		if seen_party.has(character_id) or not CharacterCatalogScript.has_definition(character_id):
+			return false
+		seen_party[character_id] = true
 	var lead = CharacterCatalogScript.get_definition(run.party_character_ids[0])
 	if lead == null:
 		return false

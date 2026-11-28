@@ -210,17 +210,37 @@ func _test_collectibles_never_duplicate() -> void:
 	var run := _fresh_run()
 	var satchel: Dictionary = CatalogScript.resolve(run, &"lost_traveler", 2)
 	_check(bool(satchel["ok"]), "the traveller's satchel resolves")
-	_check(run.collectibles.size() == 1, "the satchel yields exactly one collectible")
-	var owned: StringName = run.collectibles[0]
-	_check(not run.grant_collectible(owned), "the same collectible cannot be granted twice")
+	var satchel_total: int = run.collectibles.size()
+	for count in run.collectible_consumables.values():
+		satchel_total += int(count)
+	_check(satchel_total == 1, "the satchel yields exactly one collectible")
+	if not run.collectibles.is_empty():
+		var owned: StringName = run.collectibles[0]
+		_check(not run.grant_collectible(owned), "the same passive collectible cannot be granted twice")
+	else:
+		var active_id := StringName(run.collectible_consumables.keys()[0])
+		_check(run.grant_collectible(active_id), "an active consumable can be acquired more than once")
+		_check(int(run.collectible_consumables[String(active_id)]) == 2, "the second active copy stacks")
 
-	# Exhausting the pool must not hand out a duplicate; it reports &"" instead.
+	# Active consumables are also valid exchange currency for the collector.
+	var active_trade := _fresh_run()
+	active_trade.grant_collectible(&"col_field_ration")
+	_check(CatalogScript.can_afford(active_trade, &"mysterious_collector", 1), "the collector accepts an active consumable")
+	var trade_result: Dictionary = CatalogScript.resolve(active_trade, &"mysterious_collector", 1)
+	_check(bool(trade_result.get("ok", false)), "an active consumable can be exchanged")
+	var after_trade: int = active_trade.collectibles.size()
+	for count in active_trade.collectible_consumables.values():
+		after_trade += int(count)
+	_check(after_trade == 2, "the exchange consumes one item and grants two")
+
+	# Once all unique passive items are owned, only stackable active items remain.
 	var exhausted := _fresh_run()
 	for collectible_id in CollectibleCatalogScript.candidates_for("event"):
 		exhausted.grant_collectible(StringName(collectible_id))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
-	_check(exhausted.grant_random_collectible(rng) == &"", "an exhausted pool yields nothing rather than a duplicate")
+	var repeatable: StringName = exhausted.grant_random_collectible(rng)
+	_check(CollectibleCatalogScript.is_consumable(repeatable), "an exhausted passive pool only yields a repeatable consumable")
 
 	# Elite draws never contain the epic (§14).
 	for candidate_id in CollectibleCatalogScript.candidates_for("elite"):
@@ -243,5 +263,24 @@ func _test_feast_of_hidden_hoard() -> void:
 	var coins_before: int = run.coins
 	var result: Dictionary = CatalogScript.resolve(run, &"hidden_hoard", 0)
 	_check(bool(result["ok"]), "the hidden hoard opens")
-	_check(run.coins == coins_before + 40, "the hoard pays 40 coins")
-	_check(run.collectibles.size() == 1, "the hoard yields a collectible")
+	_check(run.coins >= coins_before + 40, "the hoard pays 40 coins plus any immediate coin collectible")
+	var total_collectibles: int = run.collectibles.size()
+	for count in run.collectible_consumables.values():
+		total_collectibles += int(count)
+	_check(total_collectibles == 1, "the hoard yields one collectible")
+	_check(run.relics.size() == 1, "the hidden hoard also grants one unique relic")
+	if not run.collectibles.is_empty():
+		var gained: StringName = run.collectibles[0]
+		match String(gained):
+			"col_dried_ration":
+				_check(run.supplies >= 23, "passive supply collectibles apply when obtained")
+			"col_memory_scrap":
+				_check(run.memory_pages >= 2, "passive page collectibles apply when obtained")
+			"col_spring_vial":
+				_check(run.dew_total() >= 3, "passive dew collectibles apply when obtained")
+			"col_old_map":
+				_check(run.pending_hidden_reveal, "passive map collectibles apply when obtained")
+			"col_petal_purse":
+				_check(run.coins >= coins_before + 100, "passive coin collectibles apply when obtained")
+	else:
+		_check(not run.collectible_consumables.is_empty(), "active collectibles are stored for later use")

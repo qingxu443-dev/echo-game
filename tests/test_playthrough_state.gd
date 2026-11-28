@@ -65,7 +65,7 @@ func _test_hourglass_suspend() -> void:
 func _party_run() -> SpringRun:
 	var run := SpringRun.begin(3)
 	run.party_character_ids.assign(["sakura", "sevrin"])
-	run.hero_health = 900
+	run.hero_health = 1050
 	run.party_vitals = {"sakura": {"health": 1050, "max_health": 2100}, "sevrin": {"health": 1600, "max_health": 3200}}
 	return run
 
@@ -115,11 +115,11 @@ func _test_inventory_after_switching() -> void:
 	_check(view.controller.actors.sakura.max_health == 2100 and view.controller.actors.sakura.health == 1050, "reserve vitality is unchanged by active equipment")
 	view._handle_inventory_tap(InventoryView.ARMOR_SLOT_RECT.get_center())
 	_check([member.max_health, member.health, member.attack, member.defense, member.magic_resistance] == before, "unequipping symmetrically returns the active character's bonus")
-	_check(view.controller.actors.sakura.health == 900, "unequipping cannot heal the reserve")
+	_check(view.controller.actors.sakura.health == 1050, "unequipping cannot heal the reserve")
 	view.run_state.add_to_backpack(AtelierStash.recipe_by_id("item_dusk_potion").payload)
 	view._handle_inventory_tap(InventoryView.bag_card_rect(1).get_center())
-	_check(member.health == 2700 and view.controller.actors.sakura.health == 900, "consumables target the deployed character")
-	_check(view.run_state.hero_health == 2700, "the working loadout tracks the deployed character's persistent health")
+	_check(member.health == 2800 and view.controller.actors.sakura.health == 1050, "consumables target the deployed character")
+	_check(view.run_state.hero_health == 2800, "the working loadout tracks the deployed character's persistent health")
 	view.queue_free()
 	SpringBattleBridge.clear_pending()
 	await process_frame
@@ -141,7 +141,7 @@ func _test_restored_battle_parent() -> void:
 	var view = Scene.instantiate()
 	root.add_child(view)
 	_check(view.spring_mode and SpringBattleBridge.restore_map, "normal scene entry restores the suspended battle and parent map")
-	var result := {"result": "victory", "place": "battle_1", "kind": "battle", "hero_health": 900, "hero_max_health": 2100}
+	var result := {"result": "victory", "place": "battle_1", "kind": "battle", "hero_health": 1050, "hero_max_health": 2100}
 	Handoff.open(view, result, path, func(_tree, _scene): return OK)
 	var stored := SpringRun.load_from_file(path)
 	_check(stored != null and stored.seed_value == int(expected.seed), "settlement follows the suspended battle's own map, not a newer on-disk journey")

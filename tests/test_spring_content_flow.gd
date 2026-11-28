@@ -20,6 +20,9 @@ const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 
 func _run() -> void:
 	_test_prepare_refuses_unknown()
+	_test_normal_battle_drops_collectibles()
+	_test_active_collectibles_stack_and_use()
+	_test_relics_are_unique_and_raise_dew_capacity()
 	_test_payload_maps_vitals_and_relics()
 	_test_victory_settles()
 	_test_defeat_finishes_the_node()
@@ -58,6 +61,57 @@ func _result(overrides: Dictionary) -> Dictionary:
 	for key in overrides:
 		result[key] = overrides[key]
 	return result
+
+
+func _test_normal_battle_drops_collectibles() -> void:
+	var run := _fresh_run()
+	BridgeScript.last_result = _result({"kind": BridgeScript.KIND_BATTLE, "place": "battle_1"})
+	var outcome: Dictionary = BridgeScript.settle(run)
+	var total_owned: int = run.collectibles.size()
+	for count in run.collectible_consumables.values():
+		total_owned += int(count)
+	_check(total_owned == 1, "an ordinary victory grants one random common collectible")
+	_check(str(outcome.get("message", "")).contains("藏品"), "the ordinary reward is reported to the player")
+	for collectible_id in run.collectibles:
+		_check(CollectibleCatalogScript.rarity_of(collectible_id) == CollectibleCatalogScript.RARITY_COMMON, "ordinary drops stay common")
+
+
+func _test_active_collectibles_stack_and_use() -> void:
+	var run := _fresh_run()
+	var supplies_before: int = run.supplies
+	_check(run.grant_collectible(&"col_field_ration"), "an active ration can be acquired")
+	_check(run.grant_collectible(&"col_field_ration"), "active consumables may stack")
+	_check(int(run.collectible_consumables.get("col_field_ration", 0)) == 2, "the active stack records both copies")
+	_check(run.supplies == supplies_before, "an active consumable does not trigger on acquisition")
+	var used: Dictionary = run.use_collectible(&"col_field_ration")
+	_check(bool(used.get("ok", false)), "the player can actively use a ration")
+	_check(run.supplies == supplies_before + 2, "using the ration grants its supplies")
+	_check(int(run.collectible_consumables.get("col_field_ration", 0)) == 1, "using consumes exactly one copy")
+
+	run.hero_health = 1000
+	run.grant_collectible(&"col_medicinal_pouch")
+	var healed: Dictionary = run.use_collectible(&"col_medicinal_pouch")
+	_check(bool(healed.get("ok", false)) and run.hero_health == 1300, "the medical pouch heals when used")
+	_check(not run.collectible_consumables.has("col_medicinal_pouch"), "a used medical pouch is consumed")
+	var full_health: int = run.hero_health
+	run.grant_collectible(&"col_medicinal_pouch")
+	run.hero_health = run.effective_max_health()
+	var refused: Dictionary = run.use_collectible(&"col_medicinal_pouch")
+	_check(not bool(refused.get("ok", false)), "a full-health use is refused")
+	_check(int(run.collectible_consumables.get("col_medicinal_pouch", 0)) == 1, "a refused use does not consume the item")
+
+
+func _test_relics_are_unique_and_raise_dew_capacity() -> void:
+	var run := _fresh_run()
+	_check(run.add_relic(&"relic_homeward_bell"), "a valid relic can be acquired")
+	_check(not run.add_relic(&"relic_homeward_bell"), "a relic cannot be duplicated")
+	_check(not run.add_relic(&"relic_unknown"), "unknown relic ids are rejected")
+	_check(run.effective_dew_cap() == run.dew_cap + 2, "the homeward bell raises shared dew capacity by two")
+	var health_run := _fresh_run()
+	_check(health_run.add_relic(&"relic_spring_charm"), "the spring charm can be acquired")
+	_check(health_run.effective_max_health() == SpringRun.HERO_BASE_MAX_HEALTH + 300, "the spring charm raises map-side maximum health")
+	_check(run.add_dew("spring", 2), "the relic's added capacity can be filled")
+	_check(not run.add_dew("winter", 1), "dew cannot exceed the relic-adjusted shared cap")
 
 
 func _test_prepare_refuses_unknown() -> void:
@@ -173,7 +227,14 @@ func _test_elite_offers_three() -> void:
 	for collectible_id in CollectibleCatalogScript.candidates_for("elite"):
 		loaded.grant_collectible(StringName(collectible_id))
 	var exhausted: Array = BridgeScript.roll_reward_choices(loaded, "elite", 3, 5)
-	_check(exhausted.is_empty(), "a fully collected pool yields no candidates")
+	_check(exhausted.size() == 2, "only the two repeatable active consumables remain")
+	for remaining_id in exhausted:
+		_check(CollectibleCatalogScript.is_consumable(remaining_id), "remaining repeatable reward is an active consumable")
+	var coins_before: int = loaded.coins
+	var supplies_before: int = loaded.supplies
+	BridgeScript.settle_result(loaded, _result({"kind": BridgeScript.KIND_ELITE, "place": "elite"}))
+	_check(loaded.reward_choices.is_empty(), "an incomplete three-choice hand is not shown")
+	_check(loaded.coins >= coins_before + 40 and loaded.supplies >= supplies_before + 2, "an incomplete elite hand converts to resource compensation")
 
 
 func _test_boss_closes_the_region() -> void:
@@ -196,7 +257,8 @@ func _test_boss_closes_the_region() -> void:
 	_check(not bool(transition.get("can_enter", true)), "the locked next floor cannot be entered")
 	_check(str(outcome["message"]).contains("夏之境") and str(outcome["message"]).contains("尚未解锁"),
 		"the player-facing result explains why the next floor cannot open")
-	_check(run.collectibles.size() <= 1, "the boss pays at most one collectible")
+	_check(run.collectibles.size() <= 1, "the boss pays at most one passive collectible")
+	_check(run.relics.size() == 1, "the boss guarantees one unique relic while the pool remains")
 
 	# An unlocked next region is not a completed adventure: the current floor
 	# closes, while the map receives an explicit scene-transition request.
@@ -239,6 +301,8 @@ func _test_save_keeps_the_fight_results() -> void:
 	var run := _fresh_run()
 	run.hero_health = 1300
 	run.grant_collectible(&"col_petal_purse")
+	run.grant_collectible(&"col_field_ration")
+	run.add_relic(&"relic_homeward_bell")
 	run.battles_won = 2
 	run.exploration.mark_completed(&"battle_1")
 	run.battle_carry["mods"] = ["heavy_push"]
@@ -249,7 +313,9 @@ func _test_save_keeps_the_fight_results() -> void:
 	if restored == null:
 		return
 	_check(restored.hero_health == 1300, "health survives the save")
-	_check(restored.has_collectible(&"col_petal_purse"), "collectibles survive the save")
+	_check(restored.has_collectible(&"col_petal_purse"), "passive collectibles survive the save")
+	_check(int(restored.collectible_consumables.get("col_field_ration", 0)) == 1, "active consumable stacks survive the save")
+	_check(restored.relics.has(&"relic_homeward_bell") and restored.effective_dew_cap() == 2, "relics and their capacity bonus survive the save")
 	_check(restored.battles_won == 2, "the win count survives the save")
 	_check(restored.exploration.completed.has(&"battle_1"), "finished nodes survive the save")
 	_check(restored.battle_carry["mods"] == ["heavy_push"], "the battle carry survives the save")

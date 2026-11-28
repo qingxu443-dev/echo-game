@@ -2,6 +2,7 @@ class_name BattleSession
 extends RefCounted
 
 const VIEW_FIELDS: Array[String] = ["status_message", "selected_skill", "inventory_open", "inventory_page", "pending_rewards"]
+const CONTROLLER_CONTAINERS: Array[String] = ["actors", "intents", "ap", "statuses", "ledger", "run_state"]
 
 
 static func capture(view: Node) -> Dictionary:
@@ -11,7 +12,7 @@ static func capture(view: Node) -> Dictionary:
 		"encounter_override_id": str(view.encounter_override.level_id) if view.encounter_override != null else "",
 		"bridge": SpringBattleBridge.pending.duplicate(true),
 		"parent_run": SpringBattleBridge.suspended_map.duplicate(true),
-		"controller": SessionCodec.fields(battle, ["actors", "intents", "ap", "statuses", "ledger", "run_state"]),
+		"controller": SessionCodec.fields(battle, CONTROLLER_CONTAINERS),
 		"run_state": SessionCodec.fields(view.run_state), "ap": SessionCodec.fields(battle.ap),
 		"ledger": SessionCodec.fields(battle.ledger), "fx": SessionCodec.fields(view.fx),
 		"camera": UiPalette.camera_quadrant, "actors": [], "intents": [], "statuses": [], "view": {},

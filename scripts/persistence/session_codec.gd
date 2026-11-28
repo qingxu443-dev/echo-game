@@ -22,31 +22,84 @@ static func encode(value: Variant) -> Variant:
 
 
 static func decode(value: Variant, depth: int = 0) -> Variant:
-	if depth > 40: return null
+	var result := decode_checked(value, depth)
+	return result.value if result.ok else null
+
+
+## A failed nested tag must not masquerade as a legitimate null or empty map.
+static func decode_checked(value: Variant, depth: int = 0) -> Dictionary:
+	if depth > 40: return {"ok": false}
 	if value is Array:
 		var items: Array = []
-		for item in value: items.append(decode(item, depth + 1))
-		return items
-	if not value is Dictionary: return value
+		for item in value:
+			var decoded := decode_checked(item, depth + 1)
+			if not decoded.ok: return {"ok": false}
+			items.append(decoded.value)
+		return {"ok": true, "value": items}
+	if not value is Dictionary:
+		if typeof(value) not in [TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING]: return {"ok": false}
+		return {"ok": false} if value is float and not is_finite(value) else {"ok": true, "value": value}
 	if value.get("$", "") in ["v2i", "v2"]:
 		for key in ["x", "y"]:
-			if not value.get(key) is int and not value.get(key) is float: return null
+			var part: Variant = value.get(key)
+			if not (part is int or part is float) or not is_finite(float(part)): return {"ok": false}
+			if value["$"] == "v2i":
+				if part < -2147483648 or part > 2147483647 or float(part) != floorf(float(part)): return {"ok": false}
+			elif absf(float(part)) > 3.402823466e38: return {"ok": false}
 	match value.get("$", ""):
-		"v2i": return Vector2i(int(value.get("x", 0)), int(value.get("y", 0)))
-		"v2": return Vector2(float(value.get("x", 0)), float(value.get("y", 0)))
-		"color": return Color.from_string(str(value.get("v", "")), Color.WHITE)
-		"name": return StringName(str(value.get("v", "")))
-		"int": return str(value.get("v", "0")).to_int()
+		"v2i": return {"ok": true, "value": Vector2i(int(value.x), int(value.y))}
+		"v2": return {"ok": true, "value": Vector2(float(value.x), float(value.y))}
+		"color":
+			if not value.get("v") is String: return {"ok": false}
+			var color: String = value.v
+			if color.length() != 8 or not color.is_valid_hex_number(false): return {"ok": false}
+			return {"ok": true, "value": Color.from_string(color, Color.WHITE)}
+		"name":
+			if not value.get("v") is String: return {"ok": false}
+			return {"ok": true, "value": StringName(value.v)}
+		"int":
+			if not value.get("v") is String: return {"ok": false}
+			var text: String = value.v
+			if not text.is_valid_int(): return {"ok": false}
+			var digits := text.trim_prefix("-")
+			var limit := "9223372036854775808" if text.begins_with("-") else "9223372036854775807"
+			if digits.length() > limit.length() or (digits.length() == limit.length() and digits > limit): return {"ok": false}
+			var number := text.to_int()
+			if str(number) != text: return {"ok": false}
+			return {"ok": true, "value": number}
 		"dict":
 			var result: Dictionary = {}
-			if not value.get("v", []) is Array: return result
+			if not value.get("v") is Array: return {"ok": false}
 			for pair in value.get("v", []):
-				if not pair is Array or pair.size() != 2: return {}
-				var key: Variant = decode(pair[0], depth + 1)
-				if key == null or key is Array or key is Dictionary: return {}
-				result[key] = decode(pair[1], depth + 1)
-			return result
-	return null
+				if not pair is Array or pair.size() != 2: return {"ok": false}
+				var key := decode_checked(pair[0], depth + 1)
+				var item := decode_checked(pair[1], depth + 1)
+				if not key.ok or not item.ok: return {"ok": false}
+				if key.value == null or key.value is Array or key.value is Dictionary or result.has(key.value): return {"ok": false}
+				result[key.value] = item.value
+			return {"ok": true, "value": result}
+	return {"ok": false}
+
+
+## Validate against the same script data surface used by fields/apply_fields.
+## Missing optional fields retain defaults; typed arrays are checked before assign.
+static func fields_error(script: Script, values: Dictionary, excluded: Array[String] = []) -> String:
+	for property in script.get_script_property_list():
+		var key := str(property.name)
+		if not values.has(key): continue
+		if key in excluded or key == "script": return key + ": field belongs to another container"
+		var type: int = property.type
+		var value: Variant = values[key]
+		if type in [TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL]: return key + ": not serialized data"
+		if type == TYPE_STRING_NAME and value is String: continue
+		if typeof(value) != type: return key + ": expected " + type_string(type)
+		if value is float and not is_finite(value): return key + ": nonfinite number"
+		if type == TYPE_ARRAY and property.hint == PROPERTY_HINT_ARRAY_TYPE:
+			var element_type: String = property.hint_string
+			for item in value:
+				if element_type == "StringName" and item is String: continue
+				if type_string(typeof(item)) != element_type: return key + ": expected Array[" + element_type + "]"
+	return ""
 
 
 static func fields(object: Object, excluded: Array[String] = []) -> Dictionary:

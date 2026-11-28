@@ -32,6 +32,8 @@ func _ready() -> void:
 	entries.assign(OPTIONS.duplicate(true))
 	if not SessionSave.read().is_empty():
 		entries.push_front({"label": "继续旅程", "sub": "RESUME YOUR JOURNEY", "action": "resume"})
+	else:
+		notice = SessionSave.last_read_error
 	hover_slide.resize(entries.size())
 	hover_slide.fill(0.0)
 	hover_slide[0] = 1.0
@@ -191,7 +193,7 @@ func _activate_selected() -> void:
 		"resume":
 			var path := SessionSave.stage()
 			if path.is_empty():
-				notice = "旅程存档无法读取，请进入大厅开始新的冒险。"
+				notice = SessionSave.last_read_error if not SessionSave.last_read_error.is_empty() else "旅程存档无法读取，请进入大厅开始新的冒险。"
 				return
 			var error := SceneTravel.change(get_tree(), path, "重返未尽的旅程")
 			if error != OK:

@@ -64,7 +64,7 @@ func _test_characters_come_from_data() -> void:
 	_check(CharacterCatalogScript.has_definition("sevrin"), "Sevrin is defined by a sheet")
 	_check(CharacterCatalogScript.has_definition("sakura"), "Sakura is defined by a sheet")
 	var sakura = CharacterCatalogScript.get_definition("sakura")
-	_check(sakura.max_health == 1800 and sakura.attack == 520, "Sakura's sheet carries the planned panel")
+	_check(sakura.max_health == 2100 and sakura.attack == 600, "Sakura's sheet carries the planned panel")
 	_check(sakura.has_resource() and String(sakura.resource_id) == "blade_intent", "Sakura's sheet declares blade intent")
 
 	var skills := SkillRegistryScript.skills_for_character("sakura")
@@ -105,7 +105,7 @@ func _test_sevrin_normal_attack() -> void:
 	var ap_before: int = battle.ap.current
 
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves on an adjacent enemy")
-	# 1150 ATK x 1.0 against 450 defense: floor(1150 * 1000 / 1450) = 793
+	# 650 ATK x 1.0 against 450 defense: floor(650 * 1000 / 1450) = 448
 	_check(health_before - enemy.health == 793, "the normal attack deals full attack through defense")
 	_check(enemy.cell == Vector2i(3, 1), "Oathblade knocks the adjacent enemy back one tile")
 	_check(battle.ap.current == ap_before - 1, "the normal attack costs one AP")
@@ -201,7 +201,7 @@ func _test_pierce_blossom_applies_the_mark_without_follow_up() -> void:
 
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Pierce Blossom resolves")
 	var dealt: int = health_before - enemy.health
-	# 520 ATK x 1.0 against 450 defense: floor(520 * 1000 / 1450) = 358
+	# 600 ATK x 1.0 against 450 defense: floor(600 * 1000 / 1450) = 413
 	_check(dealt == 358, "the first hit deals its own damage only")
 	_check(battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the hit applies the petal mark")
 	battle.queue_free()
@@ -545,7 +545,7 @@ func _test_a_dead_target_is_not_marked() -> void:
 
 ## The framework claim being tested: the caster is whoever is commanded, not the
 ## character the prototype started with. Damage numbers make this observable -
-## Sakura's 520 attack and Sevrin's 2000 produce different results from the same
+## Sakura's 600 attack and Sevrin's 650 produce different results from the same
 ## distance against the same defense.
 func _test_cast_uses_the_commanded_character() -> void:
 	var battle = ControllerScript.new()
@@ -559,14 +559,14 @@ func _test_cast_uses_the_commanded_character() -> void:
 	_check(battle.active_character_id == "sevrin", "the first deployed character starts in command")
 
 	var adjacent = battle.get_actor("vanguard_00")
-	# Sevrin's 1150 attack against 450 defense: floor(1150 * 1000 / 1450) = 793 (and knocks vanguard to (3, 1))
+	# Sevrin's 650 attack against 450 defense: floor(650 * 1000 / 1450) = 448 (and knocks vanguard to (3, 1))
 	var before_sevrin: int = adjacent.health
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "Sevrin's normal attack resolves")
 	_check(before_sevrin - adjacent.health == 793, "Sevrin's attack uses Sevrin's attack stat")
 
 	_check(battle.set_active_character("sakura"), "command switches to Sakura")
 	# Sakura at (3, 2) is now adjacent to the knocked-back vanguard at (3, 1).
-	# Sakura's 520 attack against 450 defense: floor(520 * 1000 / 1450) = 358
+	# Sakura's 600 attack against 450 defense: floor(600 * 1000 / 1450) = 413
 	var before_sakura: int = adjacent.health
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Sakura's attack resolves after switching")
 	_check(before_sakura - adjacent.health == 358, "the same enemy takes Sakura's number, so the caster really changed")

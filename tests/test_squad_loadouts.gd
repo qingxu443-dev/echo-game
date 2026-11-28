@@ -5,6 +5,7 @@ const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.g
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
 const SpringRunMigrationScript = preload("res://scripts/spring/spring_run_migration.gd")
+const SpringBattleBridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const LevelCatalogScript = preload("res://scripts/battle/level_catalog.gd")
 
 const TEST_SAVE_PATH := "user://squad_loadouts_test.json"
@@ -15,6 +16,7 @@ func _run() -> void:
 	_test_spring_encounters_use_the_selected_party()
 	_test_tutorial_roster_remains_fixed()
 	_test_v3_saves_migrate_without_losing_progress()
+	_test_spring_snapshots_selected_party_and_health()
 	_cleanup()
 	_report()
 
@@ -70,6 +72,24 @@ func _test_v3_saves_migrate_without_losing_progress() -> void:
 	_check(legacy.get("party_character_ids", []) == [], "legacy run has no forced new squad snapshot")
 	_check(legacy.get("hero", {}).get("character_id", "") == "sakura", "legacy Spring lead remains Sakura")
 	_check(int(legacy.get("hero", {}).get("health", 0)) == 1500, "migration preserves existing hero health")
+
+func _test_spring_snapshots_selected_party_and_health() -> void:
+	var run = SpringRunScript.begin(29)
+	run.hero_health = 900
+	run.party_character_ids = ["sevrin", "sakura"]
+	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"test_place"), "a Spring fight accepts the selected party snapshot")
+	_check(run.hero_character_id == "sevrin", "the first selected member becomes the expedition lead")
+	_check(run.hero_base_max_health == 3600 and run.hero_health == 1800, "changing lead preserves the previous health ratio")
+	_check(SpringBattleBridgeScript.pending.get("character_ids", []) == ["sevrin", "sakura"], "battle bridge carries the ordered party")
+	run.party_vitals = {
+		"sevrin": {"health": 1800, "max_health": 3600},
+		"sakura": {"health": 900, "max_health": 1800},
+	}
+	var restored = SpringRunScript.from_dict(run.to_dict())
+	_check(restored != null, "the updated Spring save round-trips")
+	_check(restored.party_character_ids == ["sevrin", "sakura"], "the selected party survives save and reload")
+	_check(int(restored.party_vitals.sakura.health) == 900, "individual member health survives save and reload")
+	SpringBattleBridgeScript.clear_pending()
 
 func _cleanup() -> void:
 	var absolute := ProjectSettings.globalize_path(TEST_SAVE_PATH)

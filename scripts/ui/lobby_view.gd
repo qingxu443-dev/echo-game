@@ -3,7 +3,8 @@ extends Control
 
 const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
 const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
-const SPRING_SCENE_PATH := "res://scenes/spring/spring_theme.tscn"
+const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
+const SPRING_THEME_SCENE_PATH := "res://scenes/spring/spring_theme.tscn"
 const BACKGROUND_PATH := "res://assets/ui/lobby_atelier_bg.png"
 const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
 const AtelierPrepOverlayScript = preload("res://scripts/ui/atelier_prep_overlay.gd")
@@ -17,7 +18,7 @@ const MAP_ENTRIES: Array[Dictionary] = [
 	{
 		"id": "spring", "chapter": "CHAPTER 02", "chapter_zh": "章节 2", "tag": "章节主题 · 图鉴与故事", "title": "春之境 · 未尽之春", "subtitle": "出战角色：樱（花之誓）",
 		"desc_lines": ["藏品图鉴 · 敌人图鉴 · 剧情回顾", "普通探索 · 困难定轨 · 春之境冒险"],
-		"cta": "进入主题界面", "scene_path": SPRING_SCENE_PATH, "accent": Color("#e89ab0"), "locked": false,
+		"cta": "进入主题界面", "scene_path": SPRING_THEME_SCENE_PATH, "accent": Color("#e89ab0"), "locked": false,
 	},
 	{
 		"id": "upcoming", "chapter": "CHAPTER 03", "chapter_zh": "章节 3", "tag": "COMING SOON", "title": "未竟之域 · 筹备中", "subtitle": "后续章节与多角色拓展",

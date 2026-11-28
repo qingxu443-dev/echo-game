@@ -613,5 +613,5 @@ func _draw_button(font: Font, rect: Rect2, label: String, selected: bool, sx: fl
 	draw_string(font, rect.position + Vector2(0, rect.size.y * 0.64), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, roundi(float(font_size) * sy), Color("#fff0e7") if selected else Color("#d9c4ca"))
 
 
-func _draw_text(font: Font, value: String, x: float, y: float, font_size: int, color: Color, width: float = 600.0, alignment: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT) -> void:
+func _draw_text(font: Font, value: String, x: float, y: float, font_size: int, color: Color, width: float = 600.0, alignment: int = HORIZONTAL_ALIGNMENT_LEFT) -> void:
 	draw_string(font, Vector2(x * _sx(), y * _sy()), value, alignment, width * _sx(), roundi(float(font_size) * _sy()), color)

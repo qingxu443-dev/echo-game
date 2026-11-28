@@ -33,7 +33,7 @@ func _test_oath_vow_passive_and_shield_application() -> void:
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Vow begins with zero stacks")
 	_check(battle.request_oath_shield("ally_test"), "Oath Shield can target a nearby allied test unit")
 	_check(battle.ap.current == battle.ap.maximum - 1, "Oath Shield spends exactly one AP")
-	_check(battle.get_actor("sevrin").shield == 650, "Sevrin receives the base 650 shield")
+	_check(battle.get_actor("sevrin").shield == 720, "Sevrin receives the base 650 shield")
 	_check(battle.get_actor("ally_test").shield == 300, "ally shield independently respects 30 percent max-health cap")
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Shield works with zero Oath Vow stacks")
 
@@ -44,7 +44,7 @@ func _test_oath_vow_passive_and_shield_application() -> void:
 
 	_check(battle.request_oath_shield("sevrin"), "Oath Shield can target Sevrin alone")
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Shield consumes all current Oath Vow stacks")
-	_check(battle.get_actor("sevrin").shield == 750, "one Oath Vow stack increases the newly calculated shield by 100")
+	_check(battle.get_actor("sevrin").shield == 820, "one Oath Vow stack increases the newly calculated shield by 100")
 	battle.queue_free()
 
 
@@ -71,10 +71,10 @@ func _test_v2_judgment_mark_damage_replacement_and_expiry() -> void:
 	battle.beacons.clear()
 	var first_target = battle.get_actor("vanguard_00")
 	var first_health: int = first_target.health
-	# Sevrin 1150 ATK * 0.55 = 633 raw -> floor(633 * 1000 / 1450) = 436
-	var expected_damage: int = 436
+	# Sevrin 360 DEF * 0.55 = 198 raw -> floor(198 * 1000 / 1450) = 136
+	var expected_damage: int = 136
 	_check(battle.request_oathkeeper_judgment_mark("vanguard_00"), "v2 Judgment Mark accepts a legal enemy target")
-	_check(first_target.health == first_health - expected_damage, "v2 Judgment Mark deals ATK times 0.55 physical damage")
+	_check(first_target.health == first_health - expected_damage, "v2 Judgment Mark deals DEF times 0.55 physical damage")
 	_check(battle.get_oathkeeper_marked_target() == "vanguard_00", "v2 Judgment Mark records the selected target")
 	_check(battle.statuses.has_status("vanguard_00", &"oathkeeper_mark"), "v2 mark uses its isolated status ID")
 	_check(not battle.statuses.has_status("vanguard_00", &"judgment_mark"), "v2 mark does not create the legacy judgment status")
@@ -127,7 +127,7 @@ func _test_oath_shield_validation_and_duration() -> void:
 	_check(battle.ap.current == battle.ap.maximum, "invalid Oath Shield targets do not spend AP")
 	_check(battle.request_oath_shield("ally_near"), "Oath Shield accepts an ally exactly two cells away")
 	var initial_shield: int = battle.get_actor("sevrin").shield
-	_check(initial_shield == 650, "initial self shield matches base 650 formula")
+	_check(initial_shield == 720, "initial self shield matches 200% DEF formula")
 	_check(battle.request_oath_shield("ally_near"), "recasting Oath Shield refreshes duration")
 	_check(battle.get_actor("sevrin").shield == initial_shield, "recasting an equal shield does not stack shield values")
 
@@ -160,11 +160,11 @@ func _test_absolute_verdict_aoe_knockback_and_energy() -> void:
 	var far_before: int = far.health
 	_check(battle.request_absolute_guard(), "Absolute Verdict activates at four energy")
 	_check(sevrin.ultimate_energy == 0 and battle.ap.current == battle.ap.maximum - 2, "Absolute Verdict spends four energy and two AP")
-	# 1150 * 1.3 = 1495 raw vs 450 DEF -> 1031 physical damage
-	_check(east_before - east.health == 1031, "adjacent enemy receives 130% ATK mitigated physical damage")
-	_check(east.cell == Vector2i(4, 2), "adjacent enemy is knocked back one tile away from Sevrin")
-	_check(north_before - north.health == 1031, "second adjacent enemy also takes full AoE damage")
-	_check(north.cell == Vector2i(2, 0), "second adjacent enemy is knocked back along its radial direction")
+	# 360 DEF raw vs 450 DEF -> 248 physical damage. The opening strike no longer knocks back.
+	_check(east_before - east.health == 248, "adjacent enemy receives 100% DEF mitigated physical damage")
+	_check(east.cell == Vector2i(3, 2), "opening ultimate strike does not knock back the first enemy")
+	_check(north_before - north.health == 248, "second adjacent enemy also takes full AoE damage")
+	_check(north.cell == Vector2i(2, 1), "opening ultimate strike does not knock back the second enemy")
 	_check(far.health == far_before and far.cell == Vector2i(6, 6), "distant enemy outside 1-tile radius is untouched")
 	battle.queue_free()
 

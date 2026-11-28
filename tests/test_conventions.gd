@@ -20,6 +20,7 @@ func _run() -> void:
 	_test_every_loot_kind_is_known()
 	_test_every_shop_id_resolves()
 	_test_count_copies_converge()
+	_test_entry_points_isolate_the_user_profile()
 	_report()
 
 
@@ -97,4 +98,19 @@ func _test_count_copies_converge() -> void:
 	_check(DocChecks.converge_line(historical) == historical, "historical lines keep their numbers")
 	var per_suite := "`tests/test_hunter_summon.gd`，39 条断言"
 	_check(DocChecks.converge_line(per_suite) == per_suite, "per-suite details keep their numbers")
+
+
+## 两个入口都必须把 user:// 指到临时目录再启动引擎。套件假设配置是空的，而开发者
+## 机器上的 user:// 里躺着自己的存档：装好的残片、编队、未完成的旅程。实测一份每
+## 角色装 5–6 个残片的存档会让 49 条伤害与生命断言偏移，CI 却永远看不到——容器是
+## 空的。删掉隔离就等于把"本地必红、CI 必绿"这个陷阱重新铺回去。
+func _test_entry_points_isolate_the_user_profile() -> void:
+	for path in ["res://tests/run_all.sh", "res://tests/run_all.ps1"]:
+		var text := FileAccess.get_file_as_string(path)
+		_check(not text.is_empty(), "%s is readable" % path)
+		_check(text.contains("test-userdata"), "%s points user:// at a scratch directory" % path)
+		_check(
+			text.contains("APPDATA") or text.contains("XDG_DATA_HOME"),
+			"%s sets the variable the engine reads for user://" % path
+		)
 

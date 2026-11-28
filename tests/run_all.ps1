@@ -32,13 +32,39 @@ if ($Godot -eq "" -or -not (Test-Path $Godot)) {
     exit 2
 }
 
-# Generating the .godot cache first is what the onboarding note asks for:
-# without it, suites that read .tres files report "crashed or failed to parse"
-# on a fresh clone. CI runs the same step before the suites.
-& $Godot --headless --path . --import
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# Every suite runs against the engine's own user:// directory, which on a
+# developer's machine holds a real save: equipped fragments, squad loadouts, a
+# suspended journey. Those are not fixtures. A save with 5-6 fragments equipped
+# per character shifted 49 damage and health assertions while CI stayed green,
+# because CI starts from an empty container and never sees them. Point user:// at
+# a scratch directory so the numbers under test are the ones in the repository,
+# and so a run never writes into someone's playthrough.
+#
+# It lives under .godot\ (already ignored) and is cleared before each run rather
+# than deleted afterwards: Windows keeps the engine's log handles open for a
+# moment after exit, so a post-run delete silently fails.
+$userRoot = Join-Path $root ".godot\test-userdata"
+if (Test-Path $userRoot) { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $userRoot }
+if (Test-Path $userRoot) { $userRoot = Join-Path $root (".godot\test-userdata-" + $PID) }
+New-Item -ItemType Directory -Force -Path $userRoot | Out-Null
+$prevAppData = $env:APPDATA
+$env:APPDATA = $userRoot
 
-$runnerArgs = @("--headless", "--path", ".", "--script", "res://tests/run_suites.gd")
-if ($Fix) { $runnerArgs += @("--", "--fix") }
-& $Godot @runnerArgs
-exit $LASTEXITCODE
+try {
+    # Generating the .godot cache first is what the onboarding note asks for:
+    # without it, suites that read .tres files report "crashed or failed to parse"
+    # on a fresh clone. CI runs the same step before the suites.
+    & $Godot --headless --path . --import
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    $runnerArgs = @("--headless", "--path", ".", "--script", "res://tests/run_suites.gd")
+    if ($Fix) { $runnerArgs += @("--", "--fix") }
+    & $Godot @runnerArgs
+    $code = $LASTEXITCODE
+} finally {
+    $env:APPDATA = $prevAppData
+    # Best effort: a locked profile is harmless because the next run clears it.
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $userRoot
+}
+
+exit $code

@@ -122,6 +122,8 @@ tests\run_all.bat
 .\tests\run_all.ps1 -Godot "C:\Godot\Godot_v4.7.2-stable_win64_console.exe"
 ```
 
+入口会把引擎的 `user://` 指到临时目录再启动：套件假设配置是空的，直接读你机器上的存档（残片、编队、未完成旅程）会让几十条数值断言偏移——本地红、CI 绿，红得像是自己刚改坏了。
+
 模块行数变动时可用 `--fix` 原地同步 `docs/engineering/architecture/ARCHITECTURE.md`：
 
 ```bash

@@ -19,6 +19,12 @@ func _test_local_supply_mail_and_claims() -> void:
 	MailService.save_slots_override = [{"id": MailService.DEFAULT_SLOT_ID, "name": "测试存档", "valid": true}]
 	var mailbox := MailService.load_mailbox(mailbox_path)
 	_check(mailbox.get("account_id", "") == MailService.LOCAL_ACCOUNT_ID, "the local mailbox is account-bound")
+	# Simulate a mailbox created by the previous build, then verify the load
+	# migration updates the already-persisted greeting as well as new seeds.
+	mailbox["mails"][0]["body"] = "守誓者：\n\n旧版邮件称呼。"
+	_check(MailService.save_mailbox(mailbox, mailbox_path), "persist a legacy local-mail fixture")
+	mailbox = MailService.load_mailbox(mailbox_path)
+	_check(str(mailbox["mails"][0].get("body", "")).begins_with("指挥官："), "existing starter mail migrates its retired class salutation")
 	var mails := MailService.all_mails(mailbox, "inbox")
 	_check(mails.size() == 1 and mails[0].title == "残片补给计划", "the local test supply mail is seeded")
 	var mail: Dictionary = mails[0]

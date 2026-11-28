@@ -11,7 +11,7 @@ const RosterNavScript = preload("res://scripts/ui/lobby_roster_nav.gd")
 
 const MAP_ENTRIES: Array[Dictionary] = [
 	{
-		"id": "tutorial", "chapter": "CHAPTER 01", "chapter_zh": "章节 1", "tag": "序章 · 3 关教学", "title": "遗迹教学", "subtitle": "出战角色：瑟弗林（守誓者）",
+		"id": "tutorial", "chapter": "CHAPTER 01", "chapter_zh": "章节 1", "tag": "序章 · 3 关教学", "title": "遗迹教学", "subtitle": "出战角色：瑟弗林（防卫）",
 		"desc_lines": ["2.5D 战棋基础演练（每回合 3 AP）", "击退破招 · AP 充能 · 遗迹宝箱"],
 		"cta": "进入章节 1", "scene_path": BATTLE_SCENE_PATH, "accent": Color("#d4b77b"), "locked": false,
 	},

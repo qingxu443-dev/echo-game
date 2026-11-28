@@ -6,7 +6,7 @@
 script = ExtResource("1_ch")
 character_id = &"sevrin"
 display_name_zh = "瑟弗林"
-role_label_zh = "守誓者"
+role_label_zh = "防卫"
 glyph = "守"
 ultimate_energy_max = 4
 max_health = 3600

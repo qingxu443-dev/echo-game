@@ -49,6 +49,12 @@ static func request(battle, skill_id: StringName, target_actor_id: String, targe
 	# stats, and the UI is the only thing that would have prevented it.
 	if not _owns_skill(battle, skill_id):
 		return false
+	if StringName(skill.executor_id) == &"sakura_flowing_wind" and target_actor_id.is_empty() and target_cell != Vector2i(-1, -1):
+		# Flowing Wind is normally actor-aimed, but also accepts an empty tile
+		# as a pure reposition command from the board.
+		TacticalPressureScript.begin_player_action(battle)
+		return _dispatch(battle, skill, target_cell)
+
 	if skill.target_mode == SkillDefinitionScript.TARGET_CELL:
 		# Keep actor-id callers compatible while the UI can aim at any legal cell.
 		if target_cell == Vector2i(-1, -1):

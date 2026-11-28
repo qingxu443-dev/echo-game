@@ -48,7 +48,7 @@ var character_id: StringName = &""
 var glyph: String = ""
 ## Display name from the character sheet, for the HUD.
 var display_name_zh: String = ""
-## Role label from the sheet ("守誓者" / "剑舞者"), shown beside the name.
+## Current role label from the character sheet, shown beside the name.
 var role_label_zh: String = ""
 ## Class resource (design plan §19: 剑意). Empty id means the unit has none.
 var resource_id: StringName = &""

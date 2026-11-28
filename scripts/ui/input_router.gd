@@ -42,6 +42,11 @@ static func translate(event: InputEvent) -> Dictionary:
 		return {}
 
 	if event is InputEventMouseButton:
+		# Godot can synthesize a mouse click from the same Android touch that
+		# already arrived as InputEventScreenTouch. The second event used to
+		# toggle the just-selected skill off immediately.
+		if DisplayServer.is_touchscreen_available():
+			return {}
 		var click := event as InputEventMouseButton
 		if not click.pressed:
 			return {}

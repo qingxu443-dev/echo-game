@@ -49,6 +49,12 @@ static func load_state(path: String = SAVE_PATH) -> Dictionary:
 			seen[character_id] = true
 			members.append(character_id)
 		state["teams"][index] = {"name": name.left(12), "members": members}
+	var active_index: int = int(state.active_team)
+	if (state.teams[active_index].get("members", []) as Array).is_empty():
+		for index in range(TEAM_COUNT):
+			if not (state.teams[index].get("members", []) as Array).is_empty():
+				state["active_team"] = index
+				break
 	return state
 
 static func save_state(state: Dictionary, path: String = SAVE_PATH) -> bool:

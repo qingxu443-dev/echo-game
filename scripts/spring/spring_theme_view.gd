@@ -20,24 +20,6 @@ const PAGE_COLLECTIBLES := "collectibles"
 const PAGE_ENEMIES := "enemies"
 const PAGE_STORY := "story"
 
-const ACTION_LABELS := {
-	"charged_strike": "蓄力横扫",
-	"basic_melee": "近战斩击",
-	"pursuit": "追击与走位",
-	"aimed_shot": "贯通狙击",
-	"light_shot": "点射",
-	"ground_pulse": "裂地脉冲",
-	"echo_bolt": "回声弹",
-	"ward_ally": "古木壁垒",
-	"ward_stance": "结界守护",
-	"lock_on": "锁命",
-	"locked_shot": "锁命箭",
-	"shadow_raid": "逐影突袭",
-	"rot_curse": "腐樱诅咒",
-	"blight_field": "樱落领域",
-	"spring_bloom": "春痕绽放",
-	"sakura_shock": "樱庭震荡",
-}
 
 var page: String = PAGE_HOME
 var collectible_filter: String = "全部"
@@ -166,7 +148,7 @@ func collectible_entries() -> Array[Dictionary]:
 			"desc": str(data.get("desc", "")),
 			"rarity": "遗物",
 			"kind": "遗物",
-			"source": "首领奖励与隐秘之地等遗物来源",
+			"source": "已登记效果；当前 main 尚未配置具体获取途径",
 		})
 	return entries
 
@@ -175,7 +157,7 @@ func _collectible_source(pool: String) -> String:
 	match pool:
 		"boss": return "首领奖励池"
 		"elite": return "精英奖励池"
-		_: return "春之境探索奖励、事件与商店候选"
+		_: return "通用奖励候选池（实际来源由奖励配置决定）"
 
 
 func enemy_entries() -> Array[Dictionary]:
@@ -271,7 +253,6 @@ func _enemy_row_rect(index: int) -> Rect2:
 
 
 func _category_rect(index: int, enemy: bool = false) -> Rect2:
-	var labels := ["普通", "精英", "首领"] if enemy else ["全部", "藏品", "遗物"]
 	return _r(850 + float(index) * 124.0, 142, 112, 34)
 
 
@@ -522,7 +503,7 @@ func _draw_collectibles(font: Font, sx: float, sy: float) -> void:
 func _draw_enemies(font: Font, sx: float, sy: float) -> void:
 	_draw_text(font, "BESTIARY  /  SPRING REALM", 58, 124, 11, Color("#c58e9b"), 500)
 	_draw_text(font, "敌人图鉴", 58, 160, 28, Color("#fff0e7"), 500)
-	_draw_text(font, "资料直接读取当前敌人档案与技能目录。属性是当前配置值，普通敌人部分数值仍属草案。", 58, 184, 11, Color("#bcaab2"), 900)
+	_draw_text(font, "资料直接读取当前敌人档案与技能目录。属性是当前配置值，普通敌人属性数值仍属草案。", 58, 184, 11, Color("#bcaab2"), 900)
 	for i in range(3):
 		var rect := _category_rect(i, true)
 		_draw_button(font, rect, ["普通", "精英", "首领"][i], enemy_filter == ["普通", "精英", "首领"][i], sx, sy, 11)

@@ -107,6 +107,9 @@ func _test_relics_are_unique_and_raise_dew_capacity() -> void:
 	_check(not run.add_relic(&"relic_homeward_bell"), "a relic cannot be duplicated")
 	_check(not run.add_relic(&"relic_unknown"), "unknown relic ids are rejected")
 	_check(run.effective_dew_cap() == run.dew_cap + 2, "the homeward bell raises shared dew capacity by two")
+	var health_run := _fresh_run()
+	_check(health_run.add_relic(&"relic_spring_charm"), "the spring charm can be acquired")
+	_check(health_run.effective_max_health() == SpringRun.HERO_BASE_MAX_HEALTH + 300, "the spring charm raises map-side maximum health")
 	_check(run.add_dew("spring", 2), "the relic's added capacity can be filled")
 	_check(not run.add_dew("winter", 1), "dew cannot exceed the relic-adjusted shared cap")
 

@@ -154,7 +154,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `battle_fx_state.gd` | 瞬态 FX 状态：角色视觉位置/跳跃插值/受击闪烁/突进、飘字与冲击环老化、敌方分步演出计时；`snapshot()` 生成下游 board/hud 视图只读消费的字典 |
 | `battle_banner_text.gd` | 状态栏文案单一来源：部署提示、教学关分步引导与回落逻辑；只读不改状态 |
 | `battle_skill_input.gd` | 技能选择/确认与费用反馈；支持地格目标，拒绝非法空地操作，成功后清理选中状态 |
-| `board_threat_tiles.gd` | 意图到地格的统一投影与高亮合成；单主填色、固定优先级和多攻击类型边线，供危险查询共用 |
+| `board_threat_tiles.gd` | 意图到地格的统一投影与高亮合成；单主填色/边框、固定优先级与重叠攻击短角标，供危险查询共用 |
 | `battle_view.gd` | 编排：关卡流程、点击分发、`Q/E` 旋转视角与 `B` 键背包切换、FX/文案组件委托；另有春之境单场模式，由 `spring_battle_bridge` 注入一场遭遇，结账后回地图 |
 | `board_view.gd` | 编排层：等距石板棋盘与侧棱、移动/悬停/目标提示、目标谓词 `can_target()` / `can_target_ally()`；其余绘制转发给威胁层与实体层 |
 | `board_threat_view.gd` | 威胁层：敌方攻击预告（警戒斜条纹）、落点伤害标签、打击闪爆、飘字、受威压呼吸红晕，以及全家族共用的 `is_cell_in_danger()` 查询 |
@@ -239,6 +239,8 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 2026-11-28 后续缺陷（中，已修）：`BattleFlow.start_encounter()` 原来只在初始化后乘属性倍率，`TacticalPressure._trigger_boss_enrage()` 直接按原档案生成护卫。Boss 战二阶段的攻击因此出现 1040/1120，而非该战 1.2 倍要求的 1248/1344。现由控制器持有遭遇倍率，EnemyActorFactory 在初始/援军两入口统一缩放生命、攻击、防御与法抗；技能固定伤害与基础招式倍率保持目录值。倍率随暂停快照保存，每次新遭遇重设；旧快照缺字段默认 1.0，保留旧进行中战斗的行为，不追溯重算已有单位属性。真实技能触发、控制器复用、JSON 暂停恢复和旧档均有回归。
 
 ECHO-601 第一阶段：EncounterDefinition 的 `anomaly_overrides` 经 EncounterLaws 校验，由 BattleFlow 设定单场 K/AP；单位和预览复制 K，后召援军同源读取。HUD 解释玩法影响，暂停保存有效配置与登记的样板 ID。可独立运行 `scenes/examples/anomaly_demo.tscn`；普通教学路线不变。多回合预告、可改写与锁定模式覆写仍未支持，配置会明确拒绝，详见 [关卡法则边界](../decisions/ENCOUNTER_LAW_OVERRIDES.md)。
+
+2026-11-28 可读性跟进：按用户反馈保留单回合预告。危险格由嵌套彩框/条纹收敛为单主框和短角标；可移动危险格使用绿点，技能落点用金角；只有聚焦时显示瞄准弧线与编队连线。BoardThreatView 的 label_entries 只生成角色脚下/悬停格数值，使用同一顺序承伤投影，聚焦不删去其他来袭伤害，悬停范围边缘也有正确明细。前后固定渲染图与验收边界见 [实机修复跟进](../quality/PLAYTEST_FIXES_2026-11-27.md)。
 
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。
 

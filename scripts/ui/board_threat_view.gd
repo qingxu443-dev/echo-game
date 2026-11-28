@@ -96,6 +96,7 @@ static func _draw_ward_node_tethers(canvas: CanvasItem, controller, fx_state: Di
 
 static func draw_formation_links(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
 	_draw_ward_node_tethers(canvas, controller, fx_state)
+	if _focused_source_ids(controller, fx_state).is_empty(): return
 	var formation: Dictionary = IntentPlannerScript.analyze_formation(controller)
 	if formation.is_empty():
 		return
@@ -169,6 +170,9 @@ static func _reactive_cells_for_intent(controller, intent) -> Array[Vector2i]:
 
 static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
 	ThreatTiles.draw(canvas, controller, float(fx_state.get("time", 0.0)))
+	var cautions := caution_tiles(controller, fx_state)
+	for cell in cautions:
+		_draw_caution_tile(canvas, cell, Color(1.0, 0.62, 0.16), cautions[cell])
 	var focused := _focused_source_ids(controller, fx_state)
 	var has_focus := not focused.is_empty()
 	var active := _active_intents(controller)
@@ -185,15 +189,7 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 		var aim_cell: Vector2i = target_cells[0] if intent.target_mode == IntentScript.TargetMode.ACTOR_LOCKED and not target_cells.is_empty() else intent.target_cell
 		var origin_cell: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else (source.cell if source != null else Vector2i.ZERO)
 
-		# Amber caution remains visible before moving; focus and current danger
-		# strengthen it without changing the shared eligibility geometry.
-		if intent.action_id == "basic_melee" and intent.target_actor_id.is_empty():
-			var hero = controller.get_active_character()
-			for rc in _reactive_cells_for_intent(controller, intent):
-				var hero_on_rc: bool = hero != null and hero.is_alive() and hero.cell == rc
-				if not controller.blocked_cells.has(rc):
-					_draw_caution_tile(canvas, rc, Color(1.0, 0.62, 0.16), 0.90 if hero_on_rc or (is_focus and has_focus) else 0.50)
-
+		if not has_focus or not is_focus: continue
 		match intent.action_id:
 			"ground_pulse", "echo_bolt":
 				if source != null and source.is_alive():
@@ -249,9 +245,22 @@ static func _draw_move_arrow_chain(canvas: CanvasItem, start_cell: Vector2i, pat
 		canvas.draw_colored_polygon(tri, Color(0.92, 0.96, 1.0, 0.94 * dim))
 
 
+## CONTRACT: _test_compact_reactive_warnings
+static func caution_tiles(controller, fx_state: Dictionary) -> Dictionary:
+	var tiles := {}
+	var focused := _focused_source_ids(controller, fx_state)
+	var hero = controller.get_active_character()
+	for intent in _active_intents(controller):
+		if intent.action_id != "basic_melee" or not intent.target_actor_id.is_empty(): continue
+		for cell in _reactive_cells_for_intent(controller, intent):
+			if controller.blocked_cells.has(cell): continue
+			var emphasized: bool = (hero != null and hero.is_alive() and hero.cell == cell) or focused.has(intent.source_actor_id)
+			tiles[cell] = maxf(float(tiles.get(cell, 0.0)), 0.9 if emphasized else 0.5)
+	return tiles
+
+
 static func _draw_caution_tile(canvas: CanvasItem, cell: Vector2i, color: Color, alpha: float) -> void:
 	var pts := P.cell_diamond(cell, 4.5)
-	canvas.draw_colored_polygon(pts, Color(color.r, color.g, color.b, 0.12 * alpha))
 	for i in range(4):
 		canvas.draw_dashed_line(pts[i], pts[(i + 1) % 4], Color(color.r, color.g, color.b, 0.88 * alpha), 1.8, 5.0)
 
@@ -296,18 +305,21 @@ static func _projected_entries(controller, cell: Vector2i, active: Array, focuse
 	return entries
 
 
-static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
-	var focused := _focused_source_ids(controller, fx_state)
+## CONTRACT: _test_compact_threat_labels
+static func label_entries(controller, fx_state: Dictionary) -> Dictionary:
 	var active := _active_intents(controller)
 	var buckets: Dictionary = {}
-	for intent in active:
-		var cell: Vector2i = intent.target_cell
-		if intent.target_mode == IntentScript.TargetMode.ACTOR_LOCKED:
-			var target = controller.get_actor(intent.target_actor_id)
-			if target != null:
-				cell = target.cell
-		if not buckets.has(cell):
-			buckets[cell] = _projected_entries(controller, cell, active, focused)
+	var hero = controller.get_active_character()
+	if hero != null and hero.is_alive():
+		buckets[hero.cell] = _projected_entries(controller, hero.cell, active)
+	var hover: Vector2i = fx_state.get("hover_cell", Vector2i(-1, -1))
+	if P.is_inside_board(hover, controller.grid_size) and not buckets.has(hover):
+		buckets[hover] = _projected_entries(controller, hover, active)
+	return buckets
+
+
+static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	var buckets := label_entries(controller, fx_state)
 
 	# Render AT MOST ONE tiny chip per tile (near floor center, never a tall tower
 	# blocking standees behind it). Full multi-hit breakdown lives above the hero HUD.
@@ -503,7 +515,7 @@ static func draw_danger_vignette(canvas: CanvasItem, controller, fx_state: Dicti
 		return
 	var t: float = float(fx_state.get("time", 0.0))
 	var breath: float = 0.45 + 0.55 * sin(t * 3.8)
-	var max_alpha: float = 0.16 * breath
+	var max_alpha: float = 0.065 * breath
 	var w: float = P.VIEW_SIZE.x
 	var h: float = P.VIEW_SIZE.y
 	var edge_x: float = 110.0

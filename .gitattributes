@@ -9,6 +9,8 @@
 *.tscn text eol=lf
 *.tres text eol=lf
 *.godot text eol=lf
+# Godot rewrites import metadata with LF on Windows as well.
+*.import text eol=lf
 *.yml   text eol=lf
 *.yaml  text eol=lf
 # Binary art assets.

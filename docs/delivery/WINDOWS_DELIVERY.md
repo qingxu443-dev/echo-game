@@ -24,7 +24,7 @@ python tools/fetch_windows_template.py
 | `ECHO_Windows_x64.zip` | exe、README、manifest、资源清单与日志的交接包 |
 | `ECHO_Windows_x64.exe` | 内嵌 PCK、x86_64、未代码签名的程序 |
 | `manifest.json` | 源码 SHA、脏工作区标记、引擎/模板版本、exe SHA-256、自动检查和待人工状态 |
-| `package-content.json` | 实际挂载后的资源路径；拒绝 tests、素材源图、tools、docs，以及缺失主菜单 |
+| `package-content.json` | 实际挂载后的资源路径；拒绝 tests、素材源图、tools、docs、build、dist，以及缺失主菜单 |
 | `logs/*.log` | import / suites / export / contents / smoke 五步输出；非零退出或引擎脚本错误即失败 |
 | `README.txt` | 测试者无需仓库即可阅读的操作、已知问题、反馈与回滚说明 |
 
@@ -62,3 +62,5 @@ python tools/fetch_windows_template.py
 本批跟进：构建器的说明文件路径已随文档重组更新为 `docs/delivery/WINDOWS_PLAYTEST_README.txt`，缺失时在导入前报错。本轮重新执行完整构建，验收始终以新 manifest 为准，不沿用旧包的提交或资源路径数。
 
 随后修复二阶段护卫漏用遭遇倍率：初始敌人和后召援军共享四项核心属性缩放；新暂停档保存该倍率，旧档缺字段默认 1.0 并保留原有单位数值。无论 1.0 或 1.2，专属技能固定伤害不额外放大。原问题由正常技能跨半血复现，修复与暂停恢复已有回归；最终人工验收仍使用包含该修复的新包。
+
+地块跟进构建发现：Godot 的 all_resources 也会扫描 build 中上轮清单 JSON。现已从导出预设排除 build/dist，并由真实 PCK 检查拒绝这些路径；旧包可直接复现该拒绝，修复后在保留旧产物的同一目录重建验证。新工作区导入的 `.import` 行尾以 LF 固定，源码不再因导入产生假脏标记。

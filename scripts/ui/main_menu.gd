@@ -13,9 +13,10 @@ const BACKGROUND_PATH := "res://assets/ui/main_menu_background.png"
 ## Entry point flows into the Camp Lobby, where players click the bottom-right
 ## expedition button to pick between Tutorial and 未尽之春.
 const OPTION_START := 0
-const OPTION_EXIT := 1
+const OPTION_EXIT := 2
 const OPTIONS: Array[Dictionary] = [
 	{"label": "进入大厅", "sub": "ENTER LOBBY · CAMP HUB", "action": "start"},
+	{"label": "自定义关卡", "sub": "CUSTOM LEVEL · SANDBOX", "action": "custom"},
 	{"label": "退出游戏", "sub": "EXIT TO DESKTOP", "action": "exit"},
 ]
 
@@ -205,3 +206,6 @@ func _activate_selected() -> void:
 				push_error("Unable to open ECHO lobby scene. Error: %s" % error)
 		"exit":
 			get_tree().quit()
+		"custom":
+			if SceneTravel.change(get_tree(), CustomLevelBridge.EDITOR_PATH, "打开自定义关卡") != OK:
+				notice = "无法打开自定义关卡，请稍后重试。"

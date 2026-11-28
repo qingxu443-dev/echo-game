@@ -23,13 +23,18 @@ static func capture(view: Node) -> Dictionary:
 	for statuses in battle.statuses._statuses_by_actor.values():
 		for status in statuses.values(): data.statuses.append(SessionCodec.fields(status))
 	for key in VIEW_FIELDS: data.view[key] = view.get(key)
+	if view.has_method("custom_definition"): data["custom_level"] = view.custom_definition()
 	return data
 
 
 static func restore(view: Node, data: Dictionary) -> bool:
 	if data.get("scene", "") != "battle" or not SessionSave.valid(data): return false
 	view.spring_mode = bool(data.get("spring_mode", false))
-	if view.spring_mode:
+	if data.has("custom_level"):
+		CustomLevelBridge.design = CustomLevelData.from_dict(data.custom_level)
+		view.encounter_override = CustomLevelBridge.design.encounter()
+		view.levels.assign([view.encounter_override])
+	elif view.spring_mode:
 		SpringBattleBridge.pending = data.bridge.duplicate(true)
 		SpringBattleBridge.suspended_map = data.parent_run.duplicate(true)
 		SpringBattleBridge.restore_map = true

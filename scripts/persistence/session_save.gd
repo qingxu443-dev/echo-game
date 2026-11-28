@@ -108,6 +108,10 @@ static func valid(data: Dictionary) -> bool:
 	for status in data.get("statuses", []):
 		if not status is Dictionary or str(status.get("status_id", "")).is_empty(): return false
 		if str(status.get("target_actor_id", "")).is_empty(): return false
+	if data.has("custom_level"):
+		if not data.custom_level is Dictionary or bool(data.get("spring_mode", false)): return false
+		var design := CustomLevelData.from_dict(data.custom_level)
+		return design != null and design.error(true).is_empty() and int(data.get("level", -1)) == 0
 	if bool(data.get("spring_mode", false)):
 		return data.get("parent_run") is Dictionary and SpringRun.from_dict(data.parent_run) != null and SpringEncounterCatalog.has_encounter(StringName(str(data.get("bridge", {}).get("encounter", ""))))
 	var override_id: Variant = data.get("encounter_override_id", "")
@@ -120,6 +124,7 @@ static func valid(data: Dictionary) -> bool:
 static func stage() -> String:
 	pending = read()
 	if pending.is_empty(): return ""
+	if pending.has("custom_level"): return CustomLevelBridge.BATTLE_PATH
 	return BATTLE_PATH if pending.scene == "battle" else MAP_PATH
 
 

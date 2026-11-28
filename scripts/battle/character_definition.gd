@@ -25,6 +25,12 @@ const SLOT_ORDER: Array[StringName] = [SLOT_NORMAL, SLOT_PASSIVE, SLOT_ACTIVE_ON
 @export var role_label_zh: String = ""
 ## Single character drawn on the board token, as the enemies use 锋 / 射 / 术.
 @export var glyph: String = "守"
+
+## Optional character artwork paths. Empty values retain legacy filename lookup.
+@export_file("*.png", "*.webp") var portrait_path: String = ""
+@export_file("*.png", "*.webp") var full_illustration_path: String = ""
+@export_file("*.png", "*.webp") var battlefield_sprite_path: String = ""
+@export_file("*.png", "*.webp") var battlefield_sprite_back_path: String = ""
 @export var max_health: int = 1000
 @export var attack: int = 100
 @export var defense: int = 50

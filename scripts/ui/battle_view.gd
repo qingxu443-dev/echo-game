@@ -170,6 +170,8 @@ func _open_spring_settlement(result: Dictionary) -> void:
 		queue_redraw()
 		return
 	SpringBattleBridgeScript.clear_pending()
+	SpringBattleBridgeScript.restore_map = false
+	SpringBattleBridgeScript.suspended_map = {}
 	var error := SceneTravel.change(get_tree(), SPRING_SETTLEMENT_SCENE_PATH)
 	if error != OK:
 		push_error("独立战斗结算界面载入失败，待结算记录已保留。Error: %s" % error)

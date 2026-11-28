@@ -334,6 +334,7 @@ const EVENTS := {
 				"effects": [
 					{"kind": EFFECT_COINS, "amount": 40},
 					{"kind": EFFECT_COLLECTIBLE, "count": 1},
+					{"kind": EFFECT_RELIC, "random": true},
 				],
 			},
 			{
@@ -551,9 +552,15 @@ static func _apply(run, effect: Dictionary, rng: RandomNumberGenerator, log: Arr
 					log.append("藏品已收集齐全，换得 %d 花钿。" % fallback_coins)
 		EFFECT_RELIC:
 			var relic_id: StringName = StringName(str(effect.get("relic_id", "")))
-			if relic_id != &"":
+			if bool(effect.get("random", false)):
+				relic_id = run.grant_random_relic(rng)
+			elif relic_id != &"":
 				run.add_relic(relic_id)
+			if relic_id != &"":
 				log.append("获得遗物「%s」。" % run.relic_name(relic_id))
+			else:
+				run.add_coins(40)
+				log.append("遗物已收集齐全，换得 40 花钿。")
 		EFFECT_BATTLE:
 			var encounter: StringName = StringName(str(effect.get("encounter", "")))
 			if encounter != &"":

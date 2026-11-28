@@ -4,6 +4,7 @@ const SquadStoreScript = preload("res://scripts/meta/squad_loadout_store.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
+const SpringRunMigrationScript = preload("res://scripts/spring/spring_run_migration.gd")
 const LevelCatalogScript = preload("res://scripts/battle/level_catalog.gd")
 
 const TEST_SAVE_PATH := "user://squad_loadouts_test.json"
@@ -56,7 +57,7 @@ func _test_tutorial_roster_remains_fixed() -> void:
 
 func _test_v3_saves_migrate_without_losing_progress() -> void:
 	var legacy := {"version": 3, "seed": 17, "template_id": 1, "hero": {"health": 1500}}
-	var error := SpringRunScript._migrate_to_current(legacy)
+	var error := SpringRunMigrationScript.migrate_to_current(legacy)
 	_check(error.is_empty(), "Spring version 3 save migrates to version 4")
 	_check(int(legacy.get("version", 0)) == 4, "migration advances the save version")
 	_check(legacy.get("party_character_ids", []) == [], "legacy run has no forced new squad snapshot")

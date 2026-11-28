@@ -101,7 +101,7 @@ func _test_party_vitals_enter_the_battle_scene() -> void:
 	run.party_vitals = {
 		"sevrin": {"health": 1600, "max_health": 3200},
 		"sakura": {"health": 0, "max_health": 2100},
-		"dest_lee": {"health": 800, "max_health": 2400},
+		"dest_lee": {"health": 800, "max_health": 1650},
 	}
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare a wounded three-member party")
 	var view = load("res://scenes/main/main.tscn").instantiate()

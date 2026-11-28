@@ -68,16 +68,19 @@ static func restore_health(battle, saved: Dictionary) -> void:
 		var hp := int(row.get("health", actor.health))
 		if battle.run_state != null and battle.run_state.party_retired.has(str(actor_id)): hp = 0
 		var saved_max := maxi(1, int(row.get("max_health", actor.max_health)))
-		# A module installed between encounters raises the rebuilt maximum, but
-		# the saved row still holds the pre-module value. That only happens when
-		# the saved maximum equals the actor's unscaled base: keep the scaled
-		# maximum and carry the HP ratio over. Otherwise the row is the only
-		# record of an authored or equipment-granted cap, so it stays authoritative.
-		var base_max := _unscaled(actor, "health", actor.max_health)
+		var saved_base := int(row.get("base_max_health", 0))
+		var base_max := unscaled_max_health(actor)
 		var fragment_pct := float(actor.fragment_bonuses.get("health", 0.0))
-		if fragment_pct > 0.0 and saved_max == base_max and actor.max_health > saved_max:
+		# New saves carry the unscaled base, and the rebuilt actor already has the
+		# current modules applied. Old saves do not: a positive module bonus with a
+		# saved maximum equal to the unscaled base means the row predates the
+		# module. In both cases the actor's maximum wins and HP keeps its ratio.
+		# Without that evidence the row stays authoritative, because it may hold an
+		# authored or equipment-granted cap the loadout cannot reconstruct.
+		var actor_owns_max := saved_base > 0 or (fragment_pct > 0.0 and saved_max == base_max)
+		if actor_owns_max and saved_max != actor.max_health:
 			hp = roundi(float(hp) * float(actor.max_health) / float(saved_max))
-		else:
+		elif not actor_owns_max:
 			actor.max_health = saved_max
 		actor.health = clampi(hp, 0, actor.max_health)
 		if actor.health <= 0: PartyRotation.retire(battle, actor)
@@ -106,6 +109,13 @@ static func adopt_actor(battle, actor) -> void:
 
 static func _unscaled(actor, stat: String, value: int) -> int:
 	return roundi(float(value) / (1.0 + float(actor.fragment_bonuses.get(stat, 0.0)) / 100.0))
+
+
+## Maximum before the character's currently equipped health modules. Persisted
+## with the party snapshot so a later encounter can tell a stale cap from a
+## module-scaled one, and so unequipping can reclaim the bonus symmetrically.
+static func unscaled_max_health(actor) -> int:
+	return _unscaled(actor, "health", actor.max_health)
 
 
 static func carry_error(carry: Dictionary) -> String:

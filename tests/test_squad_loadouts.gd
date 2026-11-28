@@ -138,7 +138,29 @@ func _test_fragment_health_bonus_stacks_on_saved_vitals() -> void:
 	root.add_child(view)
 	_check(view.controller.actors.sakura.max_health == 1890, "the saved 1800 cap is scaled once by the equipped 5% module")
 	_check(view.controller.actors.sakura.health == 945, "wounded health keeps its ratio instead of growing for free")
+	var carried := SpringBattleBridgeScript.pack_carry(view.run_state)
+	var saved := {}
+	for actor_id in view.controller.actors:
+		var actor = view.controller.actors[actor_id]
+		if actor.team == "player":
+			saved[str(actor_id)] = {
+				"health": actor.health,
+				"max_health": actor.max_health,
+				"base_max_health": PartyLoadout.unscaled_max_health(actor),
+			}
 	view.queue_free()
+	SpringBattleBridgeScript.clear_pending()
+	await process_frame
+
+	_check(store.uninstall("sakura", 0).get("ok", false) and store.save(), "the module can be unequipped between encounters")
+	run.party_vitals = saved
+	run.battle_carry = carried
+	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare the same party after unequipping")
+	var next_view = load("res://scenes/main/main.tscn").instantiate()
+	root.add_child(next_view)
+	_check(next_view.controller.actors.sakura.max_health == 1800, "unequipping reclaims exactly the 5% maximum")
+	_check(next_view.controller.actors.sakura.health == 900, "unequipping reclaims the proportional health too")
+	next_view.queue_free()
 	SpringBattleBridgeScript.clear_pending()
 	FragmentStore.default_path_override = ""
 	var absolute := ProjectSettings.globalize_path(path)

@@ -252,9 +252,25 @@ func add_bonus_max_health(amount: int) -> void:
 func sync_lead_vitals(allow_revive: bool = false) -> void:
 	if not party_vitals.has(hero_character_id): return
 	var vitals: Dictionary = party_vitals[hero_character_id]
-	vitals["max_health"] = effective_max_health()
-	if int(vitals.get("health", 0)) > 0 or allow_revive: vitals["health"] = hero_health
-	else: hero_health = 0
+	var core_max := effective_max_health()
+	var scaled_max := core_max
+	var store = FragmentStore.load_store()
+	if store != null:
+		var pct := store.total_bonus(hero_character_id, "health")
+		scaled_max = maxi(1, roundi(float(core_max) * (1.0 + pct / 100.0)))
+	var previous_max := maxi(1, int(vitals.get("max_health", core_max)))
+	if scaled_max != previous_max:
+		# Installing or removing a module changes the cap between encounters;
+		# carry the current HP ratio over so the change is neither free healing
+		# nor a silent wound.
+		hero_health = clampi(roundi(float(hero_health) * float(scaled_max) / float(previous_max)), 1, scaled_max)
+	vitals["base_max_health"] = core_max
+	vitals["max_health"] = scaled_max
+	if int(vitals.get("health", 0)) > 0 or allow_revive:
+		vitals["health"] = mini(hero_health, scaled_max)
+		hero_health = int(vitals["health"])
+	else:
+		hero_health = 0
 
 
 # --- collectibles (§6.1) -----------------------------------------------------

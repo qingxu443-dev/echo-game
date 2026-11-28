@@ -493,7 +493,7 @@ func _draw_collectibles(font: Font, sx: float, sy: float) -> void:
 		var rect := _category_rect(i)
 		_draw_button(font, rect, ["全部", "藏品", "遗物"][i], collectible_filter == ["全部", "藏品", "遗物"][i], sx, sy, 11)
 	_draw_panel(_r(54, 188, 432, 390), Color("#211923"), Color("#875a68"))
-	_draw_panel(_r(508, 142, 716, 436), Color("#211923"), Color("#875a68"))
+	_draw_panel(_r(508, 188, 716, 390), Color("#211923"), Color("#875a68"))
 	var visible_count := mini(8, maxi(0, entries.size() - list_scroll))
 	for i in range(visible_count):
 		var index := list_scroll + i

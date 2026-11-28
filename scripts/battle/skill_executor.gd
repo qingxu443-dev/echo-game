@@ -72,8 +72,12 @@ static func absolute_guard(battle) -> bool:
 	for enemy in hit_targets:
 		battle._apply_damage(enemy.actor_id, raw_damage, caster_id, "absolute_guard", String(skill.damage_type))
 
-	# The existing guard status is the taunt authority consumed by the enemy resolver.
-	# It is refreshed on cast; duration is handled by its turn-boundary lifecycle.
+	# Keep the taunt active for two complete enemy phases. The status collection
+	# decrements enemy_turns_remaining at each enemy-phase end.
+	battle.statuses.apply_status(&"absolute_guard", caster_id, caster_id, 1, 1, -1, &"", &"replace")
+	var guard_status = battle.statuses.get_status(caster_id, &"absolute_guard")
+	if guard_status != null:
+		guard_status.enemy_turns_remaining = 2
 
 	battle._emit_event("skill_resolved", caster_id, caster_id, "skill=absolute_guard ap=%d energy=%d hits=%d" % [skill.ap_cost, energy_cost, hit_targets.size()])
 	battle._check_battle_end()

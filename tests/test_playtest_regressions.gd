@@ -16,11 +16,14 @@ func _run() -> void:
 	await _test_camera_stress()
 	await _test_highlight_composition()
 	_test_compact_threat_labels()
+	_test_compact_reactive_warnings()
 	await _test_area_cast_rejections()
 	var shell = root.get_node_or_null("GameShell")
 	if shell != null:
-		for voice in shell.audio.voices: voice.stop()
-		await create_timer(0.05, true).timeout
+		for voice in shell.audio.voices:
+			voice.stop()
+			voice.stream = null
+		await create_timer(0.12, true).timeout
 
 
 func _test_compact_threat_labels() -> void:
@@ -47,6 +50,23 @@ func _test_compact_threat_labels() -> void:
 	labels = BoardThreatView.label_entries(battle, {})
 	_check(labels[hero.cell].size() == 1, "cancelled attacks immediately leave the compact labels")
 	_check(hero.health == before and battle.ap.current == 3, "compact projection does not spend AP or health")
+	battle.queue_free()
+
+
+func _test_compact_reactive_warnings() -> void:
+	var battle := BattleController.new()
+	root.add_child(battle)
+	battle.start_encounter(Vector2i(3, 4), [Vector2i(3, 3)])
+	battle.beacons.clear()
+	var intent := BattleIntent.new("reactive", "vanguard_00", "basic_melee", BattleIntent.TargetMode.TILE_LOCKED, "", Vector2i(2, 3), [], 100)
+	battle.intents.assign([intent])
+	var once := BoardThreatView.caution_tiles(battle, {})
+	_check(once.has(Vector2i(3, 4)), "conditional warning still covers the actual eligible target")
+	battle.intents.append(intent)
+	_check(BoardThreatView.caution_tiles(battle, {}) == once, "duplicate warnings do not add fill, outlines or opacity")
+	_check(is_equal_approx(float(once.get(Vector2i(3, 4), 0.0)), 0.9), "current character warning retains its emphasis")
+	intent.cancel("fixture_cancel")
+	_check(BoardThreatView.caution_tiles(battle, {}).is_empty(), "cancelled conditional attacks leave no warning tiles")
 	battle.queue_free()
 
 

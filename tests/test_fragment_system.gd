@@ -181,7 +181,7 @@ func _test_equipped_modules_apply_to_battle() -> void:
 	_check(actor.attack == 676, "unequipping returns to fragment-scaled attack instead of removing the module")
 	_check(actor.max_health == 3232 and actor.health == 1000, "unequipping scaled HP is symmetric")
 	var fields: Dictionary = SessionCodec.decode(JSON.parse_string(JSON.stringify(SessionCodec.encode(SessionCodec.fields(actor)))))
-	var restored := BattleActor.new("sevrin", "player", Vector2i.ZERO, 3600)
+	var restored := BattleActor.new("sevrin", "player", Vector2i.ZERO, 3200)
 	SessionCodec.apply_fields(restored, fields)
 	_check(restored.fragment_bonuses == actor.fragment_bonuses, "fragment composition survives the actual JSON codec")
 	var restored_state := RunState.new()

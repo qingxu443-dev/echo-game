@@ -152,7 +152,9 @@ func _return_to_map() -> void:
 
 
 func _open_spring_settlement(result: Dictionary) -> void:
-	var run := SpringRunScript.from_dict(SpringBattleBridgeScript.suspended_map)
+	var run := SpringRunScript.load_from_file(SpringRunScript.SAVE_PATH)
+	if run == null and not SpringBattleBridgeScript.suspended_map.is_empty():
+		run = SpringRunScript.from_dict(SpringBattleBridgeScript.suspended_map)
 	if run == null:
 		status_message = "战斗结果无法读取原始出征存档；结果仍保留在当前战斗中。"
 		queue_redraw()

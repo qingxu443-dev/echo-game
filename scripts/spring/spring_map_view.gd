@@ -557,18 +557,18 @@ func _handle_collectible_tap(point: Vector2) -> void:
 	var row: int = 0
 	for item_id in CollectibleCatalogScript.all_ids():
 		var id := StringName(item_id)
-		if not CollectibleCatalogScript.is_consumable(id):
-			continue
-		var count: int = int(run.collectible_consumables.get(item_id, 0))
+		var consumable: bool = CollectibleCatalogScript.is_consumable(id)
+		var count: int = int(run.collectible_consumables.get(item_id, 0)) if consumable else (1 if run.collectibles.has(id) else 0)
 		if count <= 0:
 			continue
-		var use_rect := Rect2(850.0, 204.0 + float(row) * 46.0, 96.0, 30.0)
-		if use_rect.has_point(point):
-			var used: Dictionary = run.use_collectible(id)
-			status_message = str(used.get("message", ""))
-			if bool(used.get("ok", false)):
-				_save()
-			return
+		if consumable:
+			var use_rect := Rect2(850.0, 204.0 + float(row) * 46.0, 96.0, 30.0)
+			if use_rect.has_point(point):
+				var used: Dictionary = run.use_collectible(id)
+				status_message = str(used.get("message", ""))
+				if bool(used.get("ok", false)):
+					_save()
+				return
 		row += 1
 
 

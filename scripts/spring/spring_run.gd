@@ -379,14 +379,16 @@ func battle_payload() -> Dictionary:
 ## Writes back what the fight left behind. Health is clamped to the run's max,
 ## because gear sold or lost mid-fight can shrink the ceiling.
 func apply_battle_payload(payload: Dictionary) -> void:
-	if payload.has("hero_health"):
-		hero_health = clampi(int(payload["hero_health"]), 1, effective_max_health())
+	# Update every ceiling modifier before clamping the returned health. Otherwise
+	# a battle-side gear or relic bonus could be discarded using the old ceiling.
 	if payload.has("hero_max_health"):
 		carry_max_health = maxi(0, int(payload["hero_max_health"]))
-	if payload.has("carry"):
-		battle_carry = (payload["carry"] as Dictionary).duplicate(true)
 	if payload.has("bonus_max_health"):
 		bonus_max_health = maxi(0, int(payload["bonus_max_health"]))
+	if payload.has("carry"):
+		battle_carry = (payload["carry"] as Dictionary).duplicate(true)
+	if payload.has("hero_health"):
+		hero_health = clampi(int(payload["hero_health"]), 1, effective_max_health())
 
 
 # --- shop (§7.3) -------------------------------------------------------------

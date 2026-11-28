@@ -25,10 +25,10 @@ const SAVE_VERSION: int = 5
 ## rather than borrowing 瑟弗林's sheet. The four numbers are duplicated here
 ## because SpringRun must not depend on the battle layer (§4); a suite asserts
 ## that they still match the sheet, so the copy cannot drift silently.
-const HERO_BASE_MAX_HEALTH: int = 1800
-const HERO_BASE_ATTACK: int = 520
-const HERO_BASE_DEFENSE: int = 180
-const HERO_BASE_MAGIC_RESISTANCE: int = 111
+const HERO_BASE_MAX_HEALTH: int = 2100
+const HERO_BASE_ATTACK: int = 600
+const HERO_BASE_DEFENSE: int = 195
+const HERO_BASE_MAGIC_RESISTANCE: int = 120
 ## The character sheet the spring battles deploy.
 const HERO_CHARACTER_ID: String = "sakura"
 

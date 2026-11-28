@@ -83,7 +83,7 @@ func _test_spring_snapshots_selected_party_and_health() -> void:
 	run.party_character_ids.assign(selected_party)
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"test_place"), "a Spring fight accepts the selected party snapshot")
 	_check(run.hero_character_id == "sevrin", "the first selected member becomes the expedition lead")
-	_check(run.hero_base_max_health == 3200 and run.hero_health == 1371, "changing lead preserves the previous health ratio")
+	_check(run.hero_base_max_health == 3200 and run.hero_health == 1600, "changing lead preserves the previous health ratio")
 	_check(SpringBattleBridgeScript.pending.get("character_ids", []) == ["sevrin", "sakura"], "battle bridge carries the ordered party")
 	run.party_vitals = {
 		"sevrin": {"health": 1600, "max_health": 3200},

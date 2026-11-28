@@ -191,7 +191,8 @@ func grant_random_relic(rng: RandomNumberGenerator) -> StringName:
 # --- hero vitals (§11.2) -----------------------------------------------------
 
 func effective_max_health() -> int:
-	return maxi(1, maxi(HERO_BASE_MAX_HEALTH + bonus_max_health, carry_max_health))
+	var relic_bonus: int = SpringRelicCatalog.total_bonus(relics, "max_health")
+	return maxi(1, maxi(HERO_BASE_MAX_HEALTH + bonus_max_health + relic_bonus, carry_max_health))
 
 
 ## Returns how much was actually restored, so the caller can say "回复 37 点"

@@ -22,9 +22,7 @@ static func effective_maximum(run) -> int:
 
 
 static func _scaled(run, core: int) -> int:
-	var store = FragmentStore.load_store()
-	var percent: float = store.total_bonus(run.hero_character_id, "health") if store != null else 0.0
-	return maxi(1, roundi(float(core) * (1.0 + percent / 100.0)))
+	return FragmentStore.health_max(run.hero_character_id, core)
 
 
 ## CONTRACT: _test_fragment_vitality_full_flow

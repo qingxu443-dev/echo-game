@@ -159,6 +159,13 @@ static func actions_for(enemy) -> Array[StringName]:
 ## still damage them when their affected cells overlap, but they are never
 ## selected as a single-target objective.
 static func _pick_target_for_enemy(battle, _enemy, _claimed_cells: Dictionary, _formation: Dictionary = {}):
+	# Absolute Guard is a battlefield-wide taunt: while its status is active,
+	# every enemy plans its action around the guardian rather than the usual defender.
+	var guardian_id: String = battle.get_absolute_guardian()
+	if not guardian_id.is_empty():
+		var guardian = battle.actors.get(guardian_id)
+		if guardian != null and guardian.is_alive():
+			return guardian
 	var hero = battle.get_defender()
 	if hero == null or not hero.is_alive():
 		return null

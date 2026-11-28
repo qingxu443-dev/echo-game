@@ -222,6 +222,17 @@ func _test_collectibles_never_duplicate() -> void:
 		_check(run.grant_collectible(active_id), "an active consumable can be acquired more than once")
 		_check(int(run.collectible_consumables[String(active_id)]) == 2, "the second active copy stacks")
 
+	# Active consumables are also valid exchange currency for the collector.
+	var active_trade := _fresh_run()
+	active_trade.grant_collectible(&"col_field_ration")
+	_check(CatalogScript.can_afford(active_trade, &"mysterious_collector", 1), "the collector accepts an active consumable")
+	var trade_result: Dictionary = CatalogScript.resolve(active_trade, &"mysterious_collector", 1)
+	_check(bool(trade_result.get("ok", false)), "an active consumable can be exchanged")
+	var after_trade: int = active_trade.collectibles.size()
+	for count in active_trade.collectible_consumables.values():
+		after_trade += int(count)
+	_check(after_trade == 2, "the exchange consumes one item and grants two")
+
 	# Exhausting the pool must not hand out a duplicate; it reports &"" instead.
 	var exhausted := _fresh_run()
 	for collectible_id in CollectibleCatalogScript.candidates_for("event"):

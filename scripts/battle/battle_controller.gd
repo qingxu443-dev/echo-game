@@ -75,6 +75,11 @@ var damage_dealt: int = 0
 var damage_taken: int = 0
 var enemies_defeated: int = 0
 var statuses: BattleStatusCollection = StatusCollectionScript.new()
+## Transient synchronous state for Dest Lee multi-hit and death-ember batches.
+var dest_lee_batch_depth: int = 0
+var dest_lee_death_queue: Array[Dictionary] = []
+var dest_lee_chain_active: bool = false
+var dest_lee_chain_hit_targets: Dictionary = {}
 ## Which party member the player is currently commanding. Skills resolve their
 ## caster from here, so adding a character never means hardcoding an actor id.
 var active_character_id: String = ""
@@ -187,13 +192,13 @@ func alive_beacons() -> Array[Dictionary]:
 	return list
 
 
-func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, action_id: String) -> bool:
+func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, action_id: String, use_amount_for_chests: bool = false) -> bool:
 	if not beacons.has(cell):
 		return false
 	var b: Dictionary = beacons[cell]
 	if int(b.get("health", 0)) <= 0:
 		return false
-	var dmg: int = maxi(1, amount) if str(b.get("kind", "")) == "ward_node" else 1
+	var dmg: int = maxi(1, amount) if use_amount_for_chests or str(b.get("kind", "")) == "ward_node" else 1
 	b["health"] = maxi(0, int(b["health"]) - dmg)
 	beacons[cell] = b
 	_emit_event("beacon_damaged", source_actor_id, str(b["id"]), "action=%s cell=%s applied=%d health=%d" % [action_id, str(cell), dmg, int(b["health"])])

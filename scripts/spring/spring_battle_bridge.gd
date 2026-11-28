@@ -110,6 +110,7 @@ static func prepare(run, encounter_id: StringName, place_id: StringName, kind: S
 		run.hero_max_health = run.effective_max_health()
 		if lead_changed:
 			run.hero_health = clampi(roundi(float(run.hero_max_health) * health_ratio), 1, run.hero_max_health)
+	run.sync_lead_vitals()
 	suspended_map = run.to_dict()
 	pending = {
 		"encounter": encounter_id,

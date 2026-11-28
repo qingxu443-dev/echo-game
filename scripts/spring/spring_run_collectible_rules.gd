@@ -12,6 +12,7 @@ static func add_relic(run, relic_id: StringName) -> bool:
 	if relic_id == &"" or not RelicCatalogScript.has_relic(relic_id) or run.relics.has(relic_id):
 		return false
 	run.relics.append(relic_id)
+	run.sync_lead_vitals(false)
 	return true
 
 

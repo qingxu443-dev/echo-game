@@ -213,8 +213,10 @@ func effective_max_health() -> int:
 func heal_hero(amount: int) -> int:
 	if amount <= 0:
 		return 0
+	sync_lead_vitals()
 	var before: int = hero_health
 	hero_health = mini(effective_max_health(), hero_health + amount)
+	sync_lead_vitals(true)
 	return hero_health - before
 
 
@@ -223,8 +225,11 @@ func heal_hero(amount: int) -> int:
 func damage_hero(amount: int) -> int:
 	if amount <= 0:
 		return 0
+	sync_lead_vitals()
 	var before: int = hero_health
+	if before <= 0: return 0
 	hero_health = maxi(1, hero_health - amount)
+	sync_lead_vitals()
 	return before - hero_health
 
 
@@ -240,6 +245,16 @@ func add_bonus_max_health(amount: int) -> void:
 		hero_health = mini(effective_max_health(), hero_health + amount)
 	else:
 		hero_health = clampi(hero_health, 1, effective_max_health())
+	sync_lead_vitals()
+
+
+## CONTRACT: _test_map_vitals_enter_the_next_fight
+func sync_lead_vitals(allow_revive: bool = false) -> void:
+	if not party_vitals.has(hero_character_id): return
+	var vitals: Dictionary = party_vitals[hero_character_id]
+	vitals["max_health"] = effective_max_health()
+	if int(vitals.get("health", 0)) > 0 or allow_revive: vitals["health"] = hero_health
+	else: hero_health = 0
 
 
 # --- collectibles (§6.1) -----------------------------------------------------
@@ -546,6 +561,7 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	run.pending_battle_settlement = data.get("pending_battle_settlement", {}).duplicate(true)
 	for battle_id in data.get("settled_battle_ids", []):
 		run.settled_battle_ids.append(str(battle_id))
+	run.sync_lead_vitals()
 	return run
 
 

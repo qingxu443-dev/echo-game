@@ -73,7 +73,7 @@ static func valid(data: Dictionary) -> bool:
 	if state.grid_size.x < 1 or state.grid_size.y < 1 or state.grid_size.x > 32 or state.grid_size.y > 32: return false
 	if state.get("phase", -1) not in [0, 1, 2, 3]: return false
 	if not data.ap.get("maximum") is int or not data.ap.get("current") is int: return false
-	if data.ap.maximum != laws.ap_pool or data.ap.current < 0 or data.ap.current > data.ap.maximum: return false
+	if data.ap.maximum != laws.ap_pool or data.ap.current < 0 or data.ap.current > APBudget.temporary_limit(data.ap.maximum): return false
 	var ids: Dictionary = {}
 	var player_ids := {}
 	for actor in data.actors:

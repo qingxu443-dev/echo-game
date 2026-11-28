@@ -16,6 +16,7 @@ const InputRouterScript = preload("res://scripts/ui/input_router.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
 const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 const InventoryViewScript = preload("res://scripts/ui/inventory_view.gd")
+const InventoryInput = preload("res://scripts/ui/battle_inventory_input.gd")
 const SpringBattleBridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
@@ -217,7 +218,7 @@ func _draw() -> void:
 	HudViewScript.draw_party(self, controller)
 	SkillBarViewScript.draw(self, controller, skill_bar, selected_skill, hovered_skill)
 	if inventory_open:
-		InventoryViewScript.draw(self, run_state, controller.get_active_character(), inventory_page)
+		InventoryViewScript.draw(self, run_state, InventoryInput.lead_actor(self), inventory_page)
 	elif controller.phase == ControllerScript.BattlePhase.FINISHED:
 		SettlementViewScript.draw(self, controller, _current_level(), _has_next_level(), pending_rewards, spring_mode)
 
@@ -472,43 +473,7 @@ func _handle_tap(position: Vector2) -> void:
 	queue_redraw()
 
 func _handle_inventory_tap(position: Vector2) -> void:
-	var action: String = InventoryViewScript.hit(position, run_state.backpack.size(), inventory_page)
-	var hero = controller.get_active_character()
-	if action == InventoryViewScript.ACTION_CLOSE:
-		inventory_open = false
-		queue_redraw()
-		return
-	if action == InventoryViewScript.ACTION_PAGE_PREV:
-		inventory_page = maxi(0, inventory_page - 1)
-		queue_redraw()
-		return
-	if action == InventoryViewScript.ACTION_PAGE_NEXT:
-		var pages: int = maxi(1, int(ceil(float(run_state.backpack.size()) / float(InventoryViewScript.PAGE_SIZE))))
-		inventory_page = mini(pages - 1, inventory_page + 1)
-		queue_redraw()
-		return
-	if action == InventoryViewScript.ACTION_UNEQUIP_WEAPON:
-		var msg: String = run_state.unequip_slot("weapon", hero)
-		if not msg.is_empty():
-			status_message = msg
-		queue_redraw()
-		return
-	if action == InventoryViewScript.ACTION_UNEQUIP_ARMOR:
-		var msg: String = run_state.unequip_slot("armor", hero)
-		if not msg.is_empty():
-			status_message = msg
-		queue_redraw()
-		return
-	if action.begins_with(InventoryViewScript.ACTION_BAG_PREFIX):
-		var idx: int = int(action.substr(InventoryViewScript.ACTION_BAG_PREFIX.length()))
-		var msg: String = run_state.use_backpack_item(idx, controller, hero)
-		if not msg.is_empty():
-			status_message = msg
-		# Using/equipping an item shrinks the bag, which can leave the page past
-		# the last one. Clamp so the panel never shows an empty page.
-		var pages: int = maxi(1, int(ceil(float(run_state.backpack.size()) / float(InventoryViewScript.PAGE_SIZE))))
-		inventory_page = clampi(inventory_page, 0, pages - 1)
-		queue_redraw()
+	InventoryInput.handle(self, position)
 
 func _handle_settlement_tap(position: Vector2) -> void:
 	if not BattleRewards.settle(controller, spring_mode, atelier_save_path):

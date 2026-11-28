@@ -51,7 +51,7 @@ static func draw(canvas: CanvasItem, run_state, hero, page: int = 0) -> void:
 	canvas.draw_rect(PANEL_RECT, P.GOLD, false, 2.0)
 
 	canvas.draw_string(font, PANEL_RECT.position + Vector2(30.0, 40.0), "装备与背包", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, P.GOLD_PALE)
-	canvas.draw_string(font, PANEL_RECT.position + Vector2(174.0, 38.0), "穿脱实时生效 · 战局结束全部清空", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
+	canvas.draw_string(font, PANEL_RECT.position + Vector2(174.0, 38.0), "装备作用领队 · 消耗品作用当前角色", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
 
 	# Close button
 	canvas.draw_rect(CLOSE_BTN, P.BUTTON_BG, true)

@@ -1,6 +1,11 @@
 class_name APBudget
 extends RefCounted
 
+const TEMPORARY_OVERFLOW: int = 2
+
+static func temporary_limit(base: int) -> int:
+	return base + TEMPORARY_OVERFLOW
+
 ## Deterministic AP ledger. One instance is the whole party's pool, so every
 ## character draws from the same numbers. Call spend only after the action is
 ## confirmed.

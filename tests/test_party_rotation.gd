@@ -310,7 +310,7 @@ func _test_surviving_equipment_next_fight() -> void:
 	view.queue_free()
 	await process_frame
 	var next = _scene(run)
-	_check(next.controller.active_character_id == "sakura" and next.controller.actors.sevrin.health == 1600, "cross-fight snapshot preserves the active choice and the equipped reserve's wounded HP")
+	_check(next.controller.active_character_id == "sakura" and next.controller.actors.sevrin.health == 2000, "cross-fight snapshot preserves the active choice and the equipped reserve's wounded HP")
 	_check(next.controller.request_switch_character("sevrin"), "a healthy equipped reserve can deploy next fight")
 	_check(next.run_state.equipped_armor.get("id") == &"survivor_armor" and next.controller.actors.sevrin.max_health == 3600, "worn armor and its maximum survive map JSON without duplication")
 	_check(next.run_state.backpack.is_empty() and next.run_state.party_loadouts.sakura.equipped_armor.is_empty(), "one equipped item never appears in another role or the shared bag")

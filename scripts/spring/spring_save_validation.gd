@@ -14,7 +14,7 @@ static func invalid_field(data: Dictionary) -> String:
 	for key in ["version", "template_id", "seed", "battles_won"]:
 		if not _whole_number(data.get(key, 0)):
 			return key
-	for key in ["collectibles", "reward_choices"]:
+	for key in ["collectibles", "reward_choices", "party_character_ids"]:
 		if not _list_of(data.get(key, []), TYPE_STRING):
 			return key
 

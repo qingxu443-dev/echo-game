@@ -16,6 +16,7 @@ static func is_pending(atelier_path: String) -> bool:
 
 
 static func commit(run_path: String, atelier_path: String, run_data: Dictionary, atelier_data: Dictionary) -> bool:
+	if not _valid_images(run_data, atelier_data): return false
 	var journal := journal_path(atelier_path)
 	if is_pending(atelier_path) or not SaveFile.write_json(journal, {
 		"version": 1,
@@ -40,6 +41,15 @@ static func recover(run_path: String, atelier_path: String) -> bool:
 		return false
 	if not data.get("run") is Dictionary or not data.get("atelier") is Dictionary:
 		return false
+	if not _valid_images(data.run, data.atelier): return false
 	if not SaveFile.write_json(run_path, data["run"]) or not SaveFile.write_json(atelier_path, data["atelier"]):
 		return false
 	return DirAccess.remove_absolute(journal) == OK
+
+
+## Validate both images before the first destination or new journal is written.
+## Replay the original images so supported legacy migrations still run on load.
+## CONTRACT: _test_bad_journal_images
+## CONTRACT: _test_bad_commit_images
+static func _valid_images(run_data: Dictionary, atelier_data: Dictionary) -> bool:
+	return SpringRun.from_dict(run_data) != null and not AtelierStash.from_dict(atelier_data).is_empty()

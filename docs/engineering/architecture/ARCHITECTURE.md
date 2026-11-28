@@ -181,7 +181,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | 模块 | 职责 |
 |---|---|
 | `save_file.gd` | 同目录临时文件写入 JSON 并替换目标；失败保留上一个文件 |
-| `spring_save_transaction.gd` | 记录两份已计算的存档并在中断后重写，恢复期间阻止其他工坊写入 |
+| `spring_save_transaction.gd` | 提交与恢复均先确认两份目标映像可加载，再记录/重放；恢复期间阻止其他工坊写入，坏日志保留 |
 | `main.gd` | 历史 Node2D 样例脚本；场景启动路径以 `project.godot` 为准 |
 
 ### 暂停、声音与过渡
@@ -206,6 +206,12 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 ## 审计范围、发现与处理
 
 2026-11-28 暂停恢复跟进：
+
+事务恢复补充（高，已修）：`SpringSaveTransaction.recover()` 只检查 `run`/`atelier` 为字典就依次覆盖目标并删除日志。格式合法但内容损坏的事务记录会破坏原本有效的地图/钱包档，并解除后续写入锁。现于 `commit()` 创建日志前、`recover()` 第一次目标写入前，共同调用实际的 SpringRun 和 AtelierStash 数据校验，任何一份无效均保留两个旧档；恢复中的坏日志也保留并继续阻止钱包修改。正常写入失败的重试顺序与日志幂等重放保持。
+
+工坊边界补充（中，已修）：`AtelierStash.read_state()` 原来会把负数/小数残晶钳制或截断，把未知 ID 静默从打包栏剔除；领取或后续购买会把数据损失写回。`from_dict()` 统一直接读取、写入和事务映像校验，拒绝非整数/负数/非有限/越界残晶及未知或非文本道具，合法整值 JSON 浮点和旧档缺省字段继续兼容。未知 ID 的文件需保留后排查版本/数据，不会自动删除道具。
+
+专项 `test_save_transaction_validation.gd` 验证损坏提交不创建锁、损坏恢复不改任一旧档且不删日志、工坊失败不变性，以及正常地图入口安全阻断；合法旧版地图档仍由原加载器迁移，合法事务仍可重复恢复。
 
 | 级别 | 位置 / 原因 | 影响 | 修复与验证 |
 |---|---|---|---|

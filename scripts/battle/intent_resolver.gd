@@ -202,10 +202,17 @@ static func _tile_locked_attack(battle, intent) -> void:
 	var source = actors[intent.source_actor_id]
 	var current_distance: int = GridRulesScript.manhattan_distance(source.cell, intent.target_cell)
 	var chebyshev: int = maxi(absi(source.cell.x - intent.target_cell.x), absi(source.cell.y - intent.target_cell.y))
+	if intent.action_id == "basic_melee" and current_distance > 2:
+		# Taunt can redirect a melee telegraph, but it must never turn a melee
+		# into a battlefield-wide teleport strike. At more than two cells the
+		# stale melee intent is canceled; next planning phase will pursue the
+		# guardian instead.
+		intent.cancel("melee_out_of_taunt_reach")
+		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=basic_melee reason=taunt_out_of_reach")
+		return
 	if intent.action_id == "basic_melee" and current_distance != 1 and intent.target_actor_id.is_empty():
-		# A plain tile-lock whiffs when the target steps away (it does not
-		# follow a moved actor). A redirected melee carries the guardian's
-		# id and is legal anywhere inside the two-cell taunt radius.
+		# An ordinary tile-lock whiffs when the target steps away; only an
+		# explicitly redirected target receives the two-cell taunt allowance.
 		intent.cancel("melee_out_of_range")
 		battle._emit_event("enemy_action_missed", intent.source_actor_id, "", "action=%s cell=%s" % [intent.action_id, str(intent.target_cell)])
 		return

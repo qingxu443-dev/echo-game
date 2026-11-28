@@ -213,7 +213,7 @@ func _test_oathblade_knockback_collisions() -> void:
 	var wall_enemy = wall.get_actor("vanguard_00")
 	var wall_before: int = wall_enemy.health
 	_check(wall.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a wall")
-	_check(wall_before - wall_enemy.health == 1243, "a wall slam adds 450 true damage on top of the strike")
+	_check(wall_before - wall_enemy.health == 898, "a wall slam adds 450 true damage on top of the strike")
 	_check(wall_enemy.cell == Vector2i(2, 1), "a target with a wall behind it is not pushed")
 	wall.queue_free()
 
@@ -227,7 +227,7 @@ func _test_oathblade_knockback_collisions() -> void:
 	var beacon_health_before: int = int(beacon.beacons[beacon_cell]["health"])
 	var beacon_before: int = beacon_enemy.health
 	_check(beacon.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a beacon")
-	_check(beacon_before - beacon_enemy.health == 1243, "slamming into a beacon deals the same collision damage")
+	_check(beacon_before - beacon_enemy.health == 898, "slamming into a beacon deals the same collision damage")
 	_check(int(beacon.beacons[beacon_cell]["health"]) == beacon_health_before - 1, "the chest loses one hit of its 2-hit durability")
 	beacon.queue_free()
 

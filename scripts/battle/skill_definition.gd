@@ -37,7 +37,9 @@ const DAMAGE_MAGICAL: StringName = &"magical"
 const SHAPE_SINGLE: StringName = &"single"
 const SHAPE_CROSS: StringName = &"cross"
 const SHAPE_FAN: StringName = &"fan"
+const SHAPE_DIAMOND: StringName = &"diamond"
 @export var shape: StringName = SHAPE_SINGLE
+@export var shape_radius: int = 0
 ## Rectangle footprint in front of the caster, used by SHAPE_FAN.
 ## depth is how many cells it reaches forward, width how many it spans across.
 @export var shape_width: int = 0
@@ -60,7 +62,9 @@ func is_valid() -> bool:
 	for hit_multiplier in hit_multipliers:
 		if hit_multiplier < 0.0:
 			return false
-	if shape != SHAPE_SINGLE and shape != SHAPE_CROSS and shape != SHAPE_FAN:
+	if shape != SHAPE_SINGLE and shape != SHAPE_CROSS and shape != SHAPE_FAN and shape != SHAPE_DIAMOND:
+		return false
+	if shape == SHAPE_DIAMOND and shape_radius <= 0:
 		return false
 	if shape == SHAPE_FAN and (shape_width <= 0 or shape_depth <= 0):
 		return false

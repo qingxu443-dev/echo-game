@@ -169,6 +169,12 @@ func _test_absolute_verdict_aoe_knockback_and_energy() -> void:
 	_check(north_before - north.health == 248, "second adjacent enemy also takes full AoE damage")
 	_check(north.cell == Vector2i(2, 1), "opening ultimate strike does not knock back the second enemy")
 	_check(far.health == far_before and far.cell == Vector2i(6, 6), "distant enemy outside 1-tile radius is untouched")
+	var guard_status = battle.statuses.get_status(sevrin.actor_id, &"absolute_guard")
+	_check(guard_status != null and guard_status.enemy_turns_remaining == 2, "Absolute Guard starts with two enemy-phase ticks")
+	battle.statuses.tick_enemy_phase()
+	_check(battle.statuses.has_status(sevrin.actor_id, &"absolute_guard"), "Absolute Guard remains active after the first enemy phase")
+	battle.statuses.tick_enemy_phase()
+	_check(not battle.statuses.has_status(sevrin.actor_id, &"absolute_guard"), "Absolute Guard expires after the second enemy phase")
 	battle.queue_free()
 
 

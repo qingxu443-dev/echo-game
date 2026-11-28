@@ -128,7 +128,11 @@ func _return_to_map() -> void:
 	for actor_id in controller.actors:
 		var actor = controller.actors[actor_id]
 		if actor.team == "player":
-			party_vitals[str(actor_id)] = {"health": actor.health, "max_health": actor.max_health}
+			party_vitals[str(actor_id)] = {
+				"health": actor.health,
+				"max_health": actor.max_health,
+				"base_max_health": PartyLoadout.unscaled_max_health(actor),
+			}
 	var result := {
 		"result": controller.battle_result,
 		"kind": str(payload.get("kind", SpringBattleBridgeScript.KIND_BATTLE)),

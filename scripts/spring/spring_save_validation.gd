@@ -73,7 +73,12 @@ static func invalid_field(data: Dictionary) -> String:
 			return "party_vitals." + str(character_id)
 		var hp = vitals.get("health", 0)
 		var max_hp = vitals.get("max_health", 0)
-		if not _whole_number(hp) or not _whole_number(max_hp) or hp < 0 or max_hp <= 0 or hp > max_hp:
+		var base_hp = vitals.get("base_max_health", 0)
+		if not _whole_number(hp) or not _whole_number(max_hp) or not _whole_number(base_hp):
+			return "party_vitals." + str(character_id)
+		if hp < 0 or max_hp <= 0 or base_hp < 0 or hp > max_hp:
+			return "party_vitals." + str(character_id)
+		if base_hp > 0 and max_hp < base_hp:
 			return "party_vitals." + str(character_id)
 
 	var hero: Dictionary = data.get("hero", {})

@@ -145,6 +145,7 @@ static func _json_integer(value: Variant) -> Variant:
 	return value
 
 
+## CONTRACT: _test_all_catalog_equipment_roundtrips
 static func carry_error(carry: Dictionary, json_numbers: bool = false) -> String:
 	if json_numbers: carry = canonical_json_carry(carry)
 	if not carry.get("single_active_party", false) is bool: return "single_active_party: expected bool"
@@ -169,5 +170,7 @@ static func carry_error(carry: Dictionary, json_numbers: bool = false) -> String
 			var item: Dictionary = row.get(key, {})
 			if not item.is_empty() and str(item.get("kind", "")) != key.trim_prefix("equipped_"): return "party_loadouts: invalid equipment"
 			for stat in ["max_health", "attack", "defense", "magic_resistance"]:
-				if item.has(stat) and (not item[stat] is int or item[stat] < 0): return "party_loadouts: invalid equipment stat"
+				# Item values are signed modifiers (dusk blade trades defense for
+				# attack). Only final actor stats and vitality are nonnegative.
+				if item.has(stat) and not item[stat] is int: return "party_loadouts: invalid equipment stat"
 	return ""

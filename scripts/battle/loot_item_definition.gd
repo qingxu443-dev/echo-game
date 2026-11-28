@@ -15,7 +15,8 @@ extends Resource
 @export var name: String = ""
 @export var desc: String = ""
 
-## Equipment stats (weapon / armor). Zero for non-equipment.
+## Signed equipment modifiers (weapon / armor), including deliberate penalties.
+## Zero for non-equipment; RunState clamps the final actor stats separately.
 @export var attack: int = 0
 @export var defense: int = 0
 @export var magic_resistance: int = 0

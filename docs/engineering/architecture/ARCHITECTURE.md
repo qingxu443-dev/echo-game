@@ -1,5 +1,7 @@
 # ECHO 工程架构与全量审计报告
 
+装备存档规则补充：物品的 attack/defense/magic_resistance/max_health 是有符号修正量，合法负代价与角色最终属性的非负约束分开。`PartyLoadout.carry_error()` 与 `LootItemDefinition`/`RunState` 一致；目录全部武器/护甲自动进入真实 JSON/结算回归，负属性替补的暂停/恢复亦覆盖。原因见 [ECHO-211](../quality/PLAYTEST_FIXES_2026-11-27.md)。
+
 战后 JSON 修复：地图普通 JSON 的整数可能被读取为 float。`PartyLoadout.canonical_json_carry()` 只规范已知合法整数字段，`SpringSaveValidation` 用磁盘语义预检，`SpringRun.from_dict()` 规范队员及待结算 carry；SessionCodec 快照继续严格类型校验。结算场景可注入隔离路径以测试真实确认按钮，默认游戏路径不变。原因与恢复边界见 [ECHO-210 记录](../quality/PLAYTEST_FIXES_2026-11-27.md)。
 
 当前地块显示补充：`BoardOverlayRegion` 统一柔和纯色填充与连续区域边界，`BoardMoveRange` 与真实移动请求共用路径规则，`BattleOverlayInput` 管攻击显隐和当前角色选区；显示状态保存在 `BattleFxState`。`SpringVitality` 统一区分原始生命上限和残片后的上限，避免战后 carry 再次缩放。逐项原因、证据和已知边界见 [地块与生命收尾报告](../quality/BOARD_OVERLAYS_2026-11-28.md)。

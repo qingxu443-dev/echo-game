@@ -76,6 +76,9 @@ static func set_active_team(index: int, path: String = SAVE_PATH) -> bool:
 	if index < 0 or index >= TEAM_COUNT:
 		return false
 	var state := load_state(path)
+	var team: Dictionary = state.teams[index]
+	if (team.get("members", []) as Array).is_empty():
+		return false
 	state["active_team"] = index
 	return save_state(state, path)
 

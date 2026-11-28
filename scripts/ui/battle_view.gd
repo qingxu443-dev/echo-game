@@ -120,16 +120,7 @@ func _spring_run_lead():
 	return controller.actors.get(str(party_ids[0]))
 
 func _restore_spring_party_vitals(payload: Dictionary) -> void:
-	var saved: Dictionary = payload.get("party_vitals", {})
-	for character_id in saved:
-		var actor = controller.actors.get(str(character_id))
-		var vitals: Dictionary = saved[character_id]
-		if actor == null or actor.team != "player":
-			continue
-		actor.max_health = maxi(1, int(vitals.get("max_health", actor.max_health)))
-		actor.health = clampi(int(vitals.get("health", actor.health)), 0, actor.max_health)
-		actor._is_downed = actor.health <= 0
-		actor._is_defeated = false
+	SpringBattleBridgeScript.restore_party_vitals(controller, payload)
 
 func _return_to_map() -> void:
 	var hero = _spring_run_lead()

@@ -9,14 +9,14 @@ extends RefCounted
 const LootCatalogScript = preload("res://scripts/battle/loot_catalog.gd")
 const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
 
-var base_max_health: int = 3600
-var base_attack: int = 1150
-var base_defense: int = 350
-var base_magic_resistance: int = 250
+var base_max_health: int = 3200
+var base_attack: int = 650
+var base_defense: int = 360
+var base_magic_resistance: int = 230
 
 var bonus_max_health: int = 0
-var hero_max_health: int = 3600
-var hero_health: int = 3600
+var hero_max_health: int = 3200
+var hero_health: int = 3200
 var mods: Array[StringName] = []
 var equipped_weapon: Dictionary = {}
 var equipped_armor: Dictionary = {}
@@ -82,7 +82,7 @@ const REWARD_POOL: Array[Dictionary] = [
 ]
 
 
-func reset(p_max_health: int = 3600, p_attack: int = 1150, p_defense: int = 350, p_mres: int = 250) -> void:
+func reset(p_max_health: int = 3200, p_attack: int = 650, p_defense: int = 360, p_mres: int = 230) -> void:
 	base_max_health = maxi(1, p_max_health)
 	base_attack = maxi(1, p_attack)
 	base_defense = maxi(0, p_defense)

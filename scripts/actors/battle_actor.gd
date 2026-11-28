@@ -44,6 +44,11 @@ var ultimate_energy_max: int = 5
 var active_energy_gain_turn: int = -1
 ## Character sheet this unit was spawned from. Empty for enemies.
 var character_id: StringName = &""
+## Visual asset paths copied from CharacterDefinition; empty for enemies.
+var portrait_path: String = ""
+var full_illustration_path: String = ""
+var battlefield_sprite_path: String = ""
+var battlefield_sprite_back_path: String = ""
 ## Board token glyph, so the view does not have to know every character.
 var glyph: String = ""
 ## Display name from the character sheet, for the HUD.

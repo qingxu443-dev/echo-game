@@ -491,6 +491,12 @@ static func _find_look_target_pos(controller, actor_id: String, actor, fx_state:
 
 
 static func _resolve_actor_texture(actor, prefer_back: bool = false) -> Texture2D:
+	if actor.team == "player":
+		var explicit_path: String = actor.battlefield_sprite_back_path if prefer_back else actor.battlefield_sprite_path
+		if not explicit_path.is_empty():
+			var explicit_texture := _load_cached_texture(explicit_path)
+			if explicit_texture != null:
+				return explicit_texture
 	var keys: Array[String] = []
 	if actor.team == "player":
 		if actor.character_id != &"":

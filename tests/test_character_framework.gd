@@ -63,6 +63,13 @@ func _sakura_battle() -> Node:
 func _test_characters_come_from_data() -> void:
 	_check(CharacterCatalogScript.has_definition("sevrin"), "Sevrin is defined by a sheet")
 	_check(CharacterCatalogScript.has_definition("sakura"), "Sakura is defined by a sheet")
+	var dest_lee = CharacterCatalogScript.get_definition("dest_lee")
+	_check(dest_lee != null, "Dest Lee is defined by a sheet")
+	if dest_lee != null:
+		_check(dest_lee.portrait_path == "res://assets/actors/portraits/dest_lee.png", "Dest Lee declares the standalone UI portrait path")
+		_check(dest_lee.full_illustration_path == "res://assets/actors/portraits/dest_lee_full.png", "Dest Lee declares the full character illustration path")
+		_check(dest_lee.battlefield_sprite_path == "res://assets/actors/dest_lee.png", "Dest Lee declares the front battlefield sprite path")
+		_check(dest_lee.battlefield_sprite_back_path == "res://assets/actors/dest_lee_back.png", "Dest Lee declares the back battlefield sprite path")
 	var sakura = CharacterCatalogScript.get_definition("sakura")
 	_check(sakura.max_health == 1800 and sakura.attack == 520, "Sakura's sheet carries the planned panel")
 	_check(sakura.has_resource() and String(sakura.resource_id) == "blade_intent", "Sakura's sheet declares blade intent")

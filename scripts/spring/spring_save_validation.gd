@@ -88,8 +88,15 @@ static func invalid_field(data: Dictionary) -> String:
 		if not _whole_number(hero.get(key, 0)) or hero.get(key, 0) < 0:
 			return "hero." + key
 	var carry: Dictionary = data.get("battle_carry", {})
-	var party_error := PartyLoadout.carry_error(carry)
+	var party_error := PartyLoadout.carry_error(carry, true)
 	if not party_error.is_empty(): return party_error
+	var settlement: Dictionary = data.get("pending_battle_settlement", {})
+	if settlement.has("result"):
+		if not settlement.result is Dictionary: return "pending_battle_settlement.result"
+		var pending_carry: Variant = settlement.result.get("carry", {})
+		if not pending_carry is Dictionary: return "pending_battle_settlement.result.carry"
+		party_error = PartyLoadout.carry_error(pending_carry, true)
+		if not party_error.is_empty(): return "pending_battle_settlement.result." + party_error
 	if not _list_of(carry.get("backpack", []), TYPE_DICTIONARY) or not _list_of(carry.get("mods", []), TYPE_STRING):
 		return "battle_carry.backpack / mods"
 	for key in ["equipped_weapon", "equipped_armor"]:

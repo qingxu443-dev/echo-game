@@ -342,7 +342,12 @@ func _request_party_switch(actor_id: String) -> void:
 
 
 func _cancel_target_selection() -> void:
+	var had_movement := not fx.move_actor_id.is_empty()
+	fx.move_actor_id = ""
 	if selected_skill < 0:
+		if had_movement:
+			status_message = "已取消移动选择。"
+			queue_redraw()
 		return
 	selected_skill = -1
 	status_message = "已取消目标选择。"
@@ -385,6 +390,7 @@ func _handle_tap(position: Vector2) -> void:
 	if controller.phase == ControllerScript.BattlePhase.FINISHED:
 		_handle_settlement_tap(position)
 		return
+	if BattleOverlayInput.handle(self, position): return
 	var party_id := PartyPortraitView.hit(controller, position)
 	if not party_id.is_empty():
 		_request_party_switch(party_id)
@@ -529,6 +535,7 @@ func _path_to_cell(goal: Vector2i) -> Array[Vector2i]:
 
 func _on_battle_event(event: Dictionary) -> void:
 	var event_type: String = str(event.get("type", ""))
+	if event_type in ["party_switched", "actor_moved", "turn_ended", "player_turn_started", "battle_defeat", "battle_victory"]: fx.move_actor_id = ""
 	if event_type == "actor_moved": SceneTravel.sound(self, "move")
 	elif event_type == "damage_applied": SceneTravel.sound(self, "hit")
 	var out_status: Array = []

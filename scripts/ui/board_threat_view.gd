@@ -168,11 +168,12 @@ static func _reactive_cells_for_intent(controller, intent) -> Array[Vector2i]:
 	return TacticalPressure.reactive_cells(controller, intent)
 
 
-static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
-	ThreatTiles.draw(canvas, controller, float(fx_state.get("time", 0.0)))
-	var cautions := caution_tiles(controller, fx_state)
+static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary, paint_tiles: bool = true) -> void:
+	var attacks_visible: bool = fx_state.get("attack_tiles_visible", true)
+	if paint_tiles and attacks_visible: ThreatTiles.draw(canvas, controller, 0.0)
+	var cautions: Dictionary = caution_tiles(controller, fx_state) if attacks_visible else {}
 	for cell in cautions:
-		_draw_caution_tile(canvas, cell, Color(1.0, 0.62, 0.16), cautions[cell])
+		_draw_caution_tile(canvas, cell, BoardOverlayRegion.ATTACK_LINE, cautions[cell])
 	var focused := _focused_source_ids(controller, fx_state)
 	var has_focus := not focused.is_empty()
 	var active := _active_intents(controller)
@@ -189,35 +190,35 @@ static func draw_telegraphs(canvas: CanvasItem, controller, fx_state: Dictionary
 		var aim_cell: Vector2i = target_cells[0] if intent.target_mode == IntentScript.TargetMode.ACTOR_LOCKED and not target_cells.is_empty() else intent.target_cell
 		var origin_cell: Vector2i = intent.move_path[intent.move_path.size() - 1] if not intent.move_path.is_empty() else (source.cell if source != null else Vector2i.ZERO)
 
-		if not has_focus or not is_focus: continue
+		if not attacks_visible or not has_focus or not is_focus: continue
 		match intent.action_id:
 			"ground_pulse", "echo_bolt":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), P.TELEGRAPH_PULSE_LINE, 20.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 20.0, dim)
 			"aimed_shot", "light_shot":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), P.TELEGRAPH_SHOT_LINE, 8.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 8.0, dim)
 			"charged_strike", "sakura_shock":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(aim_cell), P.TELEGRAPH_CHARGE_LINE, 12.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 12.0, dim)
 			"blight_field":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(aim_cell), P.HAZARD_BLIGHT_LINE, 12.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -30.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 12.0, dim)
 			"spring_bloom":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -32.0), P.cell_center(aim_cell), P.HAZARD_SPRING_LINE, 10.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -32.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 10.0, dim)
 			"basic_melee", "shadow_raid":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -26.0), P.cell_center(aim_cell), P.RING_MELEE, 8.0, dim)
+					draw_aim_arc(canvas, P.cell_center(origin_cell) + Vector2(0.0, -26.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 8.0, dim)
 			"lock_on":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), P.TELEGRAPH_SHOT_LINE, 4.0, dim)
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 4.0, dim)
 			"locked_shot":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), P.TELEGRAPH_SHOT_LINE, 12.0, dim)
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -34.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 12.0, dim)
 			"rot_curse":
 				if source != null and source.is_alive():
-					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -32.0), P.cell_center(aim_cell), P.TELEGRAPH_PULSE_LINE, 6.0, dim)
+					draw_aim_arc(canvas, P.cell_center(source.cell) + Vector2(0.0, -32.0), P.cell_center(aim_cell), BoardOverlayRegion.ATTACK_LINE, 6.0, dim)
 			"wait":
 				if source != null and source.is_alive():
 					P.draw_polyline_closed(canvas, P.cell_diamond(source.cell, 6.0), Color(P.RING_WAIT.r, P.RING_WAIT.g, P.RING_WAIT.b, dim), 1.5)
@@ -319,6 +320,7 @@ static func label_entries(controller, fx_state: Dictionary) -> Dictionary:
 
 
 static func draw_telegraph_labels(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
+	if not fx_state.get("attack_tiles_visible", true): return
 	var buckets := label_entries(controller, fx_state)
 
 	# Render AT MOST ONE tiny chip per tile (near floor center, never a tall tower

@@ -22,21 +22,23 @@ const CharacterSkillRuntimeScript = preload("res://scripts/battle/character_skil
 static func draw(canvas: CanvasItem, controller, selected_skill: int, skill_bar: Array, fx_state: Dictionary = {}) -> void:
 	_draw_grid(canvas, controller)
 	_draw_deploy_zone(canvas, controller)
-	# Paint terrain and one dominant threat fill first. Movement on a dangerous
-	# tile uses a small green dot, keeping the red/purple attack fill readable.
+	# Paint flat regions once, then restore red threat boundaries and the
+	# unchanged enemy movement arrows above any player selection fill.
 	BoardThreatViewScript.draw_hazard_tiles(canvas, controller, fx_state)
 	BoardThreatViewScript.draw_formation_links(canvas, controller, fx_state)
-	BoardThreatViewScript.draw_telegraphs(canvas, controller, fx_state)
+	if fx_state.get("attack_tiles_visible", true): BoardThreatTiles.draw(canvas, controller, 0.0)
 	_draw_move_hints(canvas, controller, selected_skill, fx_state)
 	_draw_hover_hint(canvas, controller, fx_state)
 	_draw_target_hints(canvas, controller, selected_skill, skill_bar, fx_state)
+	if fx_state.get("attack_tiles_visible", true): BoardThreatTiles.draw_boundaries(canvas, controller)
+	BoardThreatViewScript.draw_telegraphs(canvas, controller, fx_state, false)
 	BoardObjectsViewScript.draw_dropped_loot(canvas, controller, fx_state)
 	BoardObjectsViewScript.draw_depth_sorted_objects(canvas, controller, fx_state)
 	BoardThreatViewScript.draw_impact_flashes(canvas, fx_state)
 	BoardThreatViewScript.draw_telegraph_labels(canvas, controller, fx_state)
 	BoardThreatViewScript.draw_popups(canvas, fx_state)
 	BoardThreatViewScript.draw_danger_vignette(canvas, controller, fx_state)
-	canvas.draw_string(ThemeDB.fallback_font, Vector2(332, 548), "绿点/边：可移动  金角：技能选区  红/紫/蓝：攻击  彩角：攻击重叠  橙虚线：条件追击  地纹：持续伤害", HORIZONTAL_ALIGNMENT_LEFT, 920, 12, P.TEXT_FAINT)
+	canvas.draw_string(ThemeDB.fallback_font, Vector2(332, 548), "红区：敌方攻击  红虚线：条件攻击  白箭头：敌方移动  点击角色显示绿区  淡黄区：技能范围", HORIZONTAL_ALIGNMENT_LEFT, 920, 12, P.TEXT_FAINT)
 
 
 # --- 2.5D isometric stone slab grid -----------------------------------------
@@ -116,43 +118,7 @@ static func _draw_deploy_zone(canvas: CanvasItem, controller) -> void:
 
 
 static func _draw_move_hints(canvas: CanvasItem, controller, selected_skill: int, fx_state: Dictionary) -> void:
-	if controller.phase != controller.BattlePhase.PLAYER or selected_skill >= 0:
-		return
-	var free_stride: bool = controller.run_state != null and controller.run_state.has_mod(&"echo_stride") and controller.ledger.free_move_used_turn != controller.turn_number
-	if not free_stride and not controller.ap.can_spend(1):
-		return
-	var mover = controller.get_active_character()
-	if mover == null or not mover.is_alive():
-		return
-	var t: float = float(fx_state.get("time", 0.0))
-	var mover_in_danger: bool = BoardThreatViewScript.is_cell_in_danger(controller, mover.cell)
-	var guide_pulse: float = 0.90 + 0.10 * sin(t * 3.0)
-	var occupied: Dictionary = controller.get_occupied_cells(mover.actor_id)
-	var max_steps: int = controller.PLAYER_MOVE_MAX_STEPS
-	for dy in range(-max_steps, max_steps + 1):
-		for dx in range(-max_steps, max_steps + 1):
-			if dx == 0 and dy == 0:
-				continue
-			if absi(dx) + absi(dy) > max_steps:
-				continue
-			var goal: Vector2i = mover.cell + Vector2i(dx, dy)
-			if not P.is_inside_board(goal, controller.grid_size):
-				continue
-			if controller.blocked_cells.has(goal) or occupied.has(goal):
-				continue
-			var path := GridRulesScript.find_path(mover.cell, goal, controller.grid_size, controller.blocked_cells, occupied, max_steps)
-			if path.is_empty():
-				continue
-			var goal_safe: bool = not BoardThreatViewScript.is_cell_in_danger(controller, goal)
-			var emphasize_escape: bool = mover_in_danger and goal_safe and absi(dx) + absi(dy) == 1
-			var pts := P.cell_diamond(goal, 3.0)
-			if not goal_safe:
-				canvas.draw_circle(pts[2] - Vector2(0, 4), 2.5, P.MOVE_LINE)
-				continue
-			if emphasize_escape:
-				canvas.draw_colored_polygon(pts, Color(P.MOVE_GUIDE_FILL.r, P.MOVE_GUIDE_FILL.g, P.MOVE_GUIDE_FILL.b, 0.10 * guide_pulse))
-			var line := Color(P.MOVE_LINE.r, P.MOVE_LINE.g, P.MOVE_LINE.b, 0.85 if emphasize_escape else 0.55)
-			P.draw_polyline_closed(canvas, pts, line, 1.7 if emphasize_escape else 1.1)
+	BoardMoveRange.draw(canvas, controller, selected_skill, fx_state)
 
 
 static func _draw_hover_hint(canvas: CanvasItem, controller, fx_state: Dictionary) -> void:
@@ -170,21 +136,20 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 		return
 	if selected_skill < 0 or selected_skill >= skill_bar.size():
 		return
-	var t: float = float(fx_state.get("time", 0.0))
-	var inset: float = 2.0 + 1.5 * sin(t * 6.0)
 	var skill: Dictionary = skill_bar[selected_skill]
 	var mode := str(skill["mode"])
 	if mode == "cell":
 		var definition = SkillRegistryScript.get_skill(StringName(str(skill["id"])))
 		if not SkillBarView.is_affordable(controller, skill):
 			return
+		var aim_cells := {}
 		for y in range(controller.grid_size.y):
 			for x in range(controller.grid_size.x):
 				var cell := Vector2i(x, y)
-				if not SkillEffects.area_cells(controller, definition, cell).is_empty():
-					canvas.draw_circle(P.cell_center(cell), 1.7, Color(P.GOLD.r, P.GOLD.g, P.GOLD.b, 0.5))
-		for cell in SkillEffects.area_cells(controller, definition, fx_state.get("hover_cell", Vector2i(-1, -1))):
-			P.draw_corner_marks(canvas, P.cell_diamond(cell, 6), P.GOLD_PALE, 2.2)
+				if not SkillEffects.area_cells(controller, definition, cell).is_empty(): aim_cells[cell] = true
+		BoardOverlayRegion.draw_boundary(canvas, aim_cells, P.GOLD, 1.2)
+		var area := SkillEffects.area_cells(controller, definition, fx_state.get("hover_cell", Vector2i(-1, -1)))
+		BoardOverlayRegion.draw(canvas, area, BoardOverlayRegion.SKILL_FILL, BoardOverlayRegion.SKILL_LINE)
 		return
 	if mode == "actor":
 		var hero = controller.get_active_character()
@@ -193,7 +158,7 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 			if not can_target(controller, skill_bar, sid, str(actor_id)):
 				continue
 			var enemy = controller.actors[actor_id]
-			P.draw_corner_marks(canvas, P.cell_diamond(enemy.cell, 7.0), P.GOLD_PALE, 2.2)
+			BoardOverlayRegion.draw(canvas, {enemy.cell: true}, BoardOverlayRegion.SKILL_FILL, BoardOverlayRegion.SKILL_LINE)
 			var will_melee: bool = hero != null and (GridRulesScript.manhattan_distance(hero.cell, enemy.cell) == 1 or sid == "sakura_flowing_wind")
 			if will_melee and enemy.melee_tolerance_max > 0 and enemy.melee_tolerance + 1 >= enemy.melee_tolerance_max:
 				var tip_pos := P.cell_center(enemy.cell) + Vector2(-46.0, -P.STANDEE_HEIGHT - 28.0)
@@ -208,14 +173,13 @@ static func _draw_target_hints(canvas: CanvasItem, controller, selected_skill: i
 				if str(b.get("kind", "")) != "ward_node" or int(b.get("health", 0)) <= 0:
 					continue
 				if CharacterSkillRuntimeScript.can_aim_ward_node(controller, skill_def, b_cell):
-					P.draw_corner_marks(canvas, P.cell_diamond(b_cell, 7.0), P.GOLD_PALE, 2.2)
+					BoardOverlayRegion.draw(canvas, {b_cell: true}, BoardOverlayRegion.SKILL_FILL, BoardOverlayRegion.SKILL_LINE)
 		return
 	if mode == "ally":
 		for actor_id in controller.actors:
 			if not can_target_ally(controller, skill_bar, str(skill["id"]), str(actor_id)):
 				continue
-			var pts := P.cell_diamond(controller.actors[actor_id].cell, inset)
-			P.draw_corner_marks(canvas, pts, P.GOLD_PALE, 2.2)
+			BoardOverlayRegion.draw(canvas, {controller.actors[actor_id].cell: true}, BoardOverlayRegion.SKILL_FILL, BoardOverlayRegion.SKILL_LINE)
 
 
 # --- targeting predicates (single source of truth with BattleView & tests) ---

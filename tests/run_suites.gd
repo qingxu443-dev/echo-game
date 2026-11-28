@@ -21,15 +21,44 @@ const DocChecks = preload("res://tests/framework/doc_checks.gd")
 const SUITE_DIR := "res://tests"
 const NAME_WIDTH := 38
 
+## Suites assume an empty profile. Run through run_all.sh / run_all.ps1 and the
+## engine's user:// is a scratch directory, so these never exist. Started by hand
+## with `--script`, it is the developer's own save, and the equipped fragments
+## alone move 49 damage and health assertions — a real save then looks exactly
+## like a regression. Say so instead of letting them chase it.
+const LIVE_SAVE_PATHS := [
+	"user://save_slots/default/fragments.json",
+	"user://squad_loadouts.json",
+	"user://spring_run.json",
+	"user://atelier_stash.json",
+	"user://suspended_journey.json",
+]
+
 
 func _initialize() -> void:
 	_run.call_deferred()
+
+
+func _warn_about_live_save() -> void:
+	var found: Array[String] = []
+	for path in LIVE_SAVE_PATHS:
+		if FileAccess.file_exists(path):
+			found.append(path)
+	if found.is_empty():
+		return
+	print("WARNING: this run is reading a real profile, not a fixture:")
+	for path in found:
+		print("  ", path)
+	print("  Any failure below may be the save, not the code.")
+	print("  Use tests/run_all.sh (or tests\\run_all.ps1): it points user:// at a scratch directory.")
 
 
 func _run() -> void:
 	if DocChecks.wants_fix():
 		_fix_and_exit()
 		return
+
+	_warn_about_live_save()
 
 	var suites := _suite_files()
 	if suites.is_empty():

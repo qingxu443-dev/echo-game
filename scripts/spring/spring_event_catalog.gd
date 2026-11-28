@@ -545,7 +545,11 @@ static func _apply(run, effect: Dictionary, rng: RandomNumberGenerator, log: Arr
 			for _i in range(wanted):
 				var gained: StringName = run.grant_random_collectible(rng)
 				if gained != &"":
-					log.append("获得藏品「%s」。" % run.collectible_name(gained))
+					var effect_note: String = "已收纳，可在藏品栏中选择使用。"
+					if not SpringCollectibleCatalog.is_consumable(gained):
+						var applied: Dictionary = run.apply_collectible_effect(gained)
+						effect_note = str(applied.get("message", "效果已结算。"))
+					log.append("获得藏品「%s」：%s" % [run.collectible_name(gained), effect_note])
 				else:
 					var fallback_coins: int = 20
 					run.add_coins(fallback_coins)

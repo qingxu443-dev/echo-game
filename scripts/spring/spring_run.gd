@@ -14,7 +14,7 @@ extends RefCounted
 ## content, which is what "尚未确定" means in practice.
 
 const SAVE_PATH := "user://spring_run.json"
-const SAVE_VERSION: int = 3
+const SAVE_VERSION: int = 4
 
 ## The hero's battle-side baseline, mirroring `data/characters/sakura.tres`.
 ## §2 makes 樱 the narrative lead of 春之境, and this mode now fights as her
@@ -89,6 +89,10 @@ var event_choices: Dictionary = {}
 var hidden_cell: Vector2i = Vector2i.ZERO
 var hidden_revealed: bool = false
 var route_plan: SpringRoutePlan = SpringRoutePlan.create(false)
+## Party roster is snapshotted when an expedition first enters battle.
+var party_character_ids: Array[String] = []
+## Per-character HP carried between encounters; equipment carry remains separate.
+var party_vitals: Dictionary = {}
 
 
 static func begin(p_seed: int, hard_mode: bool = false) -> SpringRun:
@@ -434,6 +438,8 @@ func to_dict() -> Dictionary:
 		# travel with the save.
 		"shop": {} if shop == null else shop.to_dict(),
 		"route_plan": {} if route_plan == null else route_plan.to_dict(),
+		"party_character_ids": party_character_ids.duplicate(),
+		"party_vitals": party_vitals.duplicate(true),
 	}
 
 
@@ -450,6 +456,7 @@ static func _names_to_strings(values: Array) -> Array[String]:
 const MIGRATIONS := {
 	1: "_migrate_v1_to_v2",
 	2: "_migrate_v2_to_v3",
+	3: "_migrate_v3_to_v4",
 }
 
 
@@ -486,6 +493,13 @@ static func _migrate_v2_to_v3(data: Dictionary) -> Dictionary:
 	var hero: Dictionary = result.get("hero", {})
 	hero.erase("carry_max_health")
 	result["hero"] = hero
+	return result
+
+
+static func _migrate_v3_to_v4(data: Dictionary) -> Dictionary:
+	var result: Dictionary = data.duplicate(true)
+	result["party_character_ids"] = []
+	result["party_vitals"] = {}
 	return result
 
 
@@ -568,6 +582,9 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	if not shop_data.is_empty():
 		run.shop = SpringShop.from_dict(shop_data)
 	run.route_plan = SpringRoutePlan.from_dict(data.get("route_plan", {}))
+	for character_id in data.get("party_character_ids", []):
+		run.party_character_ids.append(str(character_id))
+	run.party_vitals = data.get("party_vitals", {}).duplicate(true)
 	return run
 
 

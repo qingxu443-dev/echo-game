@@ -2,6 +2,8 @@
 
 ECHO 是一款 2.5D 回合制战术肉鸽。启动后从营地大厅进入瑟弗林的三关教学遗迹，或进入樱的「春之境」普通与困难探索。两种模式共用等距战斗和局外补给商行，各自持有局内状态。
 
+现状更新于 2026-11-28，包含主线 PR #93/#94/#95/#96/#97/#100 及本批职责收敛。旧审计发现保留定位与处理记录，当前未决项单列在后。Windows 人工验收由项目测试者完成，Android 暂缓，Boss 败北特殊规则保留待裁决。
+
 ## 技术栈与运行
 
 | 范围 | 当前实现 |
@@ -57,6 +59,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `spring_run_storage.gd` | 组织春之境出征与战后结算的保存 | 工坊和本局快照经事务层提交 |
 | `spring_save_validation.gd` | 校验存档字段、坐标、资源与待处理选择 | 拒绝不可安全恢复的数据并保留原档 |
 | `spring_map_view.gd` | 5×5 地图界面、资源栏、路径预览、结束探索确认与 Boss 结算交接 | 全部自绘；点击只预览，确认后才移动；困难模式委托路线浮层 |
+| `spring_map_flow.gd` | 地图初始化/恢复、保存、进战/回图、待决事件、领奖、续行与行商调度 | 场景注入存档路径与切换 Callable；保存失败不出发，缺失遭遇保留事件待决 |
 | `spring_route_plan.gd` | 春之境困难模式定轨状态：绘线节点、体力校验、强制尾部为 Boss、锁轨游标与存档序列化 | 纯规则与状态，无 UI 依赖；旧存档无此字段自动默认普通模式 |
 | `spring_route_overlay.gd` | 春之境困难模式地图路线绘制（连线/箭头/站序/王格提示）与战前绘线/定轨推进底栏交互 | 独立表现辅助层，保证 `spring_map_view.gd` 不突破存量行数上限 |
 | `scripts/spring/spring_ending.gd` | 春之境留白式结局文案数据（可测试），表现层只绘制 | 暂不锁定结局，玩家陪伴樱决定 |
@@ -86,6 +89,9 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `damage_pipeline.gd` | 伤害结算与一切命中反应（誓约、反击、统计、阵亡清理） | **命中判据统一**：到达存活单位的伤害即命中，护盾全吸收也算；结算统计仍按实际扣血 |
 | `tactical_pressure.gd` | 高博弈压力子系统：临机追身转向、近战 2 次容忍反击、护甲破防、击杀返 AP、Boss 50% 血狂暴亲卫与双动连招 | 无状态外置模块（不膨胀控制器行数）；近战容忍条仅近战触发、远程不涨、回合结束清空 |
 | `summon_service.gd` | 猎人通灵 | — |
+| `battle_loot_service.gd` | 敌方夺箱属性、装备死亡掉落、移动拾取和胜利收集 | 不持有静态状态；控制器保留原接口、事件与对象表；结界节点不作为宝箱奖励 |
+| `knockback_service.gd` | 两技能入口共用的位移、碰撞伤害、预告平移与可打断蓄势 | 兼容既有碰撞事件开关差异，伤害仍经 DamagePipeline |
+| `battle_ledger.gd` | 单场机制账本、返 AP 额度、压力施法序号与奖励结算标记 | 回合/遭遇统一重置；暂停快照包含账本，不使用全局实例索引 |
 
 #### 数据与规则件
 
@@ -103,6 +109,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | `sakura_skill_catalog.gd` | 樱的四技能与被动（剑意 / 极意 / 残香 / 回锋所依赖的数据） | 春之境出战；教学遗迹使用瑟弗林 |
 | `enemy_definition.gd` | 敌人属性档案 Resource | 数值外置于 `data/enemies/*.tres` |
 | `enemy_catalog.gd` | 从显式资源清单加载敌人和动作优先级 | 敌人动作由招式目录校验 |
+| `enemy_actor_factory.gd` | 从 EnemyDefinition 生成实际敌人属性与招式字段 | 初始生成和 Boss 二阶段援军共享字段映射；遭遇倍率由 BattleFlow 明确应用 |
 | `elite_skills.gd` | 九条精英与 Boss 专属技的几何：给友军上盾、留地格、两段式锁命、带路径突袭、降防 | 与规划器同签名 `(battle, enemy, target)`；加一条专属技只改本文件与数据表 |
 | `enemy_skill_catalog.gd` | 16 条敌人招式的数值表：倍率、射程、伤害类型、充能门槛、地格比例 | **所有敌人技能数字的唯一来源**；未注册的 action 会报错而不是退化成近战 |
 | `enemy_skill_definition.gd` | 单条敌人招式的数据结构（Resource），与玩家侧 `SkillDefinition` 对称 | 带 `is_valid()`；`damage_multiplier == 0` 表示「用档案里的 skill_damage」 |
@@ -166,6 +173,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | 模块 | 职责 | 关键约束 |
 |---|---|---|
 | `atelier_stash.gd` | 工坊残晶、六种配方、购买退款、出征打包和局外存档 | 独立于春之境行商和战斗战利品 |
+| `battle_rewards.gd` | 按教学/春之境模式分派战后局外结算 | 教学奖励由账本标记一次性，保存失败可重试；春之境由桥接事务记账 |
 
 ### 共享存储与历史入口
 
@@ -195,7 +203,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 
 ## 审计范围、发现与处理
 
-基线为 2026-11-27 的 `eacd485`。审计覆盖场景入口和场景交接、运行脚本与资源引用、测试与 CI、版本和导出配置、磁盘写入点及工程文档。在已跟踪的 GDScript、场景及资源中扫描了固定 `res://` 引用，未发现缺失目标。运行时入口中未发现网络客户端、远程命令入口或凭据读取。测试运行器仅启动已定位的 Godot 进程。安全核查聚焦本地文件与测试隔离。
+首轮基线为 2026-11-27 的 `eacd485`，下表记录当时发现和现已完成的处理，不作为当前未修列表。审计覆盖场景入口和场景交接、运行脚本与资源引用、测试与 CI、版本和导出配置、磁盘写入点及工程文档。在已跟踪的 GDScript、场景及资源中扫描了固定 `res://` 引用，未发现缺失目标。运行时入口中未发现网络客户端、远程命令入口或凭据读取。测试运行器仅启动已定位的 Godot 进程。安全核查聚焦本地文件与测试隔离。
 
 | 级别 | 位置 | 影响 | 改动与验证 |
 |---|---|---|---|
@@ -205,15 +213,27 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 | 中 | `spring_run.gd` `save_to_file()`、`atelier_stash.gd` `save_state()` 与购买退款 | 覆盖中断可破坏旧档，写入失败仍报购买成功 | 共用临时文件替换，购买退款在保存后更新内存，战斗切换要求保存成功。以目录占用存档路径验证交易失败和余额不变 |
 | 中 | `tests/run_suites.gd` `_run()`、`tests/run_all.ps1` | 测试异常退出和 Windows 导入失败可能误报通过 | 统一运行器核对子进程退出状态；Windows 入口保留导入输出并传播失败 |
 | 中 | `board_view.gd` `_draw_grid()`、`theme_palette.gd` 投影函数 | 矩形棋盘转向 90° 后遍历出界或漏绘 | 渲染按机位使用交换后的尺寸；6×9 网格在四个机位均覆盖 54 个逻辑格 |
-| 低 | `skill_effects.gd` `_apply_knockback()`、`skill_executor.gd` `_knockback_one()` | 碰撞、位移和意图同步各有两套，收敛时须保留事件与击杀记账差异 | 暂缓合并。并行战斗账本分支已修改这两处，先在账本落地后对现行分支补等价测试 |
+| 低 | `skill_effects.gd` `_apply_knockback()`、`skill_executor.gd` `_knockback_one()` | 碰撞、位移和意图同步原有两套 | PR #94 已统一为 KnockbackService，58 条契约回归覆盖两入口及事件差异 |
 | 低 | `ARCHITECTURE.md`、`PROJECT_STATUS.md`、`TESTER_WINDOWS_0.1.md`、`test_battle_fx_state.gd` | 入口和职责描述过时，LF 规则与已入库的 CRLF 产生假脏文件 | 架构、运行指南和测试说明已校正，FX 文件行尾统一，文档守卫检查 |
-| 低 | `export_presets.cfg` `exclude_filter` | Windows 试玩包带测试脚本和源图 | 导出过滤这两个目录，核对打包清单并用生成的可执行文件无头启动 |
+| 低 | `export_presets.cfg` `exclude_filter` | Windows 试玩包可能带工程内容 | PR #96 已实际挂载 exe 检查 tests/源图/tools/docs 排除并执行启动检查；本批修正文档搬迁后的随包说明路径 |
 
 ### 后续优化
 
-1. **把流程从绘制脚本移到场景自己的协调层**。先从 `spring_map_view.gd` 的场景切换、自动存档和弹窗编排入手，通过信号和场景注入传递交互。继续让控制器持有战斗权威状态，渲染消费状态和事件。 [Godot 场景组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/scene_organization.html)
-2. **给跨文件的记账增加可恢复的事务记录**。春之境出征和战后残晶已有可重放的双存档日志。出征会保留无法识别的旧档并提示错误。教学出征的确认边界待补齐。 [Godot 本地文件 API](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html)
-3. **把相互依赖的内容按功能收拢**。从小场景与其私有脚本开始，保留共享的角色、敌人和装备 Resource 目录。素材工具的依赖锁定、资源路径与 Windows 打包冒烟可独立验证；当前没有 Android 导出配置及真机结果。 [Godot 项目组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/project_organization.html)
+1. **继续保持场景协调层与规则边界**。SpringMapFlow 已承担切场景、保存和弹窗编排；BattleRewards 已将工坊结算移出 BattleFlow；本批再收拢战场宝箱/掉落，控制器只保留相应委托。新增内容按职责扩展现有模块，避免重新把逻辑堆回绘制脚本。 [Godot 场景组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/scene_organization.html)
+2. **沿用事务与边界校验扩展存档**。春之境双存档日志和教学成功初始化后才领取补给的确认边界均已实施；未来永久进度/跨区域须明确保留规则，再复用事务和迁移入口，勿另起无恢复策略的 JSON 写入。 [Godot 本地文件 API](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html)
+3. **以实际验收决定后续结构工作**。素材依赖和双次输出已验证，Windows 构建与包体检查已落地，文档按用途分层并新增链接/索引守卫。Control 全面迁移、Android 和新机制参数化随对应需求重启，避免先引入未使用的抽象。 [Godot 项目组织](https://docs.godotengine.org/en/stable/tutorials/best_practices/project_organization.html)
+
+### 当前剩余问题与风险
+
+| 优先级 | 位置 / 范围 | 现状与影响 | 下一步 / 原因 |
+|---|---|---|---|
+| 中 | `battle_view.gd::_rotate_camera()`、`battle_skill_input.gd`、樱四技能入口 | 原始视角卡死和 AP 异常表象尚未复现；已修误移动、残留选择与费用提示，压力/逐次扣费回归通过 | 原设备按完整步骤复测，保留 AP 前后值及日志，不把压力通过写成未知根因已修 |
+| 中 | 教学、三模板两模式、目标 Windows 设备 | 自动化不能证明教学可理解、整局平衡、显示缩放可用或长期渲染性能达标 | ECHO-301～306、502/503 交人工记录；无最低配置/真人证据时不关闭验收 |
+| 中 | `spring_battle_bridge.gd`、`spring_shop.gd`、敌档与经济目录 | Boss 特殊败北规则、普通敌人及部分经济参数仍待定，当前参数可执行但尚未封版 | 按用户指令保留 Boss 裁决；依据人工收支/失败数据做 304/305 |
+| 低 | `SummonService` 与技能条 | 通灵底层已有，正式入口/限制未决定；不能由测试存在推导玩家可用 | 设计决定入口后实施 UI，不擅加第五技能按钮 |
+| 低 | TASK_PLAN 的 601～612 | 法则覆写、余震、永久进度、条件藏品、新区域、角色成长、剧情/序幕与契约仍有规则、立项或资产依赖 | 先形成各工作包的规则与资源输入；Android 明确暂缓 |
+
+控制器宝箱/掉落职责提取后，模块行数存量豁免已清空。`BattleController` 仍持有战斗权威状态，协作者接收显式 battle 参数；新增机制应避免循环预加载和模块间暗改状态。当前报告不把待设计内容记作代码缺陷，具体未决关系见 [决策登记](../decisions/CURRENT_SCOPE_AND_DECISIONS.md)，验收步骤与反馈见 [Windows 交接](../../delivery/WINDOWS_DELIVERY.md)。
 
 本次代码审计不替代 Windows 人工验收。鼠标焦点、可读性、动画手感和高 DPI 行为仍按人工验收清单验证。
 

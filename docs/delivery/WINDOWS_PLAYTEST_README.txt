@@ -44,4 +44,4 @@ ECHO — Windows 工程验证包
 5. 涉及 AP 时记录选中前、确认后、击杀后的余额；
 6. 游戏日志及发生问题前的存档副本。
 游戏日志位于上述存档目录下的 logs/godot.log；包内 logs 只记录构建验证。
-完整人工验收表见仓库 docs/engineering/WINDOWS_DELIVERY.md。
+完整人工验收表见仓库 docs/delivery/WINDOWS_DELIVERY.md。

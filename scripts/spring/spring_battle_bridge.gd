@@ -235,9 +235,12 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 			run.hero_base_attack = sheet.attack
 			run.hero_base_defense = sheet.defense
 			run.hero_base_magic_resistance = sheet.magic_resistance
+	var result_vitals: Dictionary = result.get("party_vitals", {}) if result.get("party_vitals", {}) is Dictionary else {}
+	var lead_snapshot: Dictionary = result_vitals.get(run.hero_character_id, {})
 	run.apply_battle_payload({
 		"hero_health": int(result.get("hero_health", run.hero_health)),
 		"hero_max_health": int(result.get("hero_max_health", run.effective_max_health())),
+		"hero_unscaled_max_health": int(lead_snapshot.get("base_max_health", result.get("hero_max_health", run.effective_max_health()))),
 		"carry": result.get("carry", run.battle_carry),
 	})
 	if result.get("party_vitals", {}) is Dictionary:

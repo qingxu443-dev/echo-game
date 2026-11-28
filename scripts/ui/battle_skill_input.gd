@@ -5,6 +5,7 @@ extends RefCounted
 static func select(view, index: int) -> void:
 	if index < 0 or index >= view.skill_bar.size() or view.controller.phase != BattleController.BattlePhase.PLAYER:
 		return
+	view.fx.move_actor_id = ""
 	var skill: Dictionary = view.skill_bar[index]
 	if not SkillBarView.is_affordable(view.controller, skill):
 		view.selected_skill = -1

@@ -292,7 +292,7 @@ func _test_highlight_composition() -> void:
 	var purple := _intent("vanguard_01", "ground_pulse", cell, BattleIntent.TargetMode.AREA_LOCKED)
 	battle.intents = [red, purple]
 	var tiles := BoardThreatTiles.build(battle)
-	_check(tiles[cell] == ["charge", "pulse"], "overlap preserves red and purple in a fixed priority")
+	_check(tiles[cell] == ["charge", "pulse"], "overlap retains action classification tags in a stable order")
 	battle.intents.reverse()
 	_check(BoardThreatTiles.build(battle) == tiles, "enemy iteration order cannot alter highlight priority")
 	_check(BoardThreatView.is_cell_in_danger(battle, cell), "composed attack tile remains dangerous")

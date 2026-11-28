@@ -204,8 +204,7 @@ func grant_random_relic(rng: RandomNumberGenerator) -> StringName:
 # --- hero vitals (§11.2) -----------------------------------------------------
 
 func effective_max_health() -> int:
-	var relic_bonus: int = SpringRelicCatalog.total_bonus(relics, "max_health")
-	return maxi(1, maxi(hero_base_max_health + bonus_max_health + relic_bonus, carry_max_health))
+	return SpringVitality.effective_maximum(self)
 
 
 ## Returns how much was actually restored, so the caller can say "回复 37 点"
@@ -238,39 +237,12 @@ func heal_fraction(fraction: float) -> int:
 
 
 func add_bonus_max_health(amount: int) -> void:
-	if amount == 0:
-		return
-	bonus_max_health = maxi(0, bonus_max_health + amount)
-	if amount > 0:
-		hero_health = mini(effective_max_health(), hero_health + amount)
-	else:
-		hero_health = clampi(hero_health, 1, effective_max_health())
-	sync_lead_vitals()
+	SpringVitality.change_bonus(self, amount)
 
 
 ## CONTRACT: _test_map_vitals_enter_the_next_fight
 func sync_lead_vitals(allow_revive: bool = false) -> void:
-	if not party_vitals.has(hero_character_id): return
-	var vitals: Dictionary = party_vitals[hero_character_id]
-	var core_max := effective_max_health()
-	var scaled_max := core_max
-	var store = FragmentStore.load_store()
-	if store != null:
-		var pct := store.total_bonus(hero_character_id, "health")
-		scaled_max = maxi(1, roundi(float(core_max) * (1.0 + pct / 100.0)))
-	var previous_max := maxi(1, int(vitals.get("max_health", core_max)))
-	if scaled_max != previous_max:
-		# Installing or removing a module changes the cap between encounters;
-		# carry the current HP ratio over so the change is neither free healing
-		# nor a silent wound.
-		hero_health = clampi(roundi(float(hero_health) * float(scaled_max) / float(previous_max)), 1, scaled_max)
-	vitals["base_max_health"] = core_max
-	vitals["max_health"] = scaled_max
-	if int(vitals.get("health", 0)) > 0 or allow_revive:
-		vitals["health"] = mini(hero_health, scaled_max)
-		hero_health = int(vitals["health"])
-	else:
-		hero_health = 0
+	SpringVitality.sync(self, allow_revive)
 
 
 # --- collectibles (§6.1) -----------------------------------------------------
@@ -343,13 +315,13 @@ func battle_payload() -> Dictionary:
 ## because gear sold or lost mid-fight can shrink the ceiling.
 func apply_battle_payload(payload: Dictionary) -> void:
 	if payload.has("hero_max_health"):
-		carry_max_health = maxi(0, int(payload["hero_max_health"]))
+		carry_max_health = maxi(0, int(payload.get("hero_unscaled_max_health", payload["hero_max_health"])))
 	if payload.has("bonus_max_health"):
 		bonus_max_health = maxi(0, int(payload["bonus_max_health"]))
 	if payload.has("carry"):
 		battle_carry = (payload["carry"] as Dictionary).duplicate(true)
 	if payload.has("hero_health"):
-		hero_health = clampi(int(payload["hero_health"]), 1, effective_max_health())
+		hero_health = clampi(int(payload["hero_health"]), 1, maxi(effective_max_health(), int(payload.get("hero_max_health", 1))))
 
 
 # --- shop (§7.3) -------------------------------------------------------------
@@ -546,7 +518,8 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	run.hero_base_magic_resistance = maxi(0, int(hero.get("base_magic_resistance", HERO_BASE_MAGIC_RESISTANCE)))
 	run.bonus_max_health = maxi(0, int(hero.get("bonus_max_health", 0)))
 	run.carry_max_health = maxi(0, int(hero.get("carry_max_health", 0)))
-	run.hero_health = clampi(int(hero.get("health", run.effective_max_health())), 1, run.effective_max_health())
+	var saved_max := int(data.get("party_vitals", {}).get(run.hero_character_id, {}).get("max_health", run.effective_max_health()))
+	run.hero_health = clampi(int(hero.get("health", run.effective_max_health())), 1, maxi(saved_max, run.effective_max_health()))
 	run.hero_max_health = run.effective_max_health()
 	for collectible_id in data.get("collectibles", []):
 		run.collectibles.append(StringName(collectible_id))

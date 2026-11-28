@@ -2,14 +2,7 @@ class_name BoardThreatTiles
 extends RefCounted
 
 const P = preload("res://scripts/ui/theme_palette.gd")
-const STYLES := {
-	"charge": [P.TELEGRAPH_CHARGE_FILL, P.TELEGRAPH_CHARGE_LINE],
-	"pulse": [P.TELEGRAPH_PULSE_FILL, P.TELEGRAPH_PULSE_LINE],
-	"shot": [P.TELEGRAPH_SHOT_FILL, P.TELEGRAPH_SHOT_LINE],
-	"blight": [P.HAZARD_BLIGHT_FILL, P.HAZARD_BLIGHT_LINE],
-	"spring": [P.HAZARD_SPRING_FILL, P.HAZARD_SPRING_LINE],
-}
-## One fill/border per tile; short colored corners preserve overlapping types.
+## Tags retain action classification for queries; every rendered attack is red.
 const PRIORITY := ["charge", "pulse", "shot", "blight", "spring"]
 const ACTION_STYLES := {
 	"charged_strike": "charge", "sakura_shock": "charge", "basic_melee": "charge", "shadow_raid": "charge",
@@ -55,16 +48,9 @@ static func build(controller) -> Dictionary:
 	return tiles
 
 
-static func draw(canvas: CanvasItem, controller, time: float) -> void:
-	var pulse := 0.94 + 0.06 * sin(time * 3.0)
-	var tiles := build(controller)
-	for cell in tiles:
-		var styles: Array = tiles[cell]
-		var fill: Color = STYLES[styles[0]][0]
-		var outer := P.cell_diamond(cell, 1.5)
-		canvas.draw_colored_polygon(outer, Color(fill.r, fill.g, fill.b, fill.a * pulse * 0.62))
-		var primary: Color = STYLES[styles[0]][1]
-		P.draw_polyline_closed(canvas, outer, Color(primary.r, primary.g, primary.b, 0.85), 1.4)
-		for index in range(1, styles.size()):
-			var line: Color = STYLES[styles[index]][1]
-			P.draw_corner_marks(canvas, outer, line, 2.4, index - 1)
+static func draw(canvas: CanvasItem, controller, _time: float) -> void:
+	BoardOverlayRegion.draw(canvas, build(controller), BoardOverlayRegion.ATTACK_FILL, BoardOverlayRegion.ATTACK_LINE)
+
+
+static func draw_boundaries(canvas: CanvasItem, controller) -> void:
+	BoardOverlayRegion.draw_boundary(canvas, build(controller), BoardOverlayRegion.ATTACK_LINE, 3.2)

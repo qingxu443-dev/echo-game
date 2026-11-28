@@ -458,13 +458,19 @@ func _draw_minimal_hud(font: Font, sx: float, sy: float) -> void:
 	# Secondary character-management shortcuts sit below the status pill.
 	var roster_r := roster_button_rect()
 	var squad_r := squads_button_rect()
-	for entry in [{ "rect": roster_r, "label": "角色总览", "hover": hover_roster }, { "rect": squad_r, "label": "队伍编成", "hover": hover_squads }]:
+	var compact_labels := size.x < 700.0
+	var entries := [
+		{"rect": roster_r, "label": "角色" if compact_labels else "角色总览", "hover": hover_roster},
+		{"rect": squad_r, "label": "编队" if compact_labels else "队伍编成", "hover": hover_squads},
+	]
+	for entry in entries:
 		var rect: Rect2 = entry["rect"]
 		var hovered: bool = bool(entry["hover"])
 		var border := Color("#8fc7dc") if hovered else Color(0.72, 0.78, 0.82, 0.48)
 		draw_rect(rect, Color(0.08, 0.12, 0.16, 0.88) if hovered else Color(0.07, 0.09, 0.12, 0.74), true)
 		draw_rect(rect, border, false, 1.2)
-		draw_string(font, rect.position + Vector2(14.0 * sx, 24.0 * sy), str(entry["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(13.0 * sy), Color("#e5f4fa") if hovered else Color("#d9d4ca"))
+		var label_width := font.get_string_size(str(entry["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.0 * sy)).x
+		draw_string(font, Vector2(rect.get_center().x - label_width * 0.5, rect.position.y + rect.size.y * 0.62), str(entry["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.0 * sy), Color("#e5f4fa") if hovered else Color("#d9d4ca"))
 
 
 func _draw_dialogue_ribbon(font: Font, sx: float, sy: float) -> void:

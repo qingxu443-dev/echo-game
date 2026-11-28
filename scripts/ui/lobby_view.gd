@@ -7,7 +7,7 @@ const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
 const BACKGROUND_PATH := "res://assets/ui/lobby_atelier_bg.png"
 const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
 const AtelierPrepOverlayScript = preload("res://scripts/ui/atelier_prep_overlay.gd")
-const RosterOverlayScript = preload("res://scripts/ui/roster_manager_overlay.gd")
+const RosterNavScript = preload("res://scripts/ui/lobby_roster_nav.gd")
 
 const MAP_ENTRIES: Array[Dictionary] = [
 	{
@@ -68,17 +68,15 @@ var dialogue_speaker: String = "瑟弗林"
 var dialogue_timer: float = 0.0
 var status_notice: String = ""
 var spring_resume_info: Dictionary = {}
-var roster_overlay: Control
-var hover_roster: bool = false
-var hover_squads: bool = false
+var roster_nav: RefCounted
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
 	background = _load_texture(BACKGROUND_PATH)
-	roster_overlay = RosterOverlayScript.new()
-	add_child(roster_overlay)
+	roster_nav = RosterNavScript.new()
+	roster_nav.install(self)
 	chapter_portraits["tutorial"] = _load_texture("res://assets/actors/portraits/sevrin.png")
 	chapter_portraits["spring"] = _load_texture("res://assets/actors/portraits/sakura.png")
 	_init_motes()
@@ -154,8 +152,6 @@ func _sy() -> float: return maxf(1.0, size.y) / 720.0
 func back_button_rect() -> Rect2: return Rect2(26.0 * _sx(), 22.0 * _sy(), 108.0 * _sx(), 34.0 * _sy())
 func prep_button_rect() -> Rect2: return Rect2(744.0 * _sx(), 580.0 * _sy(), 168.0 * _sx(), 102.0 * _sy())
 func expedition_button_rect() -> Rect2: return Rect2(928.0 * _sx(), 580.0 * _sy(), 316.0 * _sx(), 102.0 * _sy())
-func roster_button_rect() -> Rect2: return Rect2(936.0 * _sx(), 68.0 * _sy(), 150.0 * _sx(), 38.0 * _sy())
-func squads_button_rect() -> Rect2: return Rect2(1096.0 * _sx(), 68.0 * _sy(), 156.0 * _sx(), 38.0 * _sy())
 func sevrin_hotspot_rect() -> Rect2: return Rect2(490.0 * _sx(), 230.0 * _sy(), 240.0 * _sx(), 440.0 * _sy())
 func table_map_hotspot_rect() -> Rect2: return Rect2(240.0 * _sx(), 450.0 * _sy(), 260.0 * _sx(), 165.0 * _sy())
 func gear_hotspot_rect() -> Rect2: return Rect2(760.0 * _sx(), 340.0 * _sy(), 170.0 * _sx(), 290.0 * _sy())
@@ -256,12 +252,10 @@ func return_to_title() -> bool:
 # --- input -------------------------------------------------------------------
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if not event is InputEventKey or not event.pressed or event.echo:
+	if roster_nav != null and roster_nav.handle_key(event):
+		get_viewport().set_input_as_handled()
 		return
-	if roster_overlay != null and roster_overlay.visible:
-		if event.keycode == KEY_ESCAPE:
-			roster_overlay.hide()
-			get_viewport().set_input_as_handled()
+	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if prep_open:
 		if event.keycode == KEY_ESCAPE:
@@ -308,8 +302,7 @@ func _gui_input(event: InputEvent) -> void:
 			if next_hover != hovered_map_index or next_nav != hovered_nav_btn:
 				hovered_map_index = next_hover; hovered_nav_btn = next_nav; queue_redraw()
 		else:
-			hover_roster = roster_button_rect().has_point(pos)
-			hover_squads = squads_button_rect().has_point(pos)
+			roster_nav.update_hover(self, pos)
 			hover_expedition = expedition_button_rect().has_point(pos)
 			hover_prep = prep_button_rect().has_point(pos)
 			hover_back = back_button_rect().has_point(pos)
@@ -322,12 +315,8 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 func _handle_click(pos: Vector2) -> void:
-	if roster_overlay != null and roster_overlay.visible:
+	if roster_nav.handle_click(self, pos):
 		return
-	if roster_button_rect().has_point(pos):
-		roster_overlay.open_characters(); return
-	if squads_button_rect().has_point(pos):
-		roster_overlay.open_squads(); return
 	if prep_open:
 		var res := AtelierPrepOverlayScript.handle_click(size, pos, atelier_state)
 		if bool(res.get("close", false)): prep_open = false
@@ -455,22 +444,7 @@ func _draw_minimal_hud(font: Font, sx: float, sy: float) -> void:
 	var pill_text := "未尽之春（%s）· 体力 %d/%d" % [mode_tag, int(spring_resume_info.get("stamina", 0)), int(spring_resume_info.get("stamina_max", 10))] if has_resume else "黄昏时分  ·  营地待机中"
 	draw_string(font, pill.position + Vector2(16.0 * sx, 23.0 * sy), pill_text, HORIZONTAL_ALIGNMENT_LEFT, pill.size.x - 24.0 * sx, roundi(12.5 * sy), Color("#dcf4fc") if has_resume else Color("#dfd6c6"))
 
-	# Secondary character-management shortcuts sit below the status pill.
-	var roster_r := roster_button_rect()
-	var squad_r := squads_button_rect()
-	var compact_labels := size.x < 700.0
-	var entries := [
-		{"rect": roster_r, "label": "角色" if compact_labels else "角色总览", "hover": hover_roster},
-		{"rect": squad_r, "label": "编队" if compact_labels else "队伍编成", "hover": hover_squads},
-	]
-	for entry in entries:
-		var rect: Rect2 = entry["rect"]
-		var hovered: bool = bool(entry["hover"])
-		var border := Color("#8fc7dc") if hovered else Color(0.72, 0.78, 0.82, 0.48)
-		draw_rect(rect, Color(0.08, 0.12, 0.16, 0.88) if hovered else Color(0.07, 0.09, 0.12, 0.74), true)
-		draw_rect(rect, border, false, 1.2)
-		var label_width := font.get_string_size(str(entry["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.0 * sy)).x
-		draw_string(font, Vector2(rect.get_center().x - label_width * 0.5, rect.position.y + rect.size.y * 0.62), str(entry["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.0 * sy), Color("#e5f4fa") if hovered else Color("#d9d4ca"))
+	roster_nav.draw(self, font, sx, sy)
 
 
 func _draw_dialogue_ribbon(font: Font, sx: float, sy: float) -> void:

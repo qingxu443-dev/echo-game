@@ -26,6 +26,9 @@ const GO_BTN := Rect2(824.0, 648.0, 196.0, 44.0)
 const CONFIRM_YES := Rect2(520.0, 408.0, 116.0, 40.0)
 const CONFIRM_NO := Rect2(648.0, 408.0, 116.0, 40.0)
 const RETURN_BTN := Rect2(566.0, 540.0, 148.0, 44.0)
+const COLLECTIBLES_BTN := Rect2(1120.0, 12.0, 132.0, 52.0)
+const COLLECTIBLES_CLOSE := Rect2(884.0, 126.0, 76.0, 34.0)
+const COLLECTIBLE_PANEL := Rect2(300.0, 100.0, 680.0, 520.0)
 const REVIVE_YES := Rect2(520.0, 392.0, 180.0, 46.0)
 const REVIVE_NO := Rect2(724.0, 392.0, 180.0, 46.0)
 
@@ -46,6 +49,7 @@ var shop_open: bool = false
 var shop_tab: int = 0
 var shop_sell_page: int = 0
 var shop_message: String = ""
+var collectible_open: bool = false
 var save_path := SpringRun.SAVE_PATH
 var atelier_save_path := AtelierStash.SAVE_PATH
 
@@ -133,6 +137,8 @@ func _draw() -> void:
 		ShopViewScript.draw(self, run.shop, run, shop_tab, shop_sell_page, shop_message)
 	elif not run.reward_choices.is_empty():
 		_draw_reward_choices()
+	elif collectible_open:
+		_draw_collectibles()
 	elif run.revive_prompt:
 		_draw_revive_prompt()
 
@@ -174,11 +180,14 @@ func _draw_top_bar() -> void:
 	draw_string(font, Vector2(680.0, 32.0), "补给", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
 	draw_string(font, Vector2(680.0, 58.0), str(run.supplies), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_STRONG)
 	draw_string(font, Vector2(780.0, 32.0), "四时花露", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
-	draw_string(font, Vector2(780.0, 58.0), "%d / %d" % [run.dew_total(), run.dew_cap], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_BODY)
+	draw_string(font, Vector2(780.0, 58.0), "%d / %d" % [run.dew_total(), run.effective_dew_cap()], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_BODY)
 	draw_string(font, Vector2(900.0, 32.0), "记忆残页", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
 	draw_string(font, Vector2(900.0, 58.0), str(run.memory_pages), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_BODY)
 	draw_string(font, Vector2(1020.0, 32.0), "遗物", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.TEXT_MUTED)
 	draw_string(font, Vector2(1020.0, 58.0), str(run.relics.size()), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, P.TEXT_BODY)
+	draw_rect(COLLECTIBLES_BTN, P.BUTTON_BG, true)
+	draw_rect(COLLECTIBLES_BTN, P.BUTTON_BORDER, false, 1.2)
+	draw_string(font, COLLECTIBLES_BTN.position + Vector2(14.0, 32.0), "藏品", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.BUTTON_TEXT)
 
 func _draw_grid() -> void:
 	var font := ThemeDB.fallback_font
@@ -338,6 +347,11 @@ func _gui_input(event: InputEvent) -> void:
 		if RETURN_BTN.has_point(point):
 			SceneTravel.change(get_tree(), MENU_SCENE_PATH)
 		return
+	if collectible_open:
+		_handle_collectible_tap(point)
+		queue_redraw()
+		accept_event()
+		return
 	if event_open:
 		_handle_event_tap(point)
 		queue_redraw()
@@ -380,6 +394,11 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 		return
 
+	if COLLECTIBLES_BTN.has_point(point):
+		collectible_open = true
+		queue_redraw()
+		accept_event()
+		return
 	if END_BTN.has_point(point):
 		confirm_end = true
 		queue_redraw()
@@ -486,7 +505,7 @@ func _draw_reward_choices() -> void:
 	draw_rect(panel, P.OVERLAY_BG, true)
 	draw_rect(panel, P.GOLD, false, 2.0)
 	draw_string(font, Vector2(216.0, 196.0), "精英战利品 · 三选一", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, P.GOLD_PALE)
-	draw_string(font, Vector2(216.0, 226.0), "只出现普通与稀有品质；已拥有的不会重复出现。", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
+	draw_string(font, Vector2(216.0, 226.0), "只出现普通与稀有品质；被动藏品不重复，主动消耗品可重复获得。", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.TEXT_MUTED)
 	for index in range(run.reward_choices.size()):
 		var rect := reward_card_rect(index)
 		var collectible_id: StringName = run.reward_choices[index]
@@ -498,6 +517,60 @@ func _draw_reward_choices() -> void:
 
 func reward_card_rect(index: int) -> Rect2:
 	return Rect2(216.0 + float(index) * 300.0, 260.0, 280.0, 180.0)
+
+func _draw_collectibles() -> void:
+	draw_rect(Rect2(Vector2.ZERO, VIEW), P.OVERLAY_SCRIM, true)
+	draw_rect(COLLECTIBLE_PANEL, P.OVERLAY_BG, true)
+	draw_rect(COLLECTIBLE_PANEL, P.GOLD, false, 2.0)
+	var font := ThemeDB.fallback_font
+	draw_string(font, Vector2(336.0, 150.0), "藏品", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, P.GOLD_PALE)
+	draw_string(font, Vector2(336.0, 178.0), "被动藏品自动生效；主动消耗品可在这里选择使用。", HORIZONTAL_ALIGNMENT_LEFT, 590.0, 13, P.TEXT_MUTED)
+	draw_rect(COLLECTIBLES_CLOSE, P.BUTTON_BG, true)
+	draw_rect(COLLECTIBLES_CLOSE, P.BUTTON_BORDER, false, 1.2)
+	draw_string(font, COLLECTIBLES_CLOSE.position + Vector2(18.0, 23.0), "关闭", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, P.BUTTON_TEXT)
+	var row: int = 0
+	for item_id in CollectibleCatalogScript.all_ids():
+		var id := StringName(item_id)
+		var consumable: bool = CollectibleCatalogScript.is_consumable(id)
+		var count: int = int(run.collectible_consumables.get(item_id, 0)) if consumable else (1 if run.collectibles.has(id) else 0)
+		if count <= 0:
+			continue
+		var y: float = 212.0 + float(row) * 46.0
+		draw_string(font, Vector2(336.0, y + 16.0), CollectibleCatalogScript.name_of(id), HORIZONTAL_ALIGNMENT_LEFT, 190.0, 15, P.GOLD_LIGHT if consumable else P.TEXT_BODY)
+		draw_string(font, Vector2(540.0, y + 16.0), CollectibleCatalogScript.desc_of(id), HORIZONTAL_ALIGNMENT_LEFT, 290.0, 12, P.TEXT_MUTED)
+		if consumable:
+			var use_rect := Rect2(850.0, y - 8.0, 96.0, 30.0)
+			draw_rect(use_rect, P.BUTTON_BG, true)
+			draw_rect(use_rect, P.BUTTON_BORDER, false, 1.0)
+			draw_string(font, use_rect.position + Vector2(30.0, 20.0), "使用 ×%d" % count, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.BUTTON_TEXT)
+		else:
+			draw_string(font, Vector2(884.0, y + 14.0), "已生效", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.CYAN)
+		row += 1
+	if row == 0:
+		draw_string(font, Vector2(336.0, 250.0), "尚未获得藏品。", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, P.TEXT_MUTED)
+
+
+func _handle_collectible_tap(point: Vector2) -> void:
+	if COLLECTIBLES_CLOSE.has_point(point):
+		collectible_open = false
+		return
+	var row: int = 0
+	for item_id in CollectibleCatalogScript.all_ids():
+		var id := StringName(item_id)
+		var consumable: bool = CollectibleCatalogScript.is_consumable(id)
+		var count: int = int(run.collectible_consumables.get(item_id, 0)) if consumable else (1 if run.collectibles.has(id) else 0)
+		if count <= 0:
+			continue
+		if consumable:
+			var use_rect := Rect2(850.0, 204.0 + float(row) * 46.0, 96.0, 30.0)
+			if use_rect.has_point(point):
+				var used: Dictionary = run.use_collectible(id)
+				status_message = str(used.get("message", ""))
+				if bool(used.get("ok", false)):
+					_save()
+				return
+		row += 1
+
 
 func _draw_revive_prompt() -> void:
 	var font := ThemeDB.fallback_font

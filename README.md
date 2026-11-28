@@ -1,5 +1,7 @@
 # ECHO
 
+当前战斗采用**单人上场、队伍轮换**：我方回合点击左下队友头像或按 Tab 消耗 1 AP 换人，保留各自状态；死亡后本局退场并自动顺位接替。规则、真实渲染和已知问题见 [单人轮换交付记录](docs/engineering/quality/SINGLE_ACTIVE_PARTY_2026-11-28.md)。
+
 ECHO 是一款使用 **Godot 4.7.2 Standard** 与 **GDScript** 开发的 **2.5D 回合制战术 Roguelite** 游戏。
 
 > **历史文档归档**：早期 Prototype 0.1 / 0.3 阶段的旧版 README 已完整归档于 [`docs/archive/README_LEGACY.md`](docs/archive/README_LEGACY.md)。

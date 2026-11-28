@@ -98,6 +98,17 @@ static func prepare(run, encounter_id: StringName, place_id: StringName, kind: S
 	var lead = CharacterCatalogScript.get_definition(run.party_character_ids[0])
 	if lead == null:
 		return false
+	# Before rotation, legacy equipment belonged to formation slot zero even if
+	# an old map scalar still named the default hero. Migrate that owner once.
+	if not run.battle_carry.get("single_active_party", false) and not run.party_vitals.is_empty() and run.hero_character_id != String(lead.character_id):
+		run.hero_character_id = String(lead.character_id)
+		run.hero_base_max_health = lead.max_health
+		run.hero_base_attack = lead.attack
+		run.hero_base_defense = lead.defense
+		run.hero_base_magic_resistance = lead.magic_resistance
+		var vitals: Dictionary = run.party_vitals.get(run.hero_character_id, {})
+		run.carry_max_health = int(vitals.get("max_health", lead.max_health))
+		run.hero_health = int(vitals.get("health", run.hero_health))
 	if run.party_vitals.is_empty():
 		var lead_changed: bool = run.hero_character_id != String(lead.character_id)
 		var previous_max_health: int = run.effective_max_health()
@@ -154,6 +165,9 @@ static func apply_payload(run_state, payload: Dictionary) -> void:
 		run_state.mods.append(StringName(mod_id))
 	run_state.equipped_weapon = (carry.get("equipped_weapon", {}) as Dictionary).duplicate(true)
 	run_state.equipped_armor = (carry.get("equipped_armor", {}) as Dictionary).duplicate(true)
+	run_state.party_loadouts = carry.get("party_loadouts", {}).duplicate(true)
+	run_state.party_retired.assign(carry.get("party_retired", []))
+	run_state.party_owner_id = str(carry.get("party_owner_id", payload.get("hero_character_id", "")))
 	run_state.backpack.clear()
 	for item in carry.get("backpack", []):
 		run_state.backpack.append((item as Dictionary).duplicate(true))
@@ -163,6 +177,9 @@ static func apply_payload(run_state, payload: Dictionary) -> void:
 ## CONTRACT: _test_party_vitals_enter_the_battle_scene
 static func restore_party_vitals(battle, payload: Dictionary) -> void:
 	var saved: Dictionary = payload.get("party_vitals", {})
+	if battle.single_active_party:
+		PartyLoadout.restore_health(battle, saved)
+		return
 	for character_id in saved:
 		var actor = battle.actors.get(str(character_id))
 		var vitals: Dictionary = saved[character_id]
@@ -177,6 +194,10 @@ static func restore_party_vitals(battle, payload: Dictionary) -> void:
 ## Packs what the battle left behind so it can be written onto the run.
 static func pack_carry(run_state) -> Dictionary:
 	return {
+		"single_active_party": not run_state.party_loadouts.is_empty(),
+		"party_loadouts": run_state.party_loadouts.duplicate(true),
+		"party_retired": run_state.party_retired.duplicate(),
+		"party_owner_id": run_state.party_owner_id,
 		"mods": run_state.mods.duplicate(),
 		"equipped_weapon": run_state.equipped_weapon.duplicate(true),
 		"equipped_armor": run_state.equipped_armor.duplicate(true),
@@ -203,6 +224,17 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 	var place_id := StringName(str(result.get("place", "")))
 	var won: bool = str(result.get("result", "")) == "victory"
 
+	var carry: Dictionary = result.get("carry", run.battle_carry)
+	if carry.get("single_active_party", false):
+		var owner: String = str(carry.get("party_owner_id", run.hero_character_id))
+		var sheet = CharacterCatalogScript.get_definition(owner)
+		if sheet != null:
+			run.bonus_max_health = int(carry.get("party_loadouts", {}).get(owner, {}).get("bonus_max_health", 0))
+			run.hero_character_id = owner
+			run.hero_base_max_health = sheet.max_health
+			run.hero_base_attack = sheet.attack
+			run.hero_base_defense = sheet.defense
+			run.hero_base_magic_resistance = sheet.magic_resistance
 	run.apply_battle_payload({
 		"hero_health": int(result.get("hero_health", run.hero_health)),
 		"hero_max_health": int(result.get("hero_max_health", run.effective_max_health())),
@@ -210,6 +242,7 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 	})
 	if result.get("party_vitals", {}) is Dictionary:
 		run.party_vitals = result.get("party_vitals", {}).duplicate(true)
+	if carry.get("single_active_party", false) and int(result.get("hero_health", 1)) <= 0: run.hero_health = 0
 
 	if place_id != &"":
 		run.exploration.mark_completed(place_id)
@@ -218,7 +251,12 @@ static func settle_result(run, result: Dictionary, unlocked_region_ids: Array = 
 		var pity_shards: int = 20
 		outcome["atelier_shards"] = pity_shards
 		outcome["message"] = "这一处失守了（带回 %d 工坊残晶）。" % pity_shards
-		if run.revive_used:
+		if carry.get("single_active_party", false):
+			run.revive_prompt = false
+			run.exploration.finish("defeat")
+			outcome["finished_run"] = true
+			outcome["message"] += "全员退场，本局不可复用已死亡角色。"
+		elif run.revive_used:
 			outcome["message"] += "本区域的续行已经用过，冒险到此为止。"
 			run.exploration.finish("defeat")
 			outcome["finished_run"] = true
@@ -363,12 +401,12 @@ static func roll_reward_choices(run, source: String, count: int, seed_value: int
 ## §11.3: one continuation per area, paid in supplies, health restored to 30%.
 ## Atomic: supplies leave only when the heal actually applies.
 static func can_continue(run) -> bool:
-	return run != null and not run.revive_used and not run.exploration.finished and run.supplies >= CONTINUE_SUPPLY_COST
+	return run != null and not run.battle_carry.get("single_active_party", false) and not run.revive_used and not run.exploration.finished and run.supplies >= CONTINUE_SUPPLY_COST
 
 
 static func continue_run(run) -> Dictionary:
 	var outcome := {"ok": false, "message": ""}
-	if run == null or run.exploration.finished:
+	if run == null or run.exploration.finished or run.battle_carry.get("single_active_party", false):
 		outcome["message"] = "本次探索已经结束。"
 		return outcome
 	if run.revive_used:

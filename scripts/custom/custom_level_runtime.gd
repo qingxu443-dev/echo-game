@@ -17,6 +17,7 @@ static func start(view: Node, design: CustomLevelData) -> bool:
 		battle.beacons[cell] = {"id": "custom_chest_%02d" % index, "cell": cell, "health": 2, "max_health": 2, "opened": false, "blocks_sight": true, "loot": LootCatalog.roll_item_for_roster(level.character_ids)}
 	for unit in design.data.heroes:
 		_apply(battle.get_actor(str(unit.id)), unit)
+		if battle.single_active_party: PartyLoadout.adopt_actor(battle, battle.get_actor(str(unit.id)))
 	for index in range(design.data.enemies.size()):
 		var unit: Dictionary = design.data.enemies[index]
 		_apply(battle.get_actor("%s_%02d" % [unit.id, index]), unit)
@@ -29,7 +30,8 @@ static func start(view: Node, design: CustomLevelData) -> bool:
 		actor.resource_current = int(unit.get("resource_current", 0))
 	battle.ledger.rewards_settled = true
 	UiPalette.board_grid_size = battle.grid_size
-	view.run_state.sync_from_actor(battle.get_active_character())
+	if battle.single_active_party: PartyLoadout.select_role(battle, battle.active_character_id)
+	else: view.run_state.sync_from_actor(battle.get_active_character())
 	return true
 
 

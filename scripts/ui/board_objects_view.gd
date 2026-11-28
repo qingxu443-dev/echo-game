@@ -275,6 +275,13 @@ static func _draw_single_actor(canvas: CanvasItem, controller, actor_id: String,
 		P.draw_iso_ellipse(canvas, base_pos + Vector2(0.0, 1.0), 26.0, 14.0, P.RING_ACTIVE, false, 2.2)
 	_draw_floor_status_rings(canvas, controller, actor_id, actor, base_pos)
 
+	var switch_alpha := 1.0
+	if str(fx_state.get("party_switch_id", "")) == actor_id and float(fx_state.get("party_switch_left", 0.0)) > 0.0:
+		var progress := 1.0 - float(fx_state.party_switch_left) / BattleFxState.PARTY_SWITCH_DURATION
+		switch_alpha = clampf(progress * 2.0, 0.12, 1.0)
+		foot_pos.y -= (1.0 - progress) * 22.0
+		P.draw_iso_ellipse(canvas, base_pos, 24.0 + progress * 32.0, 12.0 + progress * 16.0, Color(P.GOLD_LIGHT, 1.0 - progress), false, 3.0)
+
 	# Standee sprite with 4-way isometric facing (front/back + horizontal flip)
 	var facing: Dictionary = _compute_facing(controller, actor_id, actor, base_pos, fx_state)
 	var use_back: bool = bool(facing["use_back"])
@@ -293,6 +300,7 @@ static func _draw_single_actor(canvas: CanvasItem, controller, actor_id: String,
 			# Soft pulsing red oppressive tint on the character inside hazard tiles
 			base_tint = Color.WHITE.lerp(Color(1.26, 0.72, 0.70, 1.0), 0.35 + 0.55 * danger_breath)
 		var modulate := base_tint.lerp(Color(1.8, 1.75, 1.65, 1.0), flash)
+		modulate.a = switch_alpha
 		# Mirror cleanly around the standee's foot center so shadow, feet and HP bar stay aligned
 		if flip_h:
 			canvas.draw_set_transform(Vector2(foot_pos.x, 0.0), 0.0, Vector2(-1.0, 1.0))

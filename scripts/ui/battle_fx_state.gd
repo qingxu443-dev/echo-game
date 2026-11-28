@@ -18,6 +18,9 @@ const Palette = preload("res://scripts/ui/theme_palette.gd")
 const BoardThreatViewScript = preload("res://scripts/ui/board_threat_view.gd")
 
 var time: float = 0.0
+var party_switch_left: float = 0.0
+var party_switch_id: String = ""
+const PARTY_SWITCH_DURATION := 0.36
 var actor_visual_pos: Dictionary = {}
 var actor_hop_state: Dictionary = {}
 var actor_hit_flash: Dictionary = {}
@@ -31,6 +34,8 @@ var acting_enemy_id: String = ""
 
 ## 新遭遇开始：清空所有瞬态 FX 并重置角色视觉位置到当前格。
 func reset_for_encounter(controller) -> void:
+	party_switch_left = 0.0
+	party_switch_id = ""
 	actor_visual_pos.clear()
 	actor_hop_state.clear()
 	actor_hit_flash.clear()
@@ -49,6 +54,7 @@ func reset_for_encounter(controller) -> void:
 ## 以及敌方回合的分步演出。返回是否需要调用方 queue_redraw()。
 func advance(delta: float, controller) -> bool:
 	time += delta
+	party_switch_left = maxf(0.0, party_switch_left - delta)
 
 	# Smooth hop-interpolated movement for every living/downed actor
 	for actor_id in controller.actors:
@@ -160,6 +166,8 @@ func prepare_enemy_step() -> void:
 func snapshot(hover_cell: Vector2i) -> Dictionary:
 	return {
 		"time": time,
+		"party_switch_left": party_switch_left,
+		"party_switch_id": party_switch_id,
 		"hover_cell": hover_cell,
 		"acting_enemy": acting_enemy_id,
 		"actor_pos": actor_visual_pos,
@@ -180,6 +188,16 @@ func on_event(
 	out_selected_skill: Array
 ) -> bool:
 	match event_type:
+		"party_switched":
+			party_switch_id = str(event.actor_id)
+			party_switch_left = PARTY_SWITCH_DURATION
+			var actor = controller.get_actor(party_switch_id)
+			actor_visual_pos[party_switch_id] = Palette.cell_center(actor.cell)
+			actor_hop_state.erase(party_switch_id)
+			actor_lunge.erase(party_switch_id)
+			out_selected_skill.append(-1)
+			out_status.append(("前一名角色已退场，%s 自动接替。" if str(event.detail).contains("automatic=true") else "已消耗 1 AP，切换至 %s。") % actor.display_name_zh)
+			return true
 		"actor_moved":
 			var mover_id: String = str(event.get("actor_id", ""))
 			var mover = controller.get_actor(mover_id)

@@ -106,7 +106,7 @@ func _test_party_vitals_enter_the_battle_scene() -> void:
 	root.add_child(view)
 	_check(view.spring_mode and view.controller.phase == BattleController.BattlePhase.DEPLOY, "normal battle scene enters deployment with the prepared party")
 	_check(view.controller.actors.sevrin.health == 1800 and view.controller.actors.sevrin.max_health == 3600, "lead retains wounded health on entry")
-	_check(view.controller.actors.sakura.health == 0 and view.controller.actors.sakura.is_downed(), "a downed member is not healed by scene setup")
+	_check(view.controller.actors.sakura.health == 0 and view.controller.actors.sakura.is_defeated(), "a zero-health legacy member is retired, never revived by scene setup")
 	_check(view.controller.actors.dest_lee.health == 800 and view.controller.actors.dest_lee.max_health == 2400, "the new character retains individual vitality")
 	view.queue_free()
 	SpringBattleBridgeScript.clear_pending()

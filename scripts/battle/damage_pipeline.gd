@@ -36,7 +36,7 @@ static func apply(
 	if target == null:
 		push_error("DamagePipeline: unknown target '%s'" % target_actor_id)
 		return
-	if target.is_defeated():
+	if target.is_defeated() or target.is_benched:
 		return
 
 	var effective_amount: int = amount
@@ -100,6 +100,8 @@ static func apply(
 		var removed_statuses: int = statuses.clear_actor(target_actor_id)
 		if removed_statuses > 0:
 			battle._emit_event("statuses_cleared", target_actor_id, "", "reason=actor_defeated count=%d" % removed_statuses)
+	if battle.single_active_party and target.team == "player" and target.health <= 0:
+		PartyRotation.ensure_active(battle)
 	if target.is_defeated() and target.team == "enemy":
 		if applied > 0:
 			battle.enemies_defeated += 1

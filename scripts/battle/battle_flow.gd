@@ -61,7 +61,10 @@ static func start_encounter(
 		roster.append(CharacterCatalogScript.default_id())
 	if roster.size() != ally_cells.size() + 1:
 		return false
+	var seen_roster := {}
 	for character_id in roster:
+		if seen_roster.has(character_id): return false
+		seen_roster[character_id] = true
 		if not CharacterCatalogScript.has_definition(character_id):
 			return false
 
@@ -93,6 +96,7 @@ static func start_encounter(
 	battle.ap.maximum = laws.ap_pool
 	battle.law_overrides = anomaly_overrides.duplicate(true)
 	battle.attenuation_k = laws.attenuation_k
+	if battle.single_active_party and battle.run_state != null and not battle.run_state.party_loadouts.is_empty(): PartyLoadout.capture(battle)
 	battle.actors.clear()
 	battle.beacons.clear()
 	battle.dropped_loot.clear()
@@ -127,13 +131,22 @@ static func start_encounter(
 		unit.ultimate_energy_max = maxi(1, sheet.ultimate_energy_max)
 		unit.resource_current = 0
 		unit.attenuation_k = battle.attenuation_k
-		if index == 0 and battle.run_state != null:
+		if battle.single_active_party:
+			PartyLoadout.prepare_actor(battle, unit, index)
+		elif index == 0 and battle.run_state != null:
 			battle.run_state.apply_to_actor(unit)
 		_apply_fragment_modules(unit, character_id)
+		if battle.single_active_party and battle.run_state != null:
+			var row: Dictionary = battle.run_state.party_loadouts[character_id]
+			var hp: int = int(row.hero_health)
+			unit.health = 0 if hp <= 0 else clampi(hp + unit.max_health - int(row.hero_max_health), 1, unit.max_health)
 		battle.actors[character_id] = unit
 		if index == 0:
 			battle.active_character_id = roster[0]
-		# §11.1 deploys the roster in order, one cell each.
+		if battle.single_active_party and battle.run_state != null:
+			battle.run_state.party_loadouts[character_id].hero_health = unit.health
+			battle.run_state.party_loadouts[character_id].hero_max_health = unit.max_health
+		# Legacy deployment places each role; rotation setup below keeps one slot.
 		battle.deploy_order.append(character_id)
 	for index in range(enemy_cells.size()):
 		var cell: Vector2i = enemy_cells[index]
@@ -145,6 +158,8 @@ static func start_encounter(
 		enemy_unit.skill_charge = 3
 		TacticalPressureScript.init_enemy_pressure(enemy_unit)
 		battle.actors[enemy_id] = enemy_unit
+
+	if battle.single_active_party: PartyRotation.setup(battle, roster)
 
 	# Spawn 2 Relic Beacons as stationary defense objectives on the board
 	_spawn_default_beacons(battle, spawn_cells, enemy_cells, candidate_blockers, chest_items)
@@ -159,11 +174,17 @@ static func start_encounter(
 	# first player turn waits for request_begin_battle().
 	if defer_start:
 		battle.phase = battle.BattlePhase.DEPLOY
+		if battle.single_active_party and battle.get_defender() == null:
+			finish_battle(battle, "defeat")
+			return true
 		battle.turn_number = 0
 		battle.ap.reset()
 		battle._emit_event("deployment_started", "", "", "zone=%d roster=%d" % [battle.deploy_zone.size(), battle.deploy_order.size()])
 		return true
 	battle.phase = battle.BattlePhase.PLAYER
+	if battle.single_active_party and battle.get_defender() == null:
+		finish_battle(battle, "defeat")
+		return true
 	begin_player_turn(battle)
 	return true
 
@@ -218,7 +239,7 @@ static func _spawn_default_beacons(
 		for bag_item in battle.run_state.backpack:
 			if str(bag_item.get("kind", "")) == LootCatalogScript.KIND_SKILL_UPGRADE:
 				excluded_upgrades.append(StringName(str(bag_item.get("id", ""))))
-	var roster: Array[String] = battle.deploy_order.duplicate()
+	var roster: Array[String] = (battle.party_order if battle.single_active_party else battle.deploy_order).duplicate()
 	var placed: int = 0
 	for c in preferred:
 		if placed >= 2:
@@ -461,6 +482,7 @@ static func begin_player_turn(battle) -> void:
 static func check_battle_end(battle) -> void:
 	if battle.phase == battle.BattlePhase.FINISHED:
 		return
+	PartyRotation.ensure_active(battle)
 	# §12: defeat only when the whole party is down. A single downed member is
 	# still revivable while anyone else stands. Any party counts - naming Sevrin
 	# here meant a party without him could never lose.

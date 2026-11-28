@@ -8,9 +8,8 @@ extends RefCounted
 ## character that reuses an existing mechanic needs no code at all, and one that
 ## invents a mechanic adds one entry here plus one row in the runtime's table.
 ##
-## Every executor takes (battle, skill, target_actor_id) and resolves the caster
-## as the commanded character itself, so there is one rule in one place rather
-## than a parameter every call has to remember to pass correctly.
+## Executors resolve the caster from the battle command. Most take an actor id;
+## Flowing Wind also accepts a board cell for its movement-only aim.
 ##
 ## Geometry lives in CombatGeometry; this file never computes a cell.
 
@@ -173,53 +172,86 @@ static func _pierce_blossom(battle, skill, target_actor_id: String) -> bool:
 
 
 ## §22 流风: dash up to two cells toward the target, then strike it if adjacent.
-static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
+## Legal destination for Flowing Wind. Clicking an enemy preserves the
+## strike route; clicking an empty tile chooses a pure reposition of up to two
+## orthogonal cells. An occupied ally tile is never treated as an empty aim.
+static func flowing_wind_landing_cell(battle, skill, aim_cell: Vector2i) -> Vector2i:
+	var caster = battle.get_active_character()
+	if caster == null or not caster.is_alive():
+		return Vector2i(-1, -1)
+	if not CombatGeometryScript.can_aim_cell(battle, skill, aim_cell, 0, true):
+		return Vector2i(-1, -1)
+	var distance: int = GridRulesScript.manhattan_distance(caster.cell, aim_cell)
+	var target: Variant = null
+	for actor_id in battle.actors:
+		var candidate = battle.actors[actor_id]
+		if candidate.team == "enemy" and candidate.is_alive() and candidate.cell == aim_cell:
+			target = candidate
+			break
+	if target != null:
+		var strike_landing: Vector2i = CombatGeometryScript.dash_landing(battle, caster, target, FLOWING_WIND_DASH_STEPS)
+		if GridRulesScript.manhattan_distance(strike_landing, target.cell) == 1:
+			return strike_landing
+		return Vector2i(-1, -1)
+	# A positional cast must land on an unoccupied tile no more than two cells
+	# away. The dash may stop early if another unit blocks the lane.
+	if distance <= 0 or distance > FLOWING_WIND_DASH_STEPS:
+		return Vector2i(-1, -1)
+	var occupied: Dictionary = battle.get_occupied_cells(caster.actor_id)
+	if occupied.has(aim_cell):
+		return Vector2i(-1, -1)
+	var direction: Vector2i = CombatGeometryScript.direction_toward(caster.cell, aim_cell)
+	var cursor: Vector2i = caster.cell
+	for _step in range(FLOWING_WIND_DASH_STEPS):
+		var next: Vector2i = cursor + direction
+		if not GridRulesScript.is_inside_bounds(next, battle.grid_size):
+			break
+		if battle.blocked_cells.has(next) or occupied.has(next):
+			break
+		cursor = next
+	return cursor if cursor != caster.cell else Vector2i(-1, -1)
+
+
+## §22 流风: dash up to two cells. An enemy aim ends adjacent and strikes;
+## an empty-cell aim spends the same AP to reposition without dealing damage.
+static func _flowing_wind(battle, skill, aim: Variant) -> bool:
 	var caster = battle.get_active_character()
 	if not _can_cast(battle, caster, skill):
 		return false
-	var target = battle.actors.get(target_actor_id)
-	if target == null or target.team != "enemy" or not target.is_alive():
+	var aim_cell: Vector2i = Vector2i(-1, -1)
+	var requested_actor_id := ""
+	if aim is Vector2i:
+		aim_cell = aim
+	else:
+		requested_actor_id = str(aim)
+		var requested_target = battle.actors.get(requested_actor_id)
+		if requested_target == null or requested_target.team != "enemy" or not requested_target.is_alive():
+			return false
+		aim_cell = requested_target.cell
+	var landing: Vector2i = flowing_wind_landing_cell(battle, skill, aim_cell)
+	if landing == Vector2i(-1, -1):
 		return false
-
-	# Range and lane both come from can_aim, the same predicate the target ring
-	# calls. Writing them out twice is how the ring ended up promising a dash the
-	# cast refused whenever a wall stood between.
-	if not can_aim(battle, skill, target):
-		return false
-
-	var landing: Vector2i = CombatGeometryScript.dash_landing(battle, caster, target, FLOWING_WIND_DASH_STEPS)
-	# A dash that ends out of reach would spend the AP and strike nothing. Under
-	# the current rules this cannot happen - the aim check clears the same lane the
-	# walk uses - so the condition states the invariant rather than guarding a
-	# reachable path. `_test_every_reachable_dash_can_strike` is what keeps the two
-	# rules from drifting apart and making it reachable.
-	if GridRulesScript.manhattan_distance(landing, target.cell) != 1:
-		return false
+	var target: Variant = null
+	for actor_id in battle.actors:
+		var candidate = battle.actors[actor_id]
+		if candidate.team == "enemy" and candidate.is_alive() and candidate.cell == aim_cell:
+			target = candidate
+			break
 	if not battle.ap.spend(skill.ap_cost):
 		return false
 
-	# Captured before any settlement: the bar is spent by this action, but the
-	# stacks this action earns must survive, so consumption happens first and the
-	# gain afterwards (§19).
 	var extreme: bool = is_extreme(caster)
 	var from_cell: Vector2i = caster.cell
 	caster.cell = landing
 	battle._emit_event("actor_moved", caster.actor_id, "", str(landing))
-
-	var adjacent: bool = GridRulesScript.manhattan_distance(caster.cell, target.cell) == 1
+	var adjacent: bool = target != null and GridRulesScript.manhattan_distance(caster.cell, target.cell) == 1
 	var was_marked: bool = adjacent and battle.statuses.has_status(target.actor_id, PETAL_MARK)
 	var kills: int = 0
 	if adjacent:
 		kills += _apply_segments(battle, caster, skill, [target], "sakura_flowing_wind")
 		if target.is_alive():
 			apply_petal_mark(battle, caster, target)
-			# §14 樱华蓄斩: the dash is the control that breaks a wind-up. The
-			# controller decides whether there is one to break, so this stays a
-			# one-line rider instead of a second copy of the rule.
 			battle.interrupt_enemy_charge(target.actor_id, "sakura_flowing_wind")
-		# §22 极意: a second strike at 40% against the same target. The plan allows
-		# a new direction and a new target, but picking one is a second aiming
-		# step the interface does not offer yet, so this strike reuses the target.
 		if extreme and target.is_alive():
 			if _apply_one_hit(battle, caster, target, EXTREME_FOLLOW_UP_MULTIPLIER, "sakura_flowing_wind_extreme"):
 				kills += 1
@@ -227,13 +259,11 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 		_consume_extreme(battle, caster)
 	gain_intent_from_action(battle, caster)
 	_credit_kills(battle, kills)
-	# §13: a successful active action grants one ultimate energy per turn, for
-	# every character. The dash resolves even without a strike, so the grant
-	# follows the action rather than the hit.
 	SkillExecutorScript.gain_active_energy(battle, caster.actor_id)
 	if adjacent and was_marked:
 		_check_echo_return(battle, caster, target)
-	battle._emit_event("skill_resolved", caster.actor_id, target_actor_id, "skill=sakura_flowing_wind ap=1 from=%s to=%s" % [str(from_cell), str(landing)])
+	var resolved_target_id: String = target.actor_id if target != null else requested_actor_id
+	battle._emit_event("skill_resolved", caster.actor_id, resolved_target_id, "skill=sakura_flowing_wind ap=1 from=%s to=%s reposition=%s" % [str(from_cell), str(landing), str(not adjacent)])
 	battle._check_battle_end()
 	return true
 

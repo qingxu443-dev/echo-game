@@ -69,7 +69,7 @@ func _prepared_run(item_id: StringName = &"armor_echo_mantle") -> SpringRun:
 	var run := SpringRun.begin(3)
 	run.party_character_ids.assign(["sakura", "sevrin", "dest_lee"])
 	var state := RunState.new()
-	state.reset(1800, 520, 180, 111)
+	state.reset(2100, 600, 195, 120)
 	var battle := BattleController.new()
 	battle.single_active_party = true
 	battle.run_state = state
@@ -218,7 +218,7 @@ func _test_signed_reserve_pause_snapshot() -> void:
 	view.controller.request_begin_battle()
 	view.run_state.add_to_backpack(LootCatalog.get_item(&"weapon_dusk_blade"))
 	view.run_state.equip_from_backpack(0, view.controller.actors.sevrin)
-	_check(view.controller.actors.sevrin.defense == 290 and view.controller.actors.sevrin.attack == 1490, "dusk blade retains its intended +340 attack / -60 defense tradeoff")
+	_check(view.controller.actors.sevrin.defense == 300 and view.controller.actors.sevrin.attack == 990, "dusk blade retains its intended +340 attack / -60 defense tradeoff")
 	_check(view.controller.request_switch_character("sakura"), "move the signed equipment onto a reserve loadout")
 	_check(SessionSave.valid(BattleSession.capture(view)), "typed pause snapshot accepts a reserve's negative equipment modifier")
 	var saved := PlaySession.save(view)
@@ -228,7 +228,7 @@ func _test_signed_reserve_pause_snapshot() -> void:
 	if saved:
 		var restored = scene.instantiate()
 		root.add_child(restored)
-		_check(restored.controller.active_character_id == "sakura" and restored.controller.actors.sevrin.defense == 290, "resume preserves commanded role and reserve defense")
+		_check(restored.controller.active_character_id == "sakura" and restored.controller.actors.sevrin.defense == 300, "resume preserves commanded role and reserve defense")
 		_check(restored.controller.request_switch_character("sevrin") and restored.run_state.equipped_weapon.defense == -60, "switching back restores the signed item without losing its penalty")
 		restored.queue_free()
 		await process_frame

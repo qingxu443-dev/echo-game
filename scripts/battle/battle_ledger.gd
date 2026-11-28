@@ -22,8 +22,6 @@ var oath_shield_revived: Dictionary = {}
 var oath_vow_triggered_intents: Dictionary = {}
 ## 绝对防御期间成功命中瑟弗林的公开攻击意图 id。
 var absolute_guard_hit_intents: Dictionary = {}
-## 当前玩家回合内已被反击的敌方 actor_id。
-var absolute_guard_countered_enemies: Dictionary = {}
 ## actor_id -> 职业资源上次结算的回合号。
 var resource_gain_turn: Dictionary = {}
 ## actor_id -> 本回合已消耗的职业资源额度。
@@ -53,7 +51,6 @@ func reset_for_encounter() -> void:
 	oath_shield_revived.clear()
 	oath_vow_triggered_intents.clear()
 	absolute_guard_hit_intents.clear()
-	absolute_guard_countered_enemies.clear()
 	resource_gain_turn.clear()
 	resource_gain_count.clear()
 	echo_return_gain_turn.clear()
@@ -68,9 +65,9 @@ func reset_for_encounter() -> void:
 	dest_lee_chain_hit_targets.clear()
 
 
-## 每个玩家回合开始时只清"每回合一次"的账本；跨回合账本保持不变。
+## 反击去重现在按 intent_id 在意图解析阶段完成；保留空回合钩子以兼容 BattleFlow。
 func reset_for_player_turn() -> void:
-	absolute_guard_countered_enemies.clear()
+	pass
 
 
 ## 只读快照，供测试与未来的 UI 诊断使用；返回的是新字典，不共享内部引用。
@@ -82,7 +79,6 @@ func snapshot() -> Dictionary:
 		"oath_shield_revived": oath_shield_revived.duplicate(),
 		"oath_vow_triggered_intents": oath_vow_triggered_intents.duplicate(),
 		"absolute_guard_hit_intents": absolute_guard_hit_intents.duplicate(),
-		"absolute_guard_countered_enemies": absolute_guard_countered_enemies.duplicate(),
 		"resource_gain_turn": resource_gain_turn.duplicate(),
 		"resource_gain_count": resource_gain_count.duplicate(),
 		"echo_return_gain_turn": echo_return_gain_turn.duplicate(),

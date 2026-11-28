@@ -64,7 +64,7 @@ func _test_characters_come_from_data() -> void:
 	_check(CharacterCatalogScript.has_definition("sevrin"), "Sevrin is defined by a sheet")
 	_check(CharacterCatalogScript.has_definition("sakura"), "Sakura is defined by a sheet")
 	var sakura = CharacterCatalogScript.get_definition("sakura")
-	_check(sakura.max_health == 1800 and sakura.attack == 520, "Sakura's sheet carries the planned panel")
+	_check(sakura.max_health == 2100 and sakura.attack == 600, "Sakura's sheet carries the planned panel")
 	_check(sakura.has_resource() and String(sakura.resource_id) == "blade_intent", "Sakura's sheet declares blade intent")
 
 	var skills := SkillRegistryScript.skills_for_character("sakura")
@@ -105,8 +105,8 @@ func _test_sevrin_normal_attack() -> void:
 	var ap_before: int = battle.ap.current
 
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves on an adjacent enemy")
-	# 1150 ATK x 1.0 against 450 defense: floor(1150 * 1000 / 1450) = 793
-	_check(health_before - enemy.health == 793, "the normal attack deals full attack through defense")
+	# 650 ATK x 1.0 against 450 defense: floor(650 * 1000 / 1450) = 448
+	_check(health_before - enemy.health == 448, "the normal attack deals full attack through defense")
 	_check(enemy.cell == Vector2i(3, 1), "Oathblade knocks the adjacent enemy back one tile")
 	_check(battle.ap.current == ap_before - 1, "the normal attack costs one AP")
 	battle.queue_free()
@@ -201,8 +201,8 @@ func _test_pierce_blossom_applies_the_mark_without_follow_up() -> void:
 
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Pierce Blossom resolves")
 	var dealt: int = health_before - enemy.health
-	# 520 ATK x 1.0 against 450 defense: floor(520 * 1000 / 1450) = 358
-	_check(dealt == 358, "the first hit deals its own damage only")
+	# 600 ATK x 1.0 against 450 defense: floor(600 * 1000 / 1450) = 413
+	_check(dealt == 413, "the first hit deals its own damage only")
 	_check(battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the hit applies the petal mark")
 	battle.queue_free()
 
@@ -215,8 +215,8 @@ func _test_second_hit_triggers_echo_return() -> void:
 
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the second Pierce Blossom resolves")
 	var dealt: int = health_before - enemy.health
-	# 358 from the hit plus floor(260 * 1000 / 1450) = 179 from the follow-up
-	_check(dealt == 537, "an already-marked target also takes the echo return")
+	# 413 from the hit plus floor(300 * 1000 / 1450) = 206 from the follow-up
+	_check(dealt == 619, "an already-marked target also takes the echo return")
 	battle.queue_free()
 
 
@@ -227,8 +227,8 @@ func _test_echo_kill_pays_a_kill_stack() -> void:
 	var sakura = battle.get_actor("sakura")
 	var enemy = battle.get_actor("vanguard_00")
 	sakura.resource_current = 0
-	# 305 from the strike leaves 95 of 400; the 152 follow-up is lethal.
-	enemy.health = 400
+	# 413 from the strike leaves 87 of 500; the 206 follow-up is lethal.
+	enemy.health = 500
 	SkillEffectsScript.apply_petal_mark(battle, sakura, enemy)
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "the strike resolves")
 	_check(not enemy.is_alive(), "the echo return lands the killing blow")
@@ -286,9 +286,9 @@ func _test_endless_fragrance_scales_with_intent() -> void:
 	_check(battle.request_skill(&"sakura_endless_fragrance"), "the ultimate resolves")
 	_check(sakura.ultimate_energy == 0, "the ultimate spends five energy")
 	# Three 20% segments and a finisher of 40% + 4x5% + 20% = 80%.
-	# floor(104*1000/1450)=71 x3 plus floor(416*1000/1450)=286
+	# floor(120*1000/1450)=82 x3 plus floor(480*1000/1450)=331
 	var dealt: int = health_before - enemy.health
-	_check(dealt == 499, "the cross hits four times with the intent-scaled finisher")
+	_check(dealt == 577, "the cross hits four times with the intent-scaled finisher")
 	_check(not battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the ultimate does not apply the mark")
 	battle.queue_free()
 
@@ -315,9 +315,9 @@ func _test_falling_petals_covers_the_rectangle_in_front() -> void:
 	_check(skill.shape_width == 3 and skill.shape_depth == 2, "the footprint is three across and two deep")
 	_check(battle.request_skill(&"sakura_falling_petals", "vanguard_00"), "Falling Petals resolves")
 
-	# Three segments of 30%: floor(156 * 1000 / 1450) = 107 each, so 321.
-	_check(near_before - near.health == 321, "the aimed target takes all three segments")
-	_check(side_before - side.health == 321, "a target beside the axis is inside the block and also takes three")
+	# Three segments of 30%: floor(180 * 1000 / 1450) = 124 each, so 372.
+	_check(near_before - near.health == 372, "the aimed target takes all three segments")
+	_check(side_before - side.health == 372, "a target beside the axis is inside the block and also takes three")
 	_check(outside.health == outside_before, "an enemy outside the block is untouched")
 	_check(beyond_depth.health == beyond_before, "an enemy four cells ahead is beyond the two-cell depth")
 	_check(battle.statuses.has_status("vanguard_00", &"sakura_petal_mark"), "the block applies the mark")
@@ -355,8 +355,8 @@ func _test_flowing_wind_respects_its_range() -> void:
 	var health_before: int = enemy.health
 	_check(inside.request_skill(&"sakura_flowing_wind", "vanguard_00"), "a target three cells away is inside the dash range")
 	_check(inside_sakura.cell == Vector2i(3, 1), "the dash lands two cells closer")
-	# floor(416 * 1000 / 1450) = 286
-	_check(health_before - enemy.health == 286, "the dash strikes once it arrives")
+	# floor(480 * 1000 / 1450) = 331
+	_check(health_before - enemy.health == 331, "the dash strikes once it arrives")
 	inside.queue_free()
 
 
@@ -545,7 +545,7 @@ func _test_a_dead_target_is_not_marked() -> void:
 
 ## The framework claim being tested: the caster is whoever is commanded, not the
 ## character the prototype started with. Damage numbers make this observable -
-## Sakura's 520 attack and Sevrin's 2000 produce different results from the same
+## Sakura's 600 attack and Sevrin's 650 produce different results from the same
 ## distance against the same defense.
 func _test_cast_uses_the_commanded_character() -> void:
 	var battle = ControllerScript.new()
@@ -559,17 +559,17 @@ func _test_cast_uses_the_commanded_character() -> void:
 	_check(battle.active_character_id == "sevrin", "the first deployed character starts in command")
 
 	var adjacent = battle.get_actor("vanguard_00")
-	# Sevrin's 1150 attack against 450 defense: floor(1150 * 1000 / 1450) = 793 (and knocks vanguard to (3, 1))
+	# Sevrin's 650 attack against 450 defense: floor(650 * 1000 / 1450) = 448 (and knocks vanguard to (3, 1))
 	var before_sevrin: int = adjacent.health
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "Sevrin's normal attack resolves")
-	_check(before_sevrin - adjacent.health == 793, "Sevrin's attack uses Sevrin's attack stat")
+	_check(before_sevrin - adjacent.health == 448, "Sevrin's attack uses Sevrin's attack stat")
 
 	_check(battle.set_active_character("sakura"), "command switches to Sakura")
 	# Sakura at (3, 2) is now adjacent to the knocked-back vanguard at (3, 1).
-	# Sakura's 520 attack against 450 defense: floor(520 * 1000 / 1450) = 358
+	# Sakura's 600 attack against 450 defense: floor(600 * 1000 / 1450) = 413
 	var before_sakura: int = adjacent.health
 	_check(battle.request_skill(&"sakura_pierce_blossom", "vanguard_00"), "Sakura's attack resolves after switching")
-	_check(before_sakura - adjacent.health == 358, "the same enemy takes Sakura's number, so the caster really changed")
+	_check(before_sakura - adjacent.health == 413, "the same enemy takes Sakura's number, so the caster really changed")
 	battle.queue_free()
 
 
@@ -699,7 +699,7 @@ func _test_every_sakura_action_grants_the_same_energy() -> void:
 ## to either constant shows up as a failure rather than a quiet rebalance.
 func _test_extreme_strengthens_the_next_active_skill() -> void:
 	# Flowing Wind at 极意: 80% dash strike plus the 40% second strike.
-	# floor(416*1000/1450) = 286, floor(208*1000/1450) = 143.
+	# floor(480*1000/1450) = 331, floor(240*1000/1450) = 165.
 	var dash = ControllerScript.new()
 	root.add_child(dash)
 	var dash_ids: Array[String] = ["sakura"]
@@ -710,7 +710,7 @@ func _test_extreme_strengthens_the_next_active_skill() -> void:
 	_check(dash_sakura.is_resource_full(), "four stacks is the 极意 state")
 	var before: int = dash_enemy.health
 	_check(dash.request_skill(&"sakura_flowing_wind", "vanguard_00"), "an extreme Flowing Wind resolves")
-	_check(before - dash_enemy.health == 429, "the dash strikes for 80% then follows up for 40%")
+	_check(before - dash_enemy.health == 496, "the dash strikes for 80% then follows up for 40%")
 	# Spent first, then the action's own gain applies (§19).
 	_check(dash_sakura.resource_current == 1, "using an enhanced skill spends the bar, then the action earns one")
 	dash.queue_free()
@@ -726,7 +726,7 @@ func _test_extreme_strengthens_the_next_active_skill() -> void:
 	plain_sakura.resource_current = 3
 	var plain_before: int = plain_enemy.health
 	_check(plain.request_skill(&"sakura_flowing_wind", "vanguard_00"), "a non-extreme Flowing Wind resolves")
-	_check(plain_before - plain_enemy.health == 286, "without 极意 the dash strikes once")
+	_check(plain_before - plain_enemy.health == 331, "without 极意 the dash strikes once")
 	plain.queue_free()
 
 	# 落英 at 极意: the rectangle grows and the echo return rises to 65%.
@@ -743,9 +743,9 @@ func _test_extreme_strengthens_the_next_active_skill() -> void:
 	var near_before: int = near.health
 	var outside_before: int = outside.health
 	_check(petals.request_skill(&"sakura_falling_petals", "vanguard_00"), "an extreme Falling Petals resolves")
-	# 321 from three segments, plus 65% echo: floor(338*1000/1450) = 233.
-	_check(near_before - near.health == 554, "the marked target takes the segments and a 65% echo return")
-	_check(outside_before - outside.health == 321, "the expanded block reaches one extra row")
+	# 372 from three segments, plus 65% echo: floor(390*1000/1450) = 268.
+	_check(near_before - near.health == 640, "the marked target takes the segments and a 65% echo return")
+	_check(outside_before - outside.health == 372, "the expanded block reaches one extra row")
 	petals.queue_free()
 
 	# 极意 is not spent by the other actions.

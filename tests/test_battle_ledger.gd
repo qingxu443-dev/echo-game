@@ -5,7 +5,7 @@ extends "res://tests/framework/test_case.gd"
 ## 锁定四件事：
 ##   1. 11 个字段的名字、类型与默认值与旧版逐字一致
 ##   2. reset_for_encounter 清空全部账本，包含旧版藏在 roster 循环里的 free_move
-##   3. reset_for_player_turn 只清"每回合一次"的绝对防御反击账
+##   3. 反击去重按敌方 intent_id 处理，不再使用每回合敌人名单
 ##   4. controller.ledger 是唯一实例，start_encounter 会走统一重置
 
 const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
@@ -18,7 +18,6 @@ const DICT_KEYS: Array[String] = [
 	"oath_shield_revived",
 	"oath_vow_triggered_intents",
 	"absolute_guard_hit_intents",
-	"absolute_guard_countered_enemies",
 	"resource_gain_turn",
 	"resource_gain_count",
 	"echo_return_gain_turn",
@@ -74,7 +73,6 @@ func _test_reset_for_player_turn() -> void:
 		(ledger.get(key) as Dictionary)[key] = true
 	ledger.free_move_used_turn = 4
 	ledger.reset_for_player_turn()
-	_check(ledger.absolute_guard_countered_enemies.is_empty(), "turn reset clears countered enemies")
 	_check(not ledger.hazard_trigger_turn.is_empty(), "turn reset keeps cross-turn hazard ledger")
 	_check(not ledger.summon_last_used_turn.is_empty(), "turn reset keeps summon cooldown ledger")
 	_check(not ledger.oath_shield_expiry_turn.is_empty(), "turn reset keeps oath shield ledger")

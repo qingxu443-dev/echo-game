@@ -175,10 +175,10 @@ func _test_oath_shield_revives_a_downed_member() -> void:
 
 	_check(battle.request_oath_shield("sakura"), "Oath Shield revives the downed member")
 	_check(sakura.is_alive() and not sakura.is_downed(), "the revived member is standing again")
-	# OATH_SHIELD_BASE = 650, no vow stacks; Sakura shield cap is 30% of 1800 max_health = 540.
-	_check(sakura.health == 650, "revival restores shield-strength health")
+	# Oath Shield = 200% of Sevrin's 360 DEF = 720; Sakura's shield cap is 30% of 2100 max health = 630.
+	_check(sakura.health == 720, "revival restores shield-strength health")
 	_check(sakura.cell == cell, "revival returns the member to its own cell")
-	_check(sakura.shield == 540, "the revived member also carries the shield up to its 30% cap")
+	_check(sakura.shield == 630, "the revived member also carries the shield up to its 30% cap")
 	_check(battle.ap.current == 2, "the revival cast spends one AP from the shared pool")
 
 	battle.set_active_character("sakura")

@@ -4,6 +4,7 @@ const ControllerScript = preload("res://scripts/battle/battle_controller.gd")
 const ActorScript = preload("res://scripts/actors/battle_actor.gd")
 const IntentScript = preload("res://scripts/battle/battle_intent.gd")
 const IntentPlannerScript = preload("res://scripts/battle/intent_planner.gd")
+const IntentResolverScript = preload("res://scripts/battle/intent_resolver.gd")
 
 
 func _run() -> void:
@@ -18,6 +19,9 @@ func _run() -> void:
 	_test_oathblade_knockback_collisions()
 	_test_oathblade_knockback_unit_collision_and_chest_break()
 	_test_guard_taunt_pulls_a_dodged_melee_within_two_cells()
+	_test_guard_taunt_redirects_single_target_ranged_intents()
+	_test_guard_counters_each_independent_enemy_intent()
+	_test_guard_counters_area_hit_once_per_intent()
 	_test_knockback_shifts_active_telegraphs()
 	_report()
 
@@ -33,18 +37,18 @@ func _test_oath_vow_passive_and_shield_application() -> void:
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Vow begins with zero stacks")
 	_check(battle.request_oath_shield("ally_test"), "Oath Shield can target a nearby allied test unit")
 	_check(battle.ap.current == battle.ap.maximum - 1, "Oath Shield spends exactly one AP")
-	_check(battle.get_actor("sevrin").shield == 650, "Sevrin receives the base 650 shield")
+	_check(battle.get_actor("sevrin").shield == 720, "Sevrin receives the base shield equal to 200% DEF")
 	_check(battle.get_actor("ally_test").shield == 300, "ally shield independently respects 30 percent max-health cap")
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Shield works with zero Oath Vow stacks")
 
 	_check(battle.end_player_turn(), "enemy attack resolves against Sevrin")
 	_check(battle.get_oath_vow_stacks() == 1, "successful enemy active attack grants one Oath Vow stack")
-	_check(battle.get_actor("sevrin").shield < 650, "incoming damage is absorbed by Sevrin's shield")
+	_check(battle.get_actor("sevrin").shield < 720, "incoming damage is absorbed by Sevrin's shield")
 	_check(battle.get_actor("sevrin").health < battle.get_actor("sevrin").max_health, "damage beyond shield reduces health")
 
 	_check(battle.request_oath_shield("sevrin"), "Oath Shield can target Sevrin alone")
 	_check(battle.get_oath_vow_stacks() == 0, "Oath Shield consumes all current Oath Vow stacks")
-	_check(battle.get_actor("sevrin").shield == 750, "one Oath Vow stack increases the newly calculated shield by 100")
+	_check(battle.get_actor("sevrin").shield == 820, "one Oath Vow stack increases the newly calculated shield by 100")
 	battle.queue_free()
 
 
@@ -71,10 +75,10 @@ func _test_v2_judgment_mark_damage_replacement_and_expiry() -> void:
 	battle.beacons.clear()
 	var first_target = battle.get_actor("vanguard_00")
 	var first_health: int = first_target.health
-	# Sevrin 1150 ATK * 0.55 = 633 raw -> floor(633 * 1000 / 1450) = 436
-	var expected_damage: int = 436
+	# Sevrin 360 DEF * 0.55 = 198 raw -> floor(198 * 1000 / 1450) = 136
+	var expected_damage: int = 136
 	_check(battle.request_oathkeeper_judgment_mark("vanguard_00"), "v2 Judgment Mark accepts a legal enemy target")
-	_check(first_target.health == first_health - expected_damage, "v2 Judgment Mark deals ATK times 0.55 physical damage")
+	_check(first_target.health == first_health - expected_damage, "v2 Judgment Mark deals DEF times 0.55 physical damage")
 	_check(battle.get_oathkeeper_marked_target() == "vanguard_00", "v2 Judgment Mark records the selected target")
 	_check(battle.statuses.has_status("vanguard_00", &"oathkeeper_mark"), "v2 mark uses its isolated status ID")
 	_check(not battle.statuses.has_status("vanguard_00", &"judgment_mark"), "v2 mark does not create the legacy judgment status")
@@ -96,8 +100,8 @@ func _test_v2_judgment_mark_amplifies_and_consumes_on_next_hit() -> void:
 	var health_after_mark: int = enemy.health
 	_check(battle.request_skill(&"oathblade", "vanguard_00"), "follow-up Oathblade strikes the marked enemy")
 	var follow_up_dmg: int = health_after_mark - enemy.health
-	# Base Oathblade vs 450 DEF is 793; with +30% vulnerability mark it is > 793.
-	_check(follow_up_dmg > 793, "marked enemy takes amplified damage on the next hit")
+	# Base Oathblade vs 450 DEF is 448; with +30% vulnerability mark it is > 448.
+	_check(follow_up_dmg > 448, "marked enemy takes amplified damage on the next hit")
 	_check(not battle.statuses.has_status("vanguard_00", &"oathkeeper_mark"), "vulnerability mark is consumed when triggered")
 	battle.queue_free()
 
@@ -127,7 +131,7 @@ func _test_oath_shield_validation_and_duration() -> void:
 	_check(battle.ap.current == battle.ap.maximum, "invalid Oath Shield targets do not spend AP")
 	_check(battle.request_oath_shield("ally_near"), "Oath Shield accepts an ally exactly two cells away")
 	var initial_shield: int = battle.get_actor("sevrin").shield
-	_check(initial_shield == 650, "initial self shield matches base 650 formula")
+	_check(initial_shield == 720, "initial self shield matches 200% DEF formula")
 	_check(battle.request_oath_shield("ally_near"), "recasting Oath Shield refreshes duration")
 	_check(battle.get_actor("sevrin").shield == initial_shield, "recasting an equal shield does not stack shield values")
 
@@ -160,12 +164,18 @@ func _test_absolute_verdict_aoe_knockback_and_energy() -> void:
 	var far_before: int = far.health
 	_check(battle.request_absolute_guard(), "Absolute Verdict activates at four energy")
 	_check(sevrin.ultimate_energy == 0 and battle.ap.current == battle.ap.maximum - 2, "Absolute Verdict spends four energy and two AP")
-	# 1150 * 1.3 = 1495 raw vs 450 DEF -> 1031 physical damage
-	_check(east_before - east.health == 1031, "adjacent enemy receives 130% ATK mitigated physical damage")
-	_check(east.cell == Vector2i(4, 2), "adjacent enemy is knocked back one tile away from Sevrin")
-	_check(north_before - north.health == 1031, "second adjacent enemy also takes full AoE damage")
-	_check(north.cell == Vector2i(2, 0), "second adjacent enemy is knocked back along its radial direction")
+	# 360 DEF raw vs 450 DEF -> 248 physical damage. The opening strike no longer knocks back.
+	_check(east_before - east.health == 248, "adjacent enemy receives 100% DEF mitigated physical damage")
+	_check(east.cell == Vector2i(3, 2), "opening ultimate strike does not knock back the first enemy")
+	_check(north_before - north.health == 248, "second adjacent enemy also takes full AoE damage")
+	_check(north.cell == Vector2i(2, 1), "opening ultimate strike does not knock back the second enemy")
 	_check(far.health == far_before and far.cell == Vector2i(6, 6), "distant enemy outside 1-tile radius is untouched")
+	var guard_status = battle.statuses.get_status(sevrin.actor_id, &"absolute_guard")
+	_check(guard_status != null and guard_status.enemy_turns_remaining == 2, "Absolute Guard starts with two enemy-phase ticks")
+	battle.statuses.tick_enemy_phase()
+	_check(battle.statuses.has_status(sevrin.actor_id, &"absolute_guard"), "Absolute Guard remains active after the first enemy phase")
+	battle.statuses.tick_enemy_phase()
+	_check(not battle.statuses.has_status(sevrin.actor_id, &"absolute_guard"), "Absolute Guard expires after the second enemy phase")
 	battle.queue_free()
 
 
@@ -176,7 +186,7 @@ func _test_one_action_grants_vow_per_carrier() -> void:
 	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(4, 1)], [], archetypes), "vow-per-carrier encounter starts")
 	battle.beacons.clear()
 	battle.intents = IntentPlannerScript.plan(battle)
-	var fellow = ActorScript.new("fellow", "player", Vector2i(1, 2), 3600, "support", 1150, 350, 250)
+	var fellow = ActorScript.new("fellow", "player", Vector2i(1, 2), 3200, "support", 650, 360, 230)
 	fellow.character_id = &"sevrin"
 	battle.actors["fellow"] = fellow
 
@@ -192,9 +202,9 @@ func _test_one_action_grants_vow_per_carrier() -> void:
 ## deleting the wall branch left every suite green. Three outcomes are separable
 ## by damage, which is what makes them worth asserting separately.
 ##
-## Oathblade is 100% ATK: floor(1150 * 1000 / 1450) = 793 against the vanguard's
+## Oathblade is 100% ATK: floor(650 * 1000 / 1450) = 448 against the vanguard's
 ## 450 defence. A collision adds 450 true damage, which ignores that defence - so
-## a colliding push deals 1243 and a clean one deals 793.
+## a colliding push deals 898 and a clean one deals 448.
 func _test_oathblade_knockback_collisions() -> void:
 	# Wall: the target has nowhere to go, so it takes the collision and stays put.
 	var wall = ControllerScript.new()
@@ -204,7 +214,7 @@ func _test_oathblade_knockback_collisions() -> void:
 	var wall_enemy = wall.get_actor("vanguard_00")
 	var wall_before: int = wall_enemy.health
 	_check(wall.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a wall")
-	_check(wall_before - wall_enemy.health == 1243, "a wall slam adds 450 true damage on top of the strike")
+	_check(wall_before - wall_enemy.health == 898, "a wall slam adds 450 true damage on top of the strike")
 	_check(wall_enemy.cell == Vector2i(2, 1), "a target with a wall behind it is not pushed")
 	wall.queue_free()
 
@@ -218,7 +228,7 @@ func _test_oathblade_knockback_collisions() -> void:
 	var beacon_health_before: int = int(beacon.beacons[beacon_cell]["health"])
 	var beacon_before: int = beacon_enemy.health
 	_check(beacon.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a beacon")
-	_check(beacon_before - beacon_enemy.health == 1243, "slamming into a beacon deals the same collision damage")
+	_check(beacon_before - beacon_enemy.health == 898, "slamming into a beacon deals the same collision damage")
 	_check(int(beacon.beacons[beacon_cell]["health"]) == beacon_health_before - 1, "the chest loses one hit of its 2-hit durability")
 	beacon.queue_free()
 
@@ -232,9 +242,72 @@ func _test_oathblade_knockback_collisions() -> void:
 	var open_enemy = open.get_actor("vanguard_00")
 	var open_before: int = open_enemy.health
 	_check(open.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into open ground")
-	_check(open_before - open_enemy.health == 793, "a clean push deals only the strike")
+	_check(open_before - open_enemy.health == 448, "a clean push deals only the strike")
 	_check(open_enemy.cell == Vector2i(3, 1), "a clean push moves the target one cell")
 	open.queue_free()
+
+
+func _test_guard_taunt_redirects_single_target_ranged_intents() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(6, 1)]), "ranged taunt encounter starts")
+	battle.beacons.clear()
+	var guardian = battle.get_actor("sevrin")
+	var light_shot = IntentScript.new("taunt_light_shot", "vanguard_00", "light_shot", IntentScript.TargetMode.TILE_LOCKED, "", Vector2i(1, 1), [Vector2i(1, 1)], 100)
+	IntentResolverScript.redirect_to_guardian(battle, light_shot, guardian.actor_id)
+	_check(light_shot.target_actor_id == guardian.actor_id and light_shot.target_cell == guardian.cell, "tile-locked ranged attack is redirected to the guardian")
+	var locked_shot = IntentScript.new("taunt_locked_shot", "vanguard_00", "locked_shot", IntentScript.TargetMode.ACTOR_LOCKED, "vanguard_00", Vector2i(1, 1), [Vector2i(1, 1)], 100)
+	IntentResolverScript.redirect_to_guardian(battle, locked_shot, guardian.actor_id)
+	_check(locked_shot.target_actor_id == guardian.actor_id, "actor-locked elite shot is redirected away from its previous mark")
+	var far_melee = IntentScript.new("taunt_far_melee", "vanguard_00", "basic_melee", IntentScript.TargetMode.ACTOR_LOCKED, "sevrin", guardian.cell, [guardian.cell], 100)
+	var guardian_health_before: int = guardian.health
+	IntentResolverScript.redirect_to_guardian(battle, far_melee, guardian.actor_id)
+	IntentResolverScript._tile_locked_attack(battle, far_melee)
+	_check(far_melee.state == IntentScript.IntentState.CANCELED and guardian.health == guardian_health_before, "battlefield-wide taunt never turns a distant melee into a teleport strike")
+	var sweep = IntentScript.new("taunt_area", "vanguard_00", "charged_strike", IntentScript.TargetMode.AREA_LOCKED, "", Vector2i(1, 1), [Vector2i(1, 1)], 100)
+	IntentResolverScript.redirect_to_guardian(battle, sweep, guardian.actor_id)
+	_check(sweep.affected_cells == [Vector2i(1, 1)] and sweep.target_actor_id.is_empty(), "area attacks retain their telegraphed geometry")
+	battle.queue_free()
+
+
+func _test_guard_counters_each_independent_enemy_intent() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(3, 1)]), "counter cadence encounter starts")
+	battle.beacons.clear()
+	var guardian = battle.get_actor("sevrin")
+	var attacker = battle.get_actor("vanguard_00")
+	_check(battle.statuses.apply_status(&"absolute_guard", guardian.actor_id, guardian.actor_id, 1, 1, -1, &"", &"replace"), "Absolute Guard status is active")
+	var before: int = attacker.health
+	var first = IntentScript.new("counter_intent_one", attacker.actor_id, "light_shot", IntentScript.TargetMode.ACTOR_LOCKED, guardian.actor_id, guardian.cell, [guardian.cell], 100)
+	IntentResolverScript.absolute_guard_counter(battle, first)
+	var after_first: int = attacker.health
+	var second = IntentScript.new("counter_intent_two", attacker.actor_id, "light_shot", IntentScript.TargetMode.ACTOR_LOCKED, guardian.actor_id, guardian.cell, [guardian.cell], 100)
+	IntentResolverScript.absolute_guard_counter(battle, second)
+	_check(after_first < before and attacker.health < after_first, "two independent actions from one enemy each trigger a counter")
+	_check(attacker.cell.x >= 5, "each counter applies the existing knockback displacement")
+	battle.queue_free()
+
+func _test_guard_counters_area_hit_once_per_intent() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(3, 1)]), "area counter encounter starts")
+	battle.beacons.clear()
+	var guardian = battle.get_actor("sevrin")
+	var attacker = battle.get_actor("vanguard_00")
+	_check(battle.statuses.apply_status(&"absolute_guard", guardian.actor_id, guardian.actor_id, 1, 1, -1, &"", &"replace"), "Absolute Guard protects against area intents")
+	var before: int = attacker.health
+	var area = IntentScript.new("counter_area_once", attacker.actor_id, "ground_pulse", IntentScript.TargetMode.AREA_LOCKED, "", guardian.cell, [guardian.cell], 100)
+	battle.intents = [area]
+	var guardian_before: int = guardian.health
+	IntentResolverScript.resolve_one_active(battle)
+	_check(guardian.health < guardian_before, "the original area geometry can hit the guardian")
+	_check(attacker.health < before, "an area intent that hits the guardian triggers its counter")
+	var after_one: int = attacker.health
+	IntentResolverScript.resolve_one_active(battle)
+	_check(attacker.health == after_one, "the same resolved area intent cannot trigger a duplicate counter")
+	_check(attacker.cell.x >= 4, "area-hit counter uses the existing knockback service")
+	battle.queue_free()
 
 
 ## The collision branch the trio above does not reach: a unit in the way pays
@@ -249,7 +322,7 @@ func _test_oathblade_knockback_unit_collision_and_chest_break() -> void:
 	var pushed_before: int = pushed.health
 	var blocker_before: int = blocker.health
 	_check(pair.request_skill(&"oathblade", "vanguard_00"), "the Oathblade resolves into a blocking unit")
-	_check(pushed.health == pushed_before - 1243, "a unit slam adds the collision to the strike on the pushed target")
+	_check(pushed.health == pushed_before - 898, "a unit slam adds the collision to the strike on the pushed target")
 	_check(blocker.health == blocker_before - 450, "the unit in the way takes the same true damage")
 	_check(pushed.cell == Vector2i(2, 1), "a blocked push leaves the target in place")
 	pair.queue_free()

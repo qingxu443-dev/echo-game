@@ -240,7 +240,7 @@ func _test_return_to_title_actions() -> void:
 	current_scene.selected_option = 0
 	current_scene._activate_selected()
 	await scene_changed
-	_check(current_scene.controller.get_active_character().health == 3463 and current_scene.controller.ap.current == 2, "Continue Journey restores the newly saved health and AP in the same process")
+	_check(current_scene.controller.get_active_character().health == 3063 and current_scene.controller.ap.current == 2, "Continue Journey restores the newly saved health and AP in the same process")
 	_check(root.get_node("GameShell") == shell and shell.audio.music != null, "returning to title keeps the application and audio service running")
 	_check(not FileAccess.file_exists(SessionSave.path()), "resuming from title still consumes the saved slot")
 	shell.animations_enabled = true

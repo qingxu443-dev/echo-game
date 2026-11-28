@@ -78,38 +78,38 @@ func _test_v3_saves_migrate_without_losing_progress() -> void:
 
 func _test_spring_snapshots_selected_party_and_health() -> void:
 	var run = SpringRunScript.begin(29)
-	run.hero_health = 900
+	run.hero_health = 1050
 	var selected_party: Array[String] = ["sevrin", "sakura"]
 	run.party_character_ids.assign(selected_party)
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"test_place"), "a Spring fight accepts the selected party snapshot")
 	_check(run.hero_character_id == "sevrin", "the first selected member becomes the expedition lead")
-	_check(run.hero_base_max_health == 3600 and run.hero_health == 1800, "changing lead preserves the previous health ratio")
+	_check(run.hero_base_max_health == 3200 and run.hero_health == 1600, "changing lead preserves the previous health ratio")
 	_check(SpringBattleBridgeScript.pending.get("character_ids", []) == ["sevrin", "sakura"], "battle bridge carries the ordered party")
 	run.party_vitals = {
-		"sevrin": {"health": 1800, "max_health": 3600},
-		"sakura": {"health": 900, "max_health": 1800},
+		"sevrin": {"health": 1600, "max_health": 3200},
+		"sakura": {"health": 1050, "max_health": 2100},
 	}
 	var restored = SpringRunScript.from_dict(run.to_dict())
 	_check(restored != null, "the updated Spring save round-trips")
 	_check(restored.party_character_ids == ["sevrin", "sakura"], "the selected party survives save and reload")
-	_check(int(restored.party_vitals.sakura.health) == 900, "individual member health survives save and reload")
+	_check(int(restored.party_vitals.sakura.health) == 1050, "individual member health survives save and reload")
 	SpringBattleBridgeScript.clear_pending()
 
 func _test_party_vitals_enter_the_battle_scene() -> void:
 	var run := SpringRunScript.begin(29)
 	run.party_character_ids.assign(["sevrin", "sakura", "dest_lee"])
 	run.party_vitals = {
-		"sevrin": {"health": 1800, "max_health": 3600},
-		"sakura": {"health": 0, "max_health": 1800},
-		"dest_lee": {"health": 800, "max_health": 2400},
+		"sevrin": {"health": 1600, "max_health": 3200},
+		"sakura": {"health": 0, "max_health": 2100},
+		"dest_lee": {"health": 800, "max_health": 1650},
 	}
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare a wounded three-member party")
 	var view = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(view)
 	_check(view.spring_mode and view.controller.phase == BattleController.BattlePhase.DEPLOY, "normal battle scene enters deployment with the prepared party")
-	_check(view.controller.actors.sevrin.health == 1800 and view.controller.actors.sevrin.max_health == 3600, "lead retains wounded health on entry")
+	_check(view.controller.actors.sevrin.health == 1600 and view.controller.actors.sevrin.max_health == 3200, "lead retains wounded health on entry")
 	_check(view.controller.actors.sakura.health == 0 and view.controller.actors.sakura.is_defeated(), "a zero-health legacy member is retired, never revived by scene setup")
-	_check(view.controller.actors.dest_lee.health == 800 and view.controller.actors.dest_lee.max_health == 2400, "the new character retains individual vitality")
+	_check(view.controller.actors.dest_lee.health == 800 and view.controller.actors.dest_lee.max_health == 1650, "the new character retains individual vitality")
 	view.queue_free()
 	SpringBattleBridgeScript.clear_pending()
 	await process_frame
@@ -132,19 +132,19 @@ func _test_fragment_health_bonus_stacks_on_saved_vitals() -> void:
 	_check(store.save(), "the module store persists before the encounter")
 	var run := SpringRunScript.begin(31)
 	run.party_character_ids.assign(["sakura"])
-	run.hero_health = 900
-	run.party_vitals = {"sakura": {"health": 900, "max_health": 1800}}
+	run.hero_health = 1050
+	run.party_vitals = {"sakura": {"health": 1050, "max_health": 2100}}
 	run.sync_lead_vitals()
-	_check(run.hero_max_health == 1890, "map vitals expose the module-scaled maximum for healing")
+	_check(run.hero_max_health == 2205, "map vitals expose the module-scaled maximum for healing")
 	run.hero_health = 100
-	_check(run.heal_fraction(0.5) == 945, "map healing restores a fraction of the scaled maximum")
-	run.hero_health = 945
+	_check(run.heal_fraction(0.5) == 1103, "map healing restores a fraction of the scaled maximum")
+	run.hero_health = 1103
 	run.sync_lead_vitals()
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare a wounded Sakura with a health module")
 	var view = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(view)
-	_check(view.controller.actors.sakura.max_health == 1890, "the saved 1800 cap is scaled once by the equipped 5% module")
-	_check(view.controller.actors.sakura.health == 945, "wounded health keeps its ratio instead of growing for free")
+	_check(view.controller.actors.sakura.max_health == 2205, "the saved 2100 cap is scaled once by the equipped 5% module")
+	_check(view.controller.actors.sakura.health == 1103, "wounded health keeps its ratio instead of growing for free")
 	var carried := SpringBattleBridgeScript.pack_carry(view.run_state)
 	var saved := {}
 	for actor_id in view.controller.actors:
@@ -165,8 +165,8 @@ func _test_fragment_health_bonus_stacks_on_saved_vitals() -> void:
 	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare the same party after unequipping")
 	var next_view = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(next_view)
-	_check(next_view.controller.actors.sakura.max_health == 1800, "unequipping reclaims exactly the 5% maximum")
-	_check(next_view.controller.actors.sakura.health == 900, "unequipping reclaims the proportional health too")
+	_check(next_view.controller.actors.sakura.max_health == 2100, "unequipping reclaims exactly the 5% maximum")
+	_check(next_view.controller.actors.sakura.health == 1050, "unequipping reclaims the proportional health too")
 	next_view.queue_free()
 	SpringBattleBridgeScript.clear_pending()
 	FragmentStore.default_path_override = ""
@@ -180,11 +180,11 @@ func _test_continue_uses_scaled_member_maximum() -> void:
 	var run := SpringRunScript.begin(37)
 	run.hero_character_id = "sakura"
 	run.supplies = 5
-	run.party_vitals = {"sakura": {"health": 0, "max_health": 1890, "base_max_health": 1800}}
+	run.party_vitals = {"sakura": {"health": 0, "max_health": 2205, "base_max_health": 2100}}
 	var outcome: Dictionary = SpringBattleBridgeScript.continue_run(run)
 	_check(bool(outcome.get("ok", false)), "a lost legacy run can spend supplies to continue")
-	_check(run.hero_health == 567, "continue heals 30% of the module-scaled maximum, not the unscaled one")
-	_check(str(outcome.get("message", "")).contains("567 / 1890"), "continue reports the same scaled maximum the map will use")
+	_check(run.hero_health == 662, "continue heals 30% of the module-scaled maximum, not the unscaled one")
+	_check(str(outcome.get("message", "")).contains("662 / 2205"), "continue reports the same scaled maximum the map will use")
 
 
 func _cleanup() -> void:

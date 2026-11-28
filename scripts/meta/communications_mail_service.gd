@@ -65,7 +65,7 @@ static func _default_mailbox() -> Dictionary:
 			"read": false,
 			"archived": false,
 			"local_test_mail": true,
-			"body": "守誓者：\n\n为协助你熟悉残片构筑，指挥部准备了一批模块补给。请在通讯终端中领取，并前往残片中心配置。\n\n本邮件为本地测试邮件，不代表正式在线服务器发信。奖励永久有效，可随时领取。",
+			"body": "指挥官：\n\n为协助你熟悉残片构筑，指挥部准备了一批模块补给。请在通讯终端中领取，并前往残片中心配置。\n\n本邮件为本地测试邮件，不代表正式在线服务器发信。奖励永久有效，可随时领取。",
 			"attachments": [
 				{"id": "fragment_small_10", "kind": "small", "name": "小型模块补给", "quantity": 10, "claimed": false, "claimed_at": 0, "target_slot_id": "", "instance_ids": []},
 				{"id": "fragment_medium_10", "kind": "medium", "name": "中型模块补给", "quantity": 10, "claimed": false, "claimed_at": 0, "target_slot_id": "", "instance_ids": []},
@@ -138,6 +138,18 @@ static func load_mailbox(path: String = SAVE_PATH) -> Dictionary:
 		return {}
 	if not parsed.has("claim_ledger"):
 		parsed["claim_ledger"] = {}
+	# Existing local saves keep their seeded mail body. Migrate the retired
+	# class salutation so returning players do not continue seeing the old role.
+	var migrated_mail := false
+	for mail in parsed["mails"]:
+		if not mail is Dictionary or str(mail.get("id", "")) != "mail_fragment_supply_001":
+			continue
+		var body := str(mail.get("body", ""))
+		if body.begins_with("守誓者："):
+			mail["body"] = body.replace("守誓者：", "指挥官：")
+			migrated_mail = true
+	if migrated_mail and (path != SAVE_PATH or DisplayServer.get_name() != "headless"):
+		SaveFileScript.write_json(path, parsed)
 	return parsed
 
 

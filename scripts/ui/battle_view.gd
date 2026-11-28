@@ -471,6 +471,12 @@ func _handle_tap(position: Vector2) -> void:
 				queue_redraw()
 			return
 
+	if selected_skill >= 0 and str(skill_bar[selected_skill]["id"]) == "sakura_flowing_wind":
+		# Enemy taps are handled above as strike targets. An empty tile is a
+		# positional cast, so it must not fall through into ordinary movement.
+		SkillInput.cast(self, skill_bar[selected_skill], "", cell)
+		return
+
 	if selected_skill >= 0:
 		status_message = "当前技能需要目标；点击合法目标或右键取消，未消耗 AP。"
 		queue_redraw()

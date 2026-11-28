@@ -24,6 +24,7 @@ func _run() -> void:
 	_check(battle.damage_taken == 0, "player skill does not count as damage taken")
 
 	var player = battle.get_actor("sevrin")
+	player.health = 100000
 	var player_health_before: int = player.health
 	battle.end_player_turn()
 	var taken: int = player_health_before - player.health
@@ -31,6 +32,7 @@ func _run() -> void:
 	_check(battle.damage_taken == taken, "damage taken matches the health actually removed")
 
 	# Kill the enemy and confirm the defeat tally only counts real kills.
+	enemy.health = 500
 	var guard := 0
 	while enemy.is_alive() and guard < 20:
 		if not battle.request_oathkeeper_judgment_mark("vanguard_00"):

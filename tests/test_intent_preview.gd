@@ -22,7 +22,7 @@ const HudViewScript = preload("res://scripts/ui/hud_view.gd")
 const HERO := "sakura"
 ## 绯樱剑卫的樱华蓄斩钉死 1688；樱防御 180，1688 * 1000 / 1180 = 1430.5 → 1430.
 const CHARGE_RAW := 1688
-const CHARGE_AFTER_DEFENCE := 1430
+const CHARGE_AFTER_DEFENCE := 1412
 
 
 func _run() -> void:
@@ -65,7 +65,7 @@ func _test_charge_quote_equals_health_lost() -> void:
 	if intent == null:
 		return
 	var quoted: int = intent.preview_health_damage(battle)
-	_check(quoted == CHARGE_AFTER_DEFENCE, "1688 原始伤害对防御 180 的樱预告成 1430")
+	_check(quoted == CHARGE_AFTER_DEFENCE, "1688 原始伤害对防御 195 的樱预告成 1412")
 	_check(quoted < intent.damage, "预告值必须已扣防御，不能直接等于原始伤害")
 	var before: int = hero.health
 	battle.end_player_turn()
@@ -95,8 +95,8 @@ func _test_magical_quote_uses_magic_resistance() -> void:
 	var physical: int = hero.preview_damage(1000, "physical")
 	var magical: int = hero.preview_damage(1000, "magical")
 	# 1000 * 1000 / 1180 = 847；1000 * 1000 / 1111 = 900
-	_check(physical == 847, "物理预告按防御 180 减免到 847")
-	_check(magical == 900, "法术预告按魔抗 111 减免到 900")
+	_check(physical == 836, "物理预告按防御 195 减免到 836")
+	_check(magical == 892, "法术预告按魔抗 120 减免到 892")
 	_check(physical != magical, "两种类型的预告不能是同一个数，否则说明类型没进公式")
 
 
@@ -109,9 +109,9 @@ func _test_quote_tracks_defence_penalty() -> void:
 	var cursed: int = hero.preview_damage(CHARGE_RAW, "physical")
 	_check(cursed > clean, "降防 100 后同一发蓄斩的预告必须变大")
 	_check(cursed == hero.mitigated_damage(CHARGE_RAW, "physical"), "预告与减伤公式在降防下仍逐点一致")
-	# 180 - 100 = 80 → 1688 * 1000 / 1080 = 1562。若降防被扣两次（旧参数通道），
+	# 195 - 100 = 95 → 1688 * 1000 / 1095 = 1541。若降防被扣两次（旧参数通道），
 	# 这里会变成 1688 全额，玩家会以为诅咒没效果。
-	_check(cursed == 1562, "降防 100 只扣一次：1688 变成 1562，不是 1688 全额")
+	_check(cursed == 1541, "降防 100 只扣一次：1688 变成 1562，不是 1688 全额")
 
 
 ## 预告是只读的：算一遍不许动血、盾或任何状态。
@@ -159,9 +159,9 @@ func _test_ordered_threat_totals() -> void:
 	_check(summary["total_dmg"] == 1600, "two hits share the same 400 shield")
 	_check(summary["entries"][0]["dmg"] == 600 and summary["entries"][1]["dmg"] == 1000,
 		"damage breakdown consumes the shield on the first hit")
-	_check(hero.health == 1800 and hero.shield == 400, "the detailed preview leaves the live actor unchanged")
+	_check(hero.health == hero.max_health and hero.shield == 400, "the detailed preview leaves the live actor unchanged")
 	battle.end_player_turn()
-	_check(1800 - hero.health == summary["total_dmg"], "the displayed total matches normal phase resolution")
+	_check(2100 - hero.health == summary["total_dmg"], "the displayed total matches normal phase resolution")
 
 	hero.health = 200
 	hero.shield = 350
@@ -180,7 +180,7 @@ func _test_curse_applies_in_preview_order() -> void:
 	var battle = _spawn("crimson_sword_guard", Vector2i(2, 2), Vector2i(3, 2))
 	var hero = battle.actors[HERO]
 	hero.defense = 1000
-	hero.health = 1800
+	hero.health = 2100
 	battle.intents.clear()
 	battle.intents.append(_fixture_intent(battle, "echo_bolt", 1000))
 	battle.intents.append(_fixture_intent(battle, "rot_curse", 500))
@@ -191,4 +191,4 @@ func _test_curse_applies_in_preview_order() -> void:
 		"the curse changes only following physical hits")
 	_check(hero.defense_penalty == 0, "curse preview does not apply a live status")
 	battle.end_player_turn()
-	_check(1800 - hero.health == summary["total_dmg"], "curse and hits resolve in preview order")
+	_check(2100 - hero.health == summary["total_dmg"], "curse and hits resolve in preview order")

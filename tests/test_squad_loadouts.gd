@@ -18,6 +18,7 @@ func _run() -> void:
 	_test_v3_saves_migrate_without_losing_progress()
 	_test_spring_snapshots_selected_party_and_health()
 	await _test_party_vitals_enter_the_battle_scene()
+	await _test_fragment_health_bonus_stacks_on_saved_vitals()
 	_cleanup()
 
 func _test_three_persistent_teams() -> void:
@@ -110,6 +111,39 @@ func _test_party_vitals_enter_the_battle_scene() -> void:
 	_check(view.controller.actors.dest_lee.health == 800 and view.controller.actors.dest_lee.max_health == 2400, "the new character retains individual vitality")
 	view.queue_free()
 	SpringBattleBridgeScript.clear_pending()
+	await process_frame
+
+
+func _test_fragment_health_bonus_stacks_on_saved_vitals() -> void:
+	var path := "user://squad_fragment_vitality_test.json"
+	FragmentStore.default_path_override = path
+	var store := FragmentStore.load_store(path)
+	_check(store.add_modules([{
+		"instance_id": "squad_hp_probe",
+		"size": "small",
+		"capacity": 1,
+		"main_stat": "health",
+		"sub_stat": "",
+		"attributes": {"health": 5.0},
+		"created_seed": 0,
+	}]), "the vitality probe installs a valid 5% health module")
+	_check(store.install("sakura", 0, "squad_hp_probe").get("ok", false), "the module equips to Sakura")
+	_check(store.save(), "the module store persists before the encounter")
+	var run := SpringRunScript.begin(31)
+	run.party_character_ids.assign(["sakura"])
+	run.hero_health = 900
+	run.party_vitals = {"sakura": {"health": 900, "max_health": 1800}}
+	_check(SpringBattleBridgeScript.prepare(run, &"B001", &"battle_1"), "prepare a wounded Sakura with a health module")
+	var view = load("res://scenes/main/main.tscn").instantiate()
+	root.add_child(view)
+	_check(view.controller.actors.sakura.max_health == 1890, "the saved 1800 cap is scaled once by the equipped 5% module")
+	_check(view.controller.actors.sakura.health == 945, "wounded health keeps its ratio instead of growing for free")
+	view.queue_free()
+	SpringBattleBridgeScript.clear_pending()
+	FragmentStore.default_path_override = ""
+	var absolute := ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(absolute):
+		DirAccess.remove_absolute(absolute)
 	await process_frame
 
 

@@ -12,11 +12,12 @@ const CatalogScript = preload("res://scripts/battle/character_definition.gd")
 
 const SEVRIN = preload("res://data/characters/sevrin.tres")
 const SAKURA = preload("res://data/characters/sakura.tres")
+const DEST_LEE = preload("res://data/characters/dest_lee.tres")
 
 
 static func all_definitions() -> Array[CharacterDefinition]:
 	var definitions: Array[CharacterDefinition] = []
-	for entry in [SEVRIN, SAKURA]:
+	for entry in [SEVRIN, SAKURA, DEST_LEE]:
 		var definition := entry as CharacterDefinition
 		if definition == null:
 			push_error("CharacterCatalog: %s is not a CharacterDefinition" % str(entry))

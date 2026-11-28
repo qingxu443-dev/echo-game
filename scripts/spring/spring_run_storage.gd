@@ -29,14 +29,18 @@ static func settle(run: SpringRun, path: String, atelier_path: String, shards: i
 		settled_ids.append(settlement_id)
 		run_image["settled_battle_ids"] = settled_ids
 	if atelier_path == AtelierStash.SAVE_PATH and DisplayServer.get_name() == "headless":
-		if not run.save_to_file(path) and settlement_id.is_empty():
+		if not SaveFile.write_json(path, run_image):
 			return false
 		if not settlement_id.is_empty() and not already_settled:
-			return SaveFile.write_json(path, run_image)
+			run.settled_battle_ids.append(settlement_id)
 		return true
 	var stash := AtelierStash.read_state(atelier_path)
 	if stash.is_empty():
 		return false
 	if not already_settled:
 		stash["shards"] = int(stash["shards"]) + shards
-	return SpringSaveTransaction.commit(path, atelier_path, run_image, stash)
+	if not SpringSaveTransaction.commit(path, atelier_path, run_image, stash):
+		return false
+	if not settlement_id.is_empty() and not already_settled:
+		run.settled_battle_ids.append(settlement_id)
+	return true

@@ -217,7 +217,10 @@ func _test_battle_reward_replay() -> void:
 	map.atelier_save_path = stash_path
 	root.add_child(map)
 	_check(map.run == null and SpringSaveTransaction.is_pending(stash_path), "a partially written settlement pauses play")
-	_check(SpringRun.load_from_file(run_path).battles_won == 1, "the checkpoint was written before the blocked wallet")
+	var checkpoint_after_first_attempt := SpringRun.load_from_file(run_path)
+	_check(checkpoint_after_first_attempt != null and checkpoint_after_first_attempt.battles_won == 1,
+		"the checkpoint was written before the blocked wallet")
+	var coins_after_first_attempt: int = checkpoint_after_first_attempt.coins if checkpoint_after_first_attempt != null else -1
 	map.queue_free()
 	await process_frame
 
@@ -227,7 +230,7 @@ func _test_battle_reward_replay() -> void:
 	resumed.save_path = run_path
 	resumed.atelier_save_path = stash_path
 	root.add_child(resumed)
-	_check(resumed.run != null and resumed.run.battles_won == 1 and resumed.run.coins == 10,
+	_check(resumed.run != null and resumed.run.battles_won == 1 and resumed.run.coins == coins_after_first_attempt,
 		"resuming consumes a replayed result without reapplying it")
 	_check(AtelierStash.load_state(stash_path)["shards"] == AtelierStash.STARTING_SHARDS + 35,
 		"the recovered reward credits the wallet once")

@@ -169,7 +169,10 @@ func _open_spring_settlement(result: Dictionary) -> void:
 		status_message = "战斗结果暂未写入存档，请重试；不会提前发放奖励。"
 		queue_redraw()
 		return
+	SessionSave.clear()
 	SpringBattleBridgeScript.clear_pending()
+	SpringBattleBridgeScript.restore_map = false
+	SpringBattleBridgeScript.suspended_map = {}
 	var error := SceneTravel.change(get_tree(), SPRING_SETTLEMENT_SCENE_PATH)
 	if error != OK:
 		push_error("独立战斗结算界面载入失败，待结算记录已保留。Error: %s" % error)

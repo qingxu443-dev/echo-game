@@ -68,8 +68,8 @@ func _test_v3_saves_migrate_without_losing_progress() -> void:
 		"base_magic_resistance": SpringRunScript.HERO_BASE_MAGIC_RESISTANCE,
 	}
 	var error := SpringRunMigrationScript.migrate_to_current(legacy, SpringRunScript.SAVE_VERSION, defaults)
-	_check(error.is_empty(), "Spring version 3 save migrates to version 4")
-	_check(int(legacy.get("version", 0)) == 4, "migration advances the save version")
+	_check(error.is_empty(), "Spring version 3 save migrates to version 5")
+	_check(int(legacy.get("version", 0)) == SpringRunScript.SAVE_VERSION, "migration advances the save version")
 	_check(legacy.get("party_character_ids", []) == [], "legacy run has no forced new squad snapshot")
 	_check(legacy.get("hero", {}).get("character_id", "") == "sakura", "legacy Spring lead remains Sakura")
 	_check(int(legacy.get("hero", {}).get("health", 0)) == 1500, "migration preserves existing hero health")

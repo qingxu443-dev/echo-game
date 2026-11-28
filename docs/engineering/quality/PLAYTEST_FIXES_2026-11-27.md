@@ -75,6 +75,6 @@ PR #111 在 #114 收尾时合入，主线基础回归通过。进一步按穿脱
 
 已修：BattleActor 捕获本场 `fragment_bonuses`，装备重算使用这份组成，不重读局外配置；组成随 JSON 快照保存，背包显示实际战斗面板。新百分比字段拒绝非法类型、负数、非有限值和未知属性。专项覆盖正常穿脱及恢复后穿戴。
 
-**仍存在的明确问题（P1，中，未修）**：春之境已有队员生命快照时，下一战安装 +5% 生命模块，BattleFlow 生成 1890 后又被 `SpringBattleBridge.restore_party_vitals()` 写回旧 1800。运行 `godot --headless --path . --script res://tools/probe_fragment_vitality.gd` 会输出 expected=1890 / actual=1800 并退出 1。探针使用进程独立残片文件，独立于全量回归；全量绿不表示该问题已修。
+**上述跨遭遇问题已于 2026-11-28 修复（ECHO-207）**：春之境已有队员生命快照时，下一战安装 +5% 生命模块，BattleFlow 生成的 1890 会被 `SpringBattleBridge.restore_party_vitals()` 用旧 1800 覆盖。现队伍快照记录 `base_max_health`，`PartyLoadout.restore_health` 仅在存档上限仍是缩放前基础值时保留重算上限；装 +5% 为 1890/945，卸下回 1800/900，跨战斗不重复缩放。`tools/probe_fragment_vitality.gd` 输出 expected=1890 / actual=1890 并退出 0。
 
-暂未直接将旧上限再乘百分比：旧档不记录上次模块生命组成，直接重算可能重复加成或丢失装备/地图上限。下一项 ECHO-207 要增加来源记录与旧档兼容并覆盖跨战斗；当前修复只保证同一战斗和读档后的装备重算。工程包仍需真人验收，生命模块跨遭遇应列为已知问题。
+旧档若已把含残片加成的上限写死、之后又卸下模块，无法反推原比例，保持存档值，不作不可逆重算。该边界已写回任务清单；工程包仍需真人验收。

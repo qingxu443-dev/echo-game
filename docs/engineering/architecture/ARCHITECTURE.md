@@ -278,7 +278,7 @@ project.godot → scenes/menu/main_menu.tscn → scenes/lobby/lobby.tscn
 
 | 优先级 | 位置 / 范围 | 现状与影响 | 下一步 / 原因 |
 |---|---|---|---|
-| 中 / P1 | `SpringBattleBridge.restore_party_vitals()` 与残片生命 | 已复现：既有队伍下一战安装 +5% 生命，1890 被旧快照覆盖为 1800；同场装备重算修复不覆盖这个跨遭遇问题 | ECHO-207，先记录比例来源并实现旧档兼容；独立探针 `tools/probe_fragment_vitality.gd` 当前明确失败，勿以常规回归绿灯关闭 |
+| 已修复 / P1 | `SpringBattleBridge.restore_party_vitals()` 与残片生命 | 2026-11-28 修复：队伍快照记录 `base_max_health`，`restore_health` 不再用旧上限覆盖当前残片加成；装 +5% 为 1890/945，卸下回 1800/900 | ECHO-207 关闭；探针 `tools/probe_fragment_vitality.gd` 输出 1890 且退出 0。旧档已把缩放上限写死后再卸下仍无法反推，保持存档值 |
 | 中 | `battle_view.gd::_rotate_camera()`、`battle_skill_input.gd`、樱四技能入口 | 原始视角卡死和 AP 异常表象尚未复现；已修误移动、残留选择与费用提示，压力/逐次扣费回归通过 | 原设备按完整步骤复测，保留 AP 前后值及日志，不把压力通过写成未知根因已修 |
 | 中 | 教学、三模板两模式、目标 Windows 设备 | 自动化不能证明教学可理解、整局平衡、显示缩放可用或长期渲染性能达标 | ECHO-301～306、502/503 交人工记录；无最低配置/真人证据时不关闭验收 |
 | 中 | `spring_battle_bridge.gd`、`spring_shop.gd`、敌档与经济目录 | Boss 特殊败北规则、普通敌人及部分经济参数仍待定，当前参数可执行但尚未封版 | 按用户指令保留 Boss 裁决；依据人工收支/失败数据做 304/305 |

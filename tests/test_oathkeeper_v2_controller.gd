@@ -21,6 +21,7 @@ func _run() -> void:
 	_test_guard_taunt_pulls_a_dodged_melee_within_two_cells()
 	_test_guard_taunt_redirects_single_target_ranged_intents()
 	_test_guard_counters_each_independent_enemy_intent()
+	_test_guard_counters_area_hit_once_per_intent()
 	_test_knockback_shifts_active_telegraphs()
 	_report()
 
@@ -285,6 +286,27 @@ func _test_guard_counters_each_independent_enemy_intent() -> void:
 	IntentResolverScript.absolute_guard_counter(battle, second)
 	_check(after_first < before and attacker.health < after_first, "two independent actions from one enemy each trigger a counter")
 	_check(attacker.cell.x >= 5, "each counter applies the existing knockback displacement")
+	battle.queue_free()
+
+func _test_guard_counters_area_hit_once_per_intent() -> void:
+	var battle = ControllerScript.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(1, 1), [Vector2i(3, 1)]), "area counter encounter starts")
+	battle.beacons.clear()
+	var guardian = battle.get_actor("sevrin")
+	var attacker = battle.get_actor("vanguard_00")
+	_check(battle.statuses.apply_status(&"absolute_guard", guardian.actor_id, guardian.actor_id, 1, 1, -1, &"", &"replace"), "Absolute Guard protects against area intents")
+	var before: int = attacker.health
+	var area = IntentScript.new("counter_area_once", attacker.actor_id, "ground_pulse", IntentScript.TargetMode.AREA_LOCKED, "", guardian.cell, [guardian.cell], 100)
+	battle.intents = [area]
+	var guardian_before: int = guardian.health
+	IntentResolverScript.resolve_one_active(battle)
+	_check(guardian.health < guardian_before, "the original area geometry can hit the guardian")
+	_check(attacker.health < before, "an area intent that hits the guardian triggers its counter")
+	var after_one: int = attacker.health
+	IntentResolverScript.resolve_one_active(battle)
+	_check(attacker.health == after_one, "the same resolved area intent cannot trigger a duplicate counter")
+	_check(attacker.cell.x >= 4, "area-hit counter uses the existing knockback service")
 	battle.queue_free()
 
 

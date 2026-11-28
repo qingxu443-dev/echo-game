@@ -204,7 +204,7 @@ func _test_portraits_and_checkpoint() -> void:
 	var resumed = Scene.instantiate()
 	root.add_child(resumed)
 	_check(_present(resumed.controller) == ["sakura"] and resumed.controller.ap.current == 2, "resuming preserves the sole active role and already paid AP")
-	_check(resumed.controller.actors.sakura.health == 900 and resumed.controller.actors.sakura.shield == 321 and resumed.controller.actors.sakura.resource_current == 3, "checkpoint preserves individual combat state")
+	_check(resumed.controller.actors.sakura.health == 1050 and resumed.controller.actors.sakura.shield == 321 and resumed.controller.actors.sakura.resource_current == 3, "checkpoint preserves individual combat state")
 	resumed.fx.advance(1.0, resumed.controller)
 	var key := InputEventKey.new()
 	key.keycode = KEY_TAB

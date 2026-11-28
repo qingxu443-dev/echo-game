@@ -177,7 +177,7 @@ func _test_downed_lead_keeps_downed() -> void:
 	var view = Scene.instantiate()
 	root.add_child(view)
 	_check(view.controller.actors.sakura.is_defeated() and not view.controller.actors.sakura.is_downed() and view.controller.actors.sakura.health == 0, "a dead legacy lead is permanently retired on battle entry")
-	_check(view.controller.actors.sakura.max_health == 2300, "a downed lead still receives the correct new ceiling")
+	_check(view.controller.actors.sakura.max_health == 2600, "a downed lead still receives the correct new ceiling")
 	_check(SpringRun.from_dict(run.to_dict()).hero_health == 0, "map reload does not display a phantom health point for a downed lead")
 	_check(run.hero_health == 0 and run.heal_hero(100) == 100 and run.party_vitals.sakura.health == 100, "explicit map healing restores its actual amount without a phantom one-point revival")
 	view.queue_free()

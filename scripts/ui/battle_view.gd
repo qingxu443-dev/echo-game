@@ -169,6 +169,7 @@ func _open_spring_settlement(result: Dictionary) -> void:
 		status_message = "战斗结果暂未写入存档，请重试；不会提前发放奖励。"
 		queue_redraw()
 		return
+	SessionSave.clear()
 	SpringBattleBridgeScript.clear_pending()
 	SpringBattleBridgeScript.restore_map = false
 	SpringBattleBridgeScript.suspended_map = {}

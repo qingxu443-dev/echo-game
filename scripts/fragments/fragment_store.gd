@@ -13,6 +13,16 @@ var path_override: String = ""
 static var default_path_override: String = ""
 
 
+## Applies a character's equipped health modules to a base maximum. Shared by
+## the map and battle layers so both agree on the cap the player sees.
+static func health_max(character_id: String, base: int) -> int:
+	var store := load_store()
+	if store == null:
+		return base
+	var pct := store.total_bonus(character_id, "health")
+	return maxi(base, roundi(float(base) * (1.0 + pct / 100.0)))
+
+
 static func load_store(path: String = "") -> FragmentStore:
 	var store := FragmentStore.new()
 	var resolved_path := path

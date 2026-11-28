@@ -207,6 +207,10 @@ func effective_max_health() -> int:
 	var relic_bonus: int = SpringRelicCatalog.total_bonus(relics, "max_health")
 	return maxi(1, maxi(hero_base_max_health + bonus_max_health + relic_bonus, carry_max_health))
 
+## The cap the player sees and heals toward, after equipped health modules.
+func scaled_max_health() -> int:
+	return FragmentStore.health_max(hero_character_id, effective_max_health())
+
 
 ## Returns how much was actually restored, so the caller can say "回复 37 点"
 ## instead of promising a number the cap ate.
@@ -215,7 +219,7 @@ func heal_hero(amount: int) -> int:
 		return 0
 	sync_lead_vitals()
 	var before: int = hero_health
-	hero_health = mini(effective_max_health(), hero_health + amount)
+	hero_health = mini(scaled_max_health(), hero_health + amount)
 	sync_lead_vitals(true)
 	return hero_health - before
 
@@ -234,7 +238,7 @@ func damage_hero(amount: int) -> int:
 
 
 func heal_fraction(fraction: float) -> int:
-	return heal_hero(int(round(float(effective_max_health()) * fraction)))
+	return heal_hero(int(round(float(scaled_max_health()) * fraction)))
 
 
 func add_bonus_max_health(amount: int) -> void:
@@ -242,9 +246,9 @@ func add_bonus_max_health(amount: int) -> void:
 		return
 	bonus_max_health = maxi(0, bonus_max_health + amount)
 	if amount > 0:
-		hero_health = mini(effective_max_health(), hero_health + amount)
+		hero_health = mini(scaled_max_health(), hero_health + amount)
 	else:
-		hero_health = clampi(hero_health, 1, effective_max_health())
+		hero_health = clampi(hero_health, 1, scaled_max_health())
 	sync_lead_vitals()
 
 
@@ -253,11 +257,7 @@ func sync_lead_vitals(allow_revive: bool = false) -> void:
 	if not party_vitals.has(hero_character_id): return
 	var vitals: Dictionary = party_vitals[hero_character_id]
 	var core_max := effective_max_health()
-	var scaled_max := core_max
-	var store = FragmentStore.load_store()
-	if store != null:
-		var pct := store.total_bonus(hero_character_id, "health")
-		scaled_max = maxi(1, roundi(float(core_max) * (1.0 + pct / 100.0)))
+	var scaled_max := scaled_max_health()
 	var previous_max := maxi(1, int(vitals.get("max_health", core_max)))
 	if scaled_max != previous_max:
 		# Installing or removing a module changes the cap between encounters;
@@ -266,6 +266,7 @@ func sync_lead_vitals(allow_revive: bool = false) -> void:
 		hero_health = clampi(roundi(float(hero_health) * float(scaled_max) / float(previous_max)), 1, scaled_max)
 	vitals["base_max_health"] = core_max
 	vitals["max_health"] = scaled_max
+	hero_max_health = scaled_max
 	if int(vitals.get("health", 0)) > 0 or allow_revive:
 		vitals["health"] = mini(hero_health, scaled_max)
 		hero_health = int(vitals["health"])
@@ -348,8 +349,9 @@ func apply_battle_payload(payload: Dictionary) -> void:
 		bonus_max_health = maxi(0, int(payload["bonus_max_health"]))
 	if payload.has("carry"):
 		battle_carry = (payload["carry"] as Dictionary).duplicate(true)
+	hero_max_health = scaled_max_health()
 	if payload.has("hero_health"):
-		hero_health = clampi(int(payload["hero_health"]), 1, effective_max_health())
+		hero_health = clampi(int(payload["hero_health"]), 1, hero_max_health)
 
 
 # --- shop (§7.3) -------------------------------------------------------------

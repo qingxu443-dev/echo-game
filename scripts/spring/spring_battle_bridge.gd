@@ -135,7 +135,7 @@ static func prepare(run, encounter_id: StringName, place_id: StringName, kind: S
 		"place": place_id,
 		"kind": kind,
 		"hero_health": run.hero_health,
-		"hero_max_health": run.effective_max_health(),
+		"hero_max_health": run.scaled_max_health(),
 		"bonus_max_health": run.bonus_max_health,
 		"carry": run.battle_carry.duplicate(true),
 		# Relic bonuses are read here, not in the battle: the battle layer has no

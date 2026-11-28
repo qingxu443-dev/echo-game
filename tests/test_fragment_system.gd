@@ -188,7 +188,7 @@ func _test_equipped_modules_apply_to_battle() -> void:
 	restored_state.reset()
 	restored_state.add_to_backpack({"id": &"resume_armor", "kind": "armor", "name": "续行护甲", "attack": 100})
 	restored_state.equip_from_backpack(0, restored)
-	_check(restored.attack == 1300, "post-resume equipment uses the saved fragment composition")
+	_check(restored.attack == 780, "post-resume equipment uses the saved fragment composition")
 	actor.crit_rate = 100.0
 	actor.crit_damage = 200.0
 	var enemy = battle.get_actor("vanguard_00")

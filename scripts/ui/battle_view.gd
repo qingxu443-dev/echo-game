@@ -19,6 +19,7 @@ const InventoryViewScript = preload("res://scripts/ui/inventory_view.gd")
 const SpringBattleBridgeScript = preload("res://scripts/spring/spring_battle_bridge.gd")
 const SpringEncounterCatalogScript = preload("res://scripts/spring/spring_encounter_catalog.gd")
 const SpringRunScript = preload("res://scripts/spring/spring_run.gd")
+const SPRING_SETTLEMENT_SCENE_PATH := "res://scenes/spring/spring_battle_settlement.tscn"
 
 ## Prototype skill bar. Self-target skills resolve on press; actor-target skills wait for confirmation.
 ## Number keys 1–5 mirror the visible order, and nothing is selected by default.
@@ -43,6 +44,8 @@ var inventory_page: int = 0
 ## True when this scene was opened by the 春之境 map for a single fight. The
 ## campaign path (three lessons in a row) is untouched and stays the default.
 var spring_mode: bool = false
+## Optional isolated authoring scene; the normal tutorial playlist stays fixed.
+@export var encounter_override: EncounterDefinition
 
 func _ready() -> void:
 	var suspended := SessionSave.consume("battle")
@@ -54,6 +57,7 @@ func _ready() -> void:
 		_begin_spring_fight()
 		return
 	levels = LevelCatalogScript.create_prototype_levels()
+	if encounter_override != null: levels.assign([encounter_override])
 	run_state = RunStateScript.new()
 	controller = ControllerScript.new()
 	controller.run_state = run_state
@@ -76,20 +80,21 @@ func _begin_spring_fight() -> void:
 	spring_mode = true
 	var payload: Dictionary = SpringBattleBridgeScript.pending
 	var encounter_id := StringName(str(payload.get("encounter", "")))
-	var definition := SpringEncounterCatalogScript.build(encounter_id, [String(SpringRunScript.HERO_CHARACTER_ID)])
+	var party_ids: Array[String] = []
+	for character_id in payload.get("character_ids", [SpringRunScript.HERO_CHARACTER_ID]):
+		party_ids.append(str(character_id))
+	var definition := SpringEncounterCatalogScript.build(encounter_id, party_ids)
 	if definition == null:
 		push_error("春之境：遭遇 %s 无法构建，直接返回地图。" % String(encounter_id))
-		SpringBattleBridgeScript.last_result = {
+		var fallback_result := {
 			"result": "defeat",
 			"kind": str(payload.get("kind", SpringBattleBridgeScript.KIND_BATTLE)),
 			"place": str(payload.get("place", "")),
 			"hero_health": int(payload.get("hero_health", 1)),
 			"hero_max_health": int(payload.get("hero_max_health", 1)),
+			"seed": int(payload.get("hero_health", 1)),
 		}
-		SpringBattleBridgeScript.clear_pending()
-		var error := SceneTravel.change(get_tree(), SpringBattleBridgeScript.MAP_SCENE_PATH)
-		if error != OK:
-			push_error("无法返回春之境。Error: %s" % error)
+		_open_spring_settlement(fallback_result)
 		return
 	levels = [definition]
 	run_state = RunStateScript.new()
@@ -103,27 +108,71 @@ func _begin_spring_fight() -> void:
 	LootCatalogScript.seed_rng(loot_seed)
 	run_state.loot_seed = loot_seed
 	_start_level(0)
+	_restore_spring_party_vitals(payload)
 
 ## Hands the outcome back to the map scene. Called from the settlement button.
-func _return_to_map() -> void:
-	var hero = controller.get_active_character()
+func _spring_run_lead():
 	var payload: Dictionary = SpringBattleBridgeScript.pending
+	var party_ids: Array = payload.get("character_ids", [SpringRunScript.HERO_CHARACTER_ID])
+	if party_ids.is_empty():
+		return controller.get_active_character()
+	return controller.actors.get(str(party_ids[0]))
+
+func _restore_spring_party_vitals(payload: Dictionary) -> void:
+	SpringBattleBridgeScript.restore_party_vitals(controller, payload)
+
+func _return_to_map() -> void:
+	var hero = _spring_run_lead()
+	var payload: Dictionary = SpringBattleBridgeScript.pending
+	var party_vitals: Dictionary = {}
+	for actor_id in controller.actors:
+		var actor = controller.actors[actor_id]
+		if actor.team == "player":
+			party_vitals[str(actor_id)] = {"health": actor.health, "max_health": actor.max_health}
 	var result := {
 		"result": controller.battle_result,
 		"kind": str(payload.get("kind", SpringBattleBridgeScript.KIND_BATTLE)),
 		"place": str(payload.get("place", "")),
 		"hero_health": hero.health if hero != null else 1,
 		"hero_max_health": hero.max_health if hero != null else 1,
+		"party_vitals": party_vitals,
 		"carry": SpringBattleBridgeScript.pack_carry(run_state),
 		"chests_saved": pending_rewards.size(),
 		"loot": pending_rewards.duplicate(true),
 		"seed": run_state.loot_seed,
 	}
+	if spring_mode:
+		_open_spring_settlement(result)
+		return
 	SpringBattleBridgeScript.last_result = result
 	SpringBattleBridgeScript.clear_pending()
 	var error := SceneTravel.change(get_tree(), SpringBattleBridgeScript.MAP_SCENE_PATH)
 	if error != OK:
 		push_error("无法返回春之境。Error: %s" % error)
+
+
+func _open_spring_settlement(result: Dictionary) -> void:
+	var run := SpringRunScript.load_from_file(SpringRunScript.SAVE_PATH)
+	if run == null and not SpringBattleBridgeScript.suspended_map.is_empty():
+		run = SpringRunScript.from_dict(SpringBattleBridgeScript.suspended_map)
+	if run == null:
+		status_message = "战斗结果无法读取原始出征存档；结果仍保留在当前战斗中。"
+		queue_redraw()
+		return
+	var settlement_id := "%s-%d-%d" % [str(result.get("place", "battle")), int(Time.get_unix_time_from_system()), Time.get_ticks_usec()]
+	run.pending_battle_settlement = {
+		"id": settlement_id,
+		"phase": "pending",
+		"result": result.duplicate(true),
+	}
+	if not run.save_to_file(SpringRunScript.SAVE_PATH):
+		status_message = "战斗结果暂未写入存档，请重试；不会提前发放奖励。"
+		queue_redraw()
+		return
+	SpringBattleBridgeScript.clear_pending()
+	var error := SceneTravel.change(get_tree(), SPRING_SETTLEMENT_SCENE_PATH)
+	if error != OK:
+		push_error("独立战斗结算界面载入失败，待结算记录已保留。Error: %s" % error)
 
 func _begin_fresh_run() -> void:
 	run_state.reset()
@@ -136,6 +185,11 @@ func _start_level(index: int) -> void:
 	if index < 0 or index >= levels.size():
 		return
 	var level: EncounterDefinition = levels[index]
+	var law_error := EncounterLaws.describe_error(level.anomaly_overrides)
+	if not law_error.is_empty():
+		status_message = "关卡异象无效：" + law_error
+		queue_redraw()
+		return
 	selected_skill = -1
 	pending_rewards.clear()
 	# A rejected setup leaves the previous encounter untouched, so say so instead
@@ -143,7 +197,7 @@ func _start_level(index: int) -> void:
 	# §11.1 applies to the spring run: its fights start with a deployment phase.
 	# The tutorial lessons keep the old direct start, because their opening beats
 	# teach a turn action ("move one tile") rather than a placement.
-	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items, level.ward_nodes, level.deploy_cells, spring_mode, level.enemy_stat_multiplier):
+	if not controller.start_encounter(level.player_cell, level.enemy_cells, level.obstacles, level.enemy_archetypes, level.character_ids, level.ally_cells, level.chest_items, level.ward_nodes, level.deploy_cells, spring_mode, level.enemy_stat_multiplier, level.anomaly_overrides):
 		status_message = "关卡「%s」数据无效，未能开始。" % str(level.display_name_zh)
 		queue_redraw()
 		return
@@ -549,7 +603,7 @@ func _on_battle_finished(result: String) -> void:
 	var rewards_saved := BattleRewards.settle(controller, spring_mode, atelier_save_path)
 	if result == "victory":
 		pending_rewards = controller.collect_remaining_chests()
-		var hero = controller.get_active_character()
+		var hero = _spring_run_lead() if spring_mode else controller.get_active_character()
 		if hero != null and run_state != null:
 			run_state.sync_from_actor(hero)
 		if spring_mode:

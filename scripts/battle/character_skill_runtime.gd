@@ -20,6 +20,7 @@ extends RefCounted
 
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 const SkillEffectsScript = preload("res://scripts/battle/skill_effects.gd")
+const DestLeeSkillEffectsScript = preload("res://scripts/battle/dest_lee_skill_effects.gd")
 const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
 const SummonServiceScript = preload("res://scripts/battle/summon_service.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
@@ -169,6 +170,10 @@ static var _executors: Dictionary = {
 	&"sakura_flowing_wind": Callable(SkillEffectsScript, "_flowing_wind"),
 	&"sakura_falling_petals": Callable(SkillEffectsScript, "_falling_petals"),
 	&"sakura_endless_fragrance": Callable(SkillEffectsScript, "_endless_fragrance"),
+	&"dest_lee_blackflame_shot": Callable(DestLeeSkillEffectsScript, "_run_blackflame_shot"),
+	&"dest_lee_black_rain": Callable(DestLeeSkillEffectsScript, "_run_black_rain"),
+	&"dest_lee_city_burn": Callable(DestLeeSkillEffectsScript, "_run_city_burn"),
+	&"dest_lee_daybreak_ends": Callable(DestLeeSkillEffectsScript, "_run_daybreak_ends"),
 }
 
 

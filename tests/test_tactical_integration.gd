@@ -7,14 +7,15 @@ func _run() -> void:
 	_test_boss_threshold(false)
 	_test_boss_threshold(true)
 	_test_boss_combo()
+	_test_scaled_reinforcements()
 	_test_reactive_melee()
 	_test_items_with_both_characters()
 	await process_frame
 
-func _battle(cells: Array[Vector2i], archetypes: Array[String] = [], character: String = "sakura") -> BattleController:
+func _battle(cells: Array[Vector2i], archetypes: Array[String] = [], character: String = "sakura", multiplier: float = 1.0) -> BattleController:
 	var battle := BattleController.new()
 	root.add_child(battle)
-	battle.start_encounter(Vector2i(3, 3), cells, [], archetypes, [character])
+	battle.start_encounter(Vector2i(3, 3), cells, [], archetypes, [character], [], [], 0, [], false, multiplier)
 	battle.beacons.clear()
 	var hero = battle.get_active_character()
 	hero.max_health = 100000
@@ -134,6 +135,36 @@ func _test_boss_threshold(no_space: bool) -> void:
 	_check(battle.request_skill(&"sakura_pierce_blossom", boss.actor_id), "next hit after phase transition succeeds")
 	_check(_count(events, "boss_enraged") == 1, "later hits cannot retrigger threshold or reinforcements")
 	battle.queue_free()
+
+func _test_scaled_reinforcements() -> void:
+	for multiplier in [1.0, 1.2]:
+		var battle := _battle([Vector2i(4, 3)], ["boss_thousand_boughs"], "sakura", multiplier)
+		var boss = battle.get_actor("boss_thousand_boughs_00")
+		boss.health = int(boss.max_health / 2) + 1
+		_check(battle.request_skill(&"sakura_pierce_blossom", boss.actor_id), "normal skill crosses the scaled boss threshold")
+		var count := 0
+		for actor in battle.actors.values():
+			if not str(actor.actor_id).begins_with("escort_"): continue
+			count += 1
+			var profile := EnemyCatalog.get_definition(actor.archetype)
+			var base_hp := 700 if actor.archetype == "wind_ranger" else 600
+			_check(actor.max_health == roundi(base_hp * multiplier) and actor.health == actor.max_health, "escort HP override is scaled once, with full current HP")
+			_check(actor.attack == roundi(profile.attack * multiplier), "escort attack inherits the encounter multiplier")
+			_check(actor.defense == roundi(profile.defense * multiplier), "escort defense inherits the encounter multiplier")
+			_check(actor.magic_resistance == roundi(profile.magic_resistance * multiplier), "escort resistance inherits the encounter multiplier")
+			_check(actor.skill_damage == profile.skill_damage and actor.basic_attack_multiplier == profile.basic_attack_multiplier, "fixed skill damage and move multipliers remain authored values")
+		_check(count == 2, "scaled phase two still spawns exactly two escorts")
+		if multiplier > 1.0:
+			_check(battle.start_encounter(Vector2i(3, 3), [Vector2i(4, 3)], [], ["boss_thousand_boughs"], ["sakura"]), "same controller can start an unscaled encounter")
+			battle.beacons.clear()
+			boss = battle.get_actor("boss_thousand_boughs_00")
+			boss.health = int(boss.max_health / 2) + 1
+			_check(battle.request_skill(&"sakura_pierce_blossom", boss.actor_id), "unscaled restart reaches phase two")
+			for actor in battle.actors.values():
+				if str(actor.actor_id).begins_with("escort_"):
+					_check(actor.attack == EnemyCatalog.get_definition(actor.archetype).attack, "new encounter does not retain the previous scaling")
+		battle.queue_free()
+
 
 func _test_boss_combo() -> void:
 	var battle := _battle([Vector2i(4, 3)], ["boss_thousand_boughs"])

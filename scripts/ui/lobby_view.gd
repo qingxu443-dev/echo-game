@@ -1,12 +1,13 @@
 extends Control
 
-
 const MENU_SCENE_PATH := "res://scenes/menu/main_menu.tscn"
 const BATTLE_SCENE_PATH := "res://scenes/main/main.tscn"
 const SPRING_SCENE_PATH := "res://scenes/spring/spring_map.tscn"
+const SPRING_THEME_SCENE_PATH := "res://scenes/spring/spring_theme.tscn"
 const BACKGROUND_PATH := "res://assets/ui/lobby_atelier_bg.png"
 const AtelierStashScript = preload("res://scripts/meta/atelier_stash.gd")
 const AtelierPrepOverlayScript = preload("res://scripts/ui/atelier_prep_overlay.gd")
+const RosterNavScript = preload("res://scripts/ui/lobby_roster_nav.gd")
 
 const MAP_ENTRIES: Array[Dictionary] = [
 	{
@@ -15,9 +16,9 @@ const MAP_ENTRIES: Array[Dictionary] = [
 		"cta": "进入章节 1", "scene_path": BATTLE_SCENE_PATH, "accent": Color("#d4b77b"), "locked": false,
 	},
 	{
-		"id": "spring", "chapter": "CHAPTER 02", "chapter_zh": "章节 2", "tag": "赛季大地图 · 5×5", "title": "春之境 · 未尽之春", "subtitle": "出战角色：樱（花之誓）",
-		"desc_lines": ["5×5 探索 · 十段奇遇 · 春日行商", "精英专属技 · 首领千枝神将"],
-		"cta": "进入章节 2", "scene_path": SPRING_SCENE_PATH, "accent": Color("#e89ab0"), "locked": false,
+		"id": "spring", "chapter": "CHAPTER 02", "chapter_zh": "章节 2", "tag": "章节主题 · 图鉴与故事", "title": "春之境 · 未尽之春", "subtitle": "出战角色：樱（花之誓）",
+		"desc_lines": ["藏品图鉴 · 敌人图鉴 · 剧情回顾", "普通探索 · 困难定轨 · 春之境冒险"],
+		"cta": "进入主题界面", "scene_path": SPRING_THEME_SCENE_PATH, "accent": Color("#e89ab0"), "locked": false,
 	},
 	{
 		"id": "upcoming", "chapter": "CHAPTER 03", "chapter_zh": "章节 3", "tag": "COMING SOON", "title": "未竟之域 · 筹备中", "subtitle": "后续章节与多角色拓展",
@@ -67,12 +68,14 @@ var dialogue_speaker: String = "瑟弗林"
 var dialogue_timer: float = 0.0
 var status_notice: String = ""
 var spring_resume_info: Dictionary = {}
-
+var roster_nav
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
 	background = _load_texture(BACKGROUND_PATH)
+	roster_nav = RosterNavScript.new()
+	roster_nav.install(self)
 	chapter_portraits["tutorial"] = _load_texture("res://assets/actors/portraits/sevrin.png")
 	chapter_portraits["spring"] = _load_texture("res://assets/actors/portraits/sakura.png")
 	_init_motes()
@@ -96,12 +99,10 @@ func refresh_save_summary() -> void:
 			"stamina_max": ExplorationState.STAMINA_MAX,
 		}
 
-
 func _show_dialogue(speaker: String, text: String, duration: float = 5.5) -> void:
 	dialogue_speaker = speaker
 	active_dialogue = text
 	dialogue_timer = duration
-
 
 func _load_texture(res_path: String) -> Texture2D:
 	if ResourceLoader.exists(res_path, "Texture2D"):
@@ -115,14 +116,12 @@ func _load_texture(res_path: String) -> Texture2D:
 			return ImageTexture.create_from_image(img)
 	return null
 
-
 func _init_motes() -> void:
 	motes.clear()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261127
 	for _i in range(36):
 		motes.append({"x": rng.randf_range(120.0, 980.0), "y": rng.randf_range(40.0, 660.0), "vy": rng.randf_range(-12.0, -4.0), "vx": rng.randf_range(4.0, 12.0), "r": rng.randf_range(1.1, 2.6), "phase": rng.randf_range(0.0, TAU), "cyan": rng.randf() < 0.22})
-
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -139,7 +138,6 @@ func _process(delta: float) -> void:
 		if float(m["y"]) < -10.0:
 			m["y"] = size.y + 10.0
 	queue_redraw()
-
 
 # --- geometry (1280x720 scaled cleanly to viewport) --------------------------
 
@@ -172,7 +170,6 @@ func spring_hard_button_rect() -> Rect2:
 	var w := (r.size.x - 50.0 * sx) * 0.5
 	return Rect2(r.position.x + 30.0 * sx + w, r.end.y - 64.0 * _sy(), w, 44.0 * _sy())
 
-
 # --- public state helpers ----------------------------------------------------
 
 func open_map_selector() -> void:
@@ -181,19 +178,16 @@ func open_map_selector() -> void:
 	map_selector_open = true
 	queue_redraw()
 
-
 func close_map_selector() -> void:
 	map_selector_open = false
 	hovered_map_index = -1
 	queue_redraw()
-
 
 func move_map_selection(direction: int) -> void:
 	if direction == 0 or MAP_ENTRIES.is_empty():
 		return
 	selected_map_index = wrapi(selected_map_index + signi(direction), 0, MAP_ENTRIES.size())
 	queue_redraw()
-
 
 func activate_map(index: int, hard_mode: bool = false) -> bool:
 	if index < 0 or index >= MAP_ENTRIES.size():
@@ -223,16 +217,11 @@ func activate_map(index: int, hard_mode: bool = false) -> bool:
 		return false
 	# Godot adds the destination scene at the end of the frame.
 	if str(entry.get("id", "")) == "spring":
-		if hard_mode:
-			SpringBattleBridge.requested_mode = "hard"
-		elif not bool(spring_resume_info.get("active", false)):
-			SpringBattleBridge.requested_mode = "normal"
-		else:
-			SpringBattleBridge.requested_mode = ""
+		# The chapter hub owns the later normal / hard / resume decision.
+		SpringBattleBridge.requested_mode = ""
 	else:
 		SpringBattleBridge.tutorial_loadout_requested = true
 	return true
-
 
 func return_to_title() -> bool:
 	var tree := get_tree()
@@ -244,10 +233,12 @@ func return_to_title() -> bool:
 		return false
 	return true
 
-
 # --- input -------------------------------------------------------------------
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if roster_nav != null and roster_nav.handle_key(event):
+		get_viewport().set_input_as_handled()
+		return
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if prep_open:
@@ -278,7 +269,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			return_to_title()
 			get_viewport().set_input_as_handled()
 
-
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var pos: Vector2 = event.position
@@ -295,6 +285,7 @@ func _gui_input(event: InputEvent) -> void:
 			if next_hover != hovered_map_index or next_nav != hovered_nav_btn:
 				hovered_map_index = next_hover; hovered_nav_btn = next_nav; queue_redraw()
 		else:
+			roster_nav.update_hover(self, pos)
 			hover_expedition = expedition_button_rect().has_point(pos)
 			hover_prep = prep_button_rect().has_point(pos)
 			hover_back = back_button_rect().has_point(pos)
@@ -307,6 +298,8 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 func _handle_click(pos: Vector2) -> void:
+	if roster_nav.handle_click(self, pos):
+		return
 	if prep_open:
 		var res := AtelierPrepOverlayScript.handle_click(size, pos, atelier_state)
 		if bool(res.get("close", false)): prep_open = false
@@ -331,7 +324,6 @@ func _handle_click(pos: Vector2) -> void:
 	if dialogue_timer > 0.0:
 		dialogue_timer = 0.0; queue_redraw()
 
-
 # --- rendering ---------------------------------------------------------------
 
 func _draw() -> void:
@@ -348,7 +340,6 @@ func _draw() -> void:
 		AtelierPrepOverlayScript.draw(self, font, size, atelier_state, prep_notice, mouse_pos)
 	elif map_selector_open or selector_fade > 0.02:
 		_draw_map_selector(font, sx, sy, maxf(selector_fade, 1.0 if map_selector_open else 0.0))
-
 
 func _draw_atelier_scene(sx: float, sy: float) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#141218"), true)
@@ -387,7 +378,6 @@ func _draw_atelier_scene(sx: float, sy: float) -> void:
 		PackedColorArray([Color(0.04, 0.04, 0.06, 0.46), Color(0.04, 0.04, 0.06, 0.46), Color(0.04, 0.04, 0.06, 0.0), Color(0.04, 0.04, 0.06, 0.0)])
 	)
 
-
 func _draw_hotspots(font: Font, sx: float, sy: float) -> void:
 	if map_selector_open:
 		return
@@ -413,7 +403,6 @@ func _draw_hotspots(font: Font, sx: float, sy: float) -> void:
 			draw_rect(box, col, false, 1.2)
 			draw_string(font, box.position + Vector2(12.0 * sx, 16.5 * sy), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color("#fbf2df"))
 
-
 func _draw_minimal_hud(font: Font, sx: float, sy: float) -> void:
 	var back_r := back_button_rect()
 	draw_rect(back_r, Color(0.16, 0.14, 0.16, 0.82) if hover_back else Color(0.09, 0.09, 0.12, 0.65), true)
@@ -434,6 +423,7 @@ func _draw_minimal_hud(font: Font, sx: float, sy: float) -> void:
 	var pill_text := "未尽之春（%s）· 体力 %d/%d" % [mode_tag, int(spring_resume_info.get("stamina", 0)), int(spring_resume_info.get("stamina_max", 10))] if has_resume else "黄昏时分  ·  营地待机中"
 	draw_string(font, pill.position + Vector2(16.0 * sx, 23.0 * sy), pill_text, HORIZONTAL_ALIGNMENT_LEFT, pill.size.x - 24.0 * sx, roundi(12.5 * sy), Color("#dcf4fc") if has_resume else Color("#dfd6c6"))
 
+	roster_nav.draw(self, font, sx, sy)
 
 func _draw_dialogue_ribbon(font: Font, sx: float, sy: float) -> void:
 	if map_selector_open or dialogue_timer <= 0.0 or active_dialogue.is_empty():
@@ -445,7 +435,6 @@ func _draw_dialogue_ribbon(font: Font, sx: float, sy: float) -> void:
 	draw_rect(box, Color(0.88, 0.76, 0.50, 0.30 * fade), false, 1.0)
 	draw_string(font, box.position + Vector2(18.0 * sx, 24.0 * sy), dialogue_speaker, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(14.0 * sy), Color(0.95, 0.84, 0.58, fade))
 	draw_string(font, box.position + Vector2(18.0 * sx, 52.0 * sy), active_dialogue, HORIZONTAL_ALIGNMENT_LEFT, box.size.x - 32.0 * sx, roundi(13.0 * sy), Color(0.92, 0.90, 0.86, fade))
-
 
 func _draw_expedition_button(font: Font, sx: float, sy: float) -> void:
 	# Atelier Prep button sitting cleanly to the left of Select Map
@@ -479,7 +468,6 @@ func _draw_expedition_button(font: Font, sx: float, sy: float) -> void:
 		draw_rect(badge, Color("#244656"), true)
 		draw_rect(badge, Color("#8fc7dc"), false, 1.2)
 		draw_string(font, badge.position + Vector2(12.0 * sx, 16.0 * sy), "可续行", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11.5 * sy), Color("#e4f9ff"))
-
 
 func _draw_map_selector(font: Font, sx: float, sy: float, alpha: float) -> void:
 	# Full-screen chapter roadmap backdrop
@@ -539,7 +527,6 @@ func _draw_map_selector(font: Font, sx: float, sy: float, alpha: float) -> void:
 	var footer_col := Color("#e4b092") if not status_notice.is_empty() else Color("#9b9a94")
 	draw_string(font, Vector2(44.0 * sx, size.y - 32.0 * sy), footer_text, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12.5 * sy), Color(footer_col.r, footer_col.g, footer_col.b, alpha))
 
-
 func _draw_map_card(font: Font, index: int, sx: float, sy: float, alpha: float) -> void:
 	var entry: Dictionary = MAP_ENTRIES[index]
 	var r := map_card_rect(index)
@@ -583,14 +570,10 @@ func _draw_map_card(font: Font, index: int, sx: float, sy: float, alpha: float) 
 		draw_string(font, Vector2(r.position.x + 22.0 * sx, r.end.y - 82.0 * sy), "困难定轨：长按一笔画路线必达首领", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40.0 * sx, roundi(11.5 * sy), Color(0.95, 0.62, 0.56, alpha))
 
 	if is_spring:
-		var left_r := spring_normal_button_rect()
-		var right_r := spring_hard_button_rect()
-		draw_rect(left_r, Color(0.24, 0.22, 0.24, 0.92 * alpha), true)
-		draw_rect(left_r, border_col, false, 1.4)
-		draw_string(font, left_r.position + Vector2(0.0, 28.0 * sy), "继续探索" if is_spring_resume else "普通探索", HORIZONTAL_ALIGNMENT_CENTER, left_r.size.x, roundi(14.0 * sy), Color(0.98, 0.95, 0.88, alpha))
-		draw_rect(right_r, Color(0.38, 0.14, 0.15, 0.96 * alpha), true)
-		draw_rect(right_r, Color(0.90, 0.44, 0.42, 0.95 * alpha), false, 1.6)
-		draw_string(font, right_r.position + Vector2(0.0, 28.0 * sy), "困难 · 定轨", HORIZONTAL_ALIGNMENT_CENTER, right_r.size.x, roundi(14.0 * sy), Color(1.0, 0.90, 0.86, alpha))
+		var cta_r := Rect2(r.position.x + 20.0 * sx, r.end.y - 64.0 * sy, r.size.x - 40.0 * sx, 44.0 * sy)
+		draw_rect(cta_r, Color(0.34, 0.19, 0.25, 0.96 * alpha), true)
+		draw_rect(cta_r, border_col, false, 1.6)
+		draw_string(font, cta_r.position + Vector2(0.0, 28.0 * sy), "进入主题界面", HORIZONTAL_ALIGNMENT_CENTER, cta_r.size.x, roundi(14.0 * sy), Color(0.98, 0.95, 0.88, alpha))
 		return
 
 	var cta_r := Rect2(r.position.x + 20.0 * sx, r.end.y - 64.0 * sy, r.size.x - 40.0 * sx, 44.0 * sy)

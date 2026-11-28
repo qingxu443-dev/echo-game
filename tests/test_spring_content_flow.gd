@@ -25,6 +25,7 @@ func _run() -> void:
 	_test_relics_are_unique_and_raise_dew_capacity()
 	_test_payload_maps_vitals_and_relics()
 	_test_victory_settles()
+	_test_settlement_is_idempotent()
 	_test_defeat_finishes_the_node()
 	_test_continue_is_one_shot()
 	_test_elite_offers_three()
@@ -161,8 +162,29 @@ func _test_victory_settles() -> void:
 	_check(run.coins == coins_before + 3 * BridgeScript.CHEST_COINS, "three surviving chests pay 30 coins")
 	_check(run.exploration.stamina == stamina_before, "a fight costs no exploration stamina (§11.2)")
 	_check(run.exploration.position == position_before, "a fight returns to the same cell (§11.2)")
-	_check(str(outcome["message"]).contains("战斗胜利"), "the outcome says the fight was won")
+	_check(str(outcome["message"]).contains("藏品"), "the outcome reports the guaranteed ordinary collectible")
 	_check(run.hero_health == 1200, "the win carries the hero's health back")
+
+
+func _test_settlement_is_idempotent() -> void:
+	var run_path := "user://spring_idempotent_run_%d.json" % OS.get_process_id()
+	var stash_path := "user://spring_idempotent_stash_%d.json" % OS.get_process_id()
+	var run := _fresh_run()
+	var wallet := {"shards": 100, "loadout": []}
+	_check(run.save_to_file(run_path), "write the pre-settlement run image")
+	_check(AtelierStash.save_state(wallet, stash_path), "write the pre-settlement wallet")
+	var settlement_id := "battle-once-001"
+	_check(SpringRunStorage.settle(run, run_path, stash_path, 35, settlement_id), "the first settlement commits")
+	_check(int(AtelierStash.read_state(stash_path).get("shards", 0)) == 135, "the first settlement awards shards")
+	_check(SpringRunStorage.settle(run, run_path, stash_path, 35, settlement_id), "the same settlement can be safely retried")
+	_check(int(AtelierStash.read_state(stash_path).get("shards", 0)) == 135, "retrying does not duplicate shards")
+	var restored := SpringRun.load_from_file(run_path)
+	_check(restored != null and restored.settled_battle_ids.has(settlement_id), "the idempotency key survives restart")
+	if restored != null:
+		_check(SpringRunStorage.settle(restored, run_path, stash_path, 35, settlement_id), "a restarted settlement can be retried")
+	_check(int(AtelierStash.read_state(stash_path).get("shards", 0)) == 135, "restart recovery also awards only once")
+	DirAccess.remove_absolute(run_path)
+	DirAccess.remove_absolute(stash_path)
 
 
 func _test_defeat_finishes_the_node() -> void:

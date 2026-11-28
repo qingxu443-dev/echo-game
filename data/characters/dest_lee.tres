@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CharacterDefinition" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/battle/character_definition.gd" id="1_ch"]
+[resource]
+script = ExtResource("1_ch")
+character_id = &"dest_lee"
+display_name_zh = "德斯特·李"
+role_label_zh = "火力"
+glyph = "李"
+ultimate_energy_max = 5
+max_health = 1400
+attack = 430
+defense = 130
+magic_resistance = 100
+skill_ids = Array[StringName]([&"dest_lee_blackflame_shot", &"dest_lee_death_embers", &"dest_lee_black_rain", &"dest_lee_city_burn", &"dest_lee_daybreak_ends"])
+resource_id = &""
+resource_name_zh = ""
+resource_max = 0

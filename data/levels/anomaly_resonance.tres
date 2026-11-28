@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EncounterDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle/encounter_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+level_id = &"anomaly_resonance"
+display_name_zh = "异象样板 · 厚重回响"
+tactical_hint_zh = "本战护甲与抗性更有效，每回合共享 4 点行动点。先读预告，比较护盾与走位。此为独立工程样板，不加入教学主路线。"
+player_cell = Vector2i(2, 3)
+enemy_cells = Array[Vector2i]([Vector2i(4, 3)])
+enemy_archetypes = Array[String](["vanguard"])
+character_ids = Array[String](["sevrin"])
+obstacles = Array[Vector2i]([Vector2i(5, 3)])
+chest_items = Array[StringName]([&"upg_shatter_slam", &"armor_iron_bulwark"])
+anomaly_overrides = {"attenuation_k": 500, "ap_pool": 4}

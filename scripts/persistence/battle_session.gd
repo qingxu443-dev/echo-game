@@ -2,15 +2,17 @@ class_name BattleSession
 extends RefCounted
 
 const VIEW_FIELDS: Array[String] = ["status_message", "selected_skill", "inventory_open", "inventory_page", "pending_rewards"]
+const CONTROLLER_CONTAINERS: Array[String] = ["actors", "intents", "ap", "statuses", "ledger", "run_state"]
 
 
 static func capture(view: Node) -> Dictionary:
 	var battle: BattleController = view.controller
 	var data := {
 		"scene": "battle", "spring_mode": view.spring_mode, "level": view.current_level,
+		"encounter_override_id": str(view.encounter_override.level_id) if view.encounter_override != null else "",
 		"bridge": SpringBattleBridge.pending.duplicate(true),
 		"parent_run": SpringBattleBridge.suspended_map.duplicate(true),
-		"controller": SessionCodec.fields(battle, ["actors", "intents", "ap", "statuses", "ledger", "run_state"]),
+		"controller": SessionCodec.fields(battle, CONTROLLER_CONTAINERS),
 		"run_state": SessionCodec.fields(view.run_state), "ap": SessionCodec.fields(battle.ap),
 		"ledger": SessionCodec.fields(battle.ledger), "fx": SessionCodec.fields(view.fx),
 		"camera": UiPalette.camera_quadrant, "actors": [], "intents": [], "statuses": [], "view": {},
@@ -31,10 +33,15 @@ static func restore(view: Node, data: Dictionary) -> bool:
 		SpringBattleBridge.pending = data.bridge.duplicate(true)
 		SpringBattleBridge.suspended_map = data.parent_run.duplicate(true)
 		SpringBattleBridge.restore_map = true
-		view.levels.assign([SpringEncounterCatalog.build(StringName(str(data.bridge.encounter)), [SpringRun.HERO_CHARACTER_ID])])
+		var party_ids: Array[String] = []
+		for character_id in data.bridge.get("character_ids", [SpringRun.HERO_CHARACTER_ID]):
+			party_ids.append(str(character_id))
+		view.levels.assign([SpringEncounterCatalog.build(StringName(str(data.bridge.encounter)), party_ids)])
 	else:
 		SpringBattleBridge.clear_pending()
 		view.levels = LevelCatalog.create_prototype_levels()
+		view.encounter_override = LevelCatalog.optional_encounter(StringName(str(data.get("encounter_override_id", ""))))
+		if view.encounter_override != null: view.levels.assign([view.encounter_override])
 	view.current_level = int(data.level)
 	view.run_state = RunState.new()
 	SessionCodec.apply_fields(view.run_state, data.run_state)

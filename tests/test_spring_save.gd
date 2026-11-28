@@ -15,6 +15,7 @@ const TEST_PATH := "user://spring_run_save_test.json"
 
 func _run() -> void:
 	_test_round_trip_keeps_the_board()
+	_test_pending_settlement_round_trip()
 	_test_random_event_is_not_redrawn()
 	_test_resources_round_trip()
 	_test_progress_round_trip()
@@ -47,6 +48,12 @@ func _test_old_versions_migrate_forward() -> void:
 	var from_v1 := SpringRun.from_dict(v1)
 	_check(from_v1 != null, "v1 存档仍能加载")
 	_check(from_v1 != null and from_v1.hero_health == from_v1.effective_max_health(), "v1 没有 hero 段时按满血开局")
+
+	var v4: Dictionary = base.duplicate(true)
+	v4["version"] = 4
+	v4["resources"].erase("collectible_consumables")
+	var from_v4 := SpringRun.from_dict(v4)
+	_check(from_v4 != null and from_v4.collectible_consumables.is_empty(), "v4 saves migrate with an empty active-consumable inventory")
 
 	var v3: Dictionary = base.duplicate(true)
 	v3["version"] = 3
@@ -82,6 +89,21 @@ func _test_round_trip_keeps_the_board() -> void:
 		_check(restored.exploration.position == run.exploration.position, "seed %d keeps the position" % seed_value)
 		_check(restored.exploration.stamina == run.exploration.stamina, "seed %d keeps the stamina" % seed_value)
 		_check(restored.template.places.size() == run.template.places.size(), "seed %d keeps every place" % seed_value)
+
+
+func _test_pending_settlement_round_trip() -> void:
+	var run := SpringRun.begin(11)
+	run.pending_battle_settlement = {
+		"id": "battle-resume-001",
+		"phase": "pending",
+		"result": {"result": "victory", "kind": "battle", "place": "battle_1"},
+	}
+	var restored := SpringRun.from_dict(run.to_dict())
+	_check(restored != null, "a run with a pending battle result restores")
+	_check(restored != null and str(restored.pending_battle_settlement.get("id", "")) == "battle-resume-001",
+		"the pending settlement id survives save/load")
+	_check(restored != null and str(restored.pending_battle_settlement.get("phase", "")) == "pending",
+		"the pending phase survives save/load")
 
 
 func _test_random_event_is_not_redrawn() -> void:

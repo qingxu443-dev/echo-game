@@ -33,12 +33,14 @@ static func start_encounter(
 	ward_nodes: int = 0,
 	deploy_zone_cells: Array[Vector2i] = [],
 	defer_start: bool = false,
-	enemy_stat_multiplier: float = 1.0
+	enemy_stat_multiplier: float = 1.0, anomaly_overrides: Dictionary = {}
 ) -> bool:
 	if battle.grid_size.x <= 0 or battle.grid_size.y <= 0 or battle.team_ap <= 0:
 		return false
-	if enemy_stat_multiplier <= 0.0:
+	if not is_finite(enemy_stat_multiplier) or enemy_stat_multiplier <= 0.0:
 		return false
+	var laws := EncounterLaws.resolve(anomaly_overrides, battle.team_ap)
+	if laws.is_empty(): return false
 	if not GridRulesScript.is_inside_bounds(player_cell, battle.grid_size):
 		return false
 	if enemy_cells.is_empty():
@@ -87,12 +89,15 @@ static func start_encounter(
 			return false
 		candidate_enemy_cells[cell] = true
 
-	battle.ap.maximum = battle.team_ap
+	battle.ap.maximum = laws.ap_pool
+	battle.law_overrides = anomaly_overrides.duplicate(true)
+	battle.attenuation_k = laws.attenuation_k
 	battle.actors.clear()
 	battle.beacons.clear()
 	battle.dropped_loot.clear()
 	battle.statuses.clear_all()
 	battle.ledger.reset_for_encounter()
+	battle.enemy_stat_multiplier = enemy_stat_multiplier
 	TacticalPressureScript.reset_turn_tolerance(battle)
 	battle.blocked_cells = candidate_blockers
 	battle.intents.clear()
@@ -120,6 +125,7 @@ static func start_encounter(
 		unit.resource_max = sheet.resource_max
 		unit.ultimate_energy_max = maxi(1, sheet.ultimate_energy_max)
 		unit.resource_current = 0
+		unit.attenuation_k = battle.attenuation_k
 		if index == 0 and battle.run_state != null:
 			battle.run_state.apply_to_actor(unit)
 		battle.actors[character_id] = unit
@@ -132,15 +138,7 @@ static func start_encounter(
 		var archetype := EnemyCatalogScript.DEFAULT_ARCHETYPE if enemy_archetypes.is_empty() else enemy_archetypes[index]
 		var enemy_id := "%s_%02d" % [archetype, index]
 		var profile: EnemyDefinition = EnemyCatalogScript.get_definition(archetype)
-		var enemy_unit = EnemyActorFactory.create(profile, enemy_id, cell)
-		# Boss encounters can scale the four core sheet stats without changing
-		# signature-skill damage, which remains authored independently in the sheet.
-		if not is_equal_approx(enemy_stat_multiplier, 1.0):
-			enemy_unit.max_health = roundi(float(profile.health) * enemy_stat_multiplier)
-			enemy_unit.health = enemy_unit.max_health
-			enemy_unit.attack = roundi(float(profile.attack) * enemy_stat_multiplier)
-			enemy_unit.defense = roundi(float(profile.defense) * enemy_stat_multiplier)
-			enemy_unit.magic_resistance = roundi(float(profile.magic_resistance) * enemy_stat_multiplier)
+		var enemy_unit = EnemyActorFactory.create(profile, enemy_id, cell, -1, battle.enemy_stat_multiplier, battle.attenuation_k)
 		# Start encounter with full charge so turn 1 immediately showcases each enemy's signature threat
 		enemy_unit.skill_charge = 3
 		TacticalPressureScript.init_enemy_pressure(enemy_unit)

@@ -15,7 +15,59 @@ func _run() -> void:
 	await _test_deployment_visibility()
 	await _test_camera_stress()
 	await _test_highlight_composition()
+	_test_compact_threat_labels()
+	_test_compact_reactive_warnings()
 	await _test_area_cast_rejections()
+	var shell = root.get_node_or_null("GameShell")
+	if shell != null:
+		for voice in shell.audio.voices:
+			voice.stop()
+			voice.stream = null
+		await create_timer(0.12, true).timeout
+
+
+func _test_compact_threat_labels() -> void:
+	var battle := BattleController.new()
+	root.add_child(battle)
+	_check(battle.start_encounter(Vector2i(3, 5), [Vector2i(3, 3), Vector2i(5, 3)], [], ["vanguard", "area_controller"]), "label fixture starts through normal encounter setup")
+	battle.beacons.clear()
+	var hero = battle.get_active_character()
+	var before: int = hero.health
+	var area: Array[Vector2i] = [hero.cell, Vector2i(4, 5)]
+	var red := BattleIntent.new("red", "vanguard_00", "charged_strike", BattleIntent.TargetMode.AREA_LOCKED, "", hero.cell, area, 150)
+	var purple := BattleIntent.new("purple", "area_controller_01", "ground_pulse", BattleIntent.TargetMode.AREA_LOCKED, "", hero.cell, area, 100, 1, "magical")
+	battle.intents.assign([red, purple])
+	var labels := BoardThreatView.label_entries(battle, {})
+	_check(labels.size() == 1 and labels.has(hero.cell), "default board numbers are limited to the active character's tile")
+	_check(labels[hero.cell].size() == 2, "the current tile retains every announced hit")
+	labels = BoardThreatView.label_entries(battle, {"hover_cell": Vector2i(4, 5)})
+	_check(labels.size() == 2 and labels[Vector2i(4, 5)].size() == 2, "hovering an outer area tile shows its real damage despite not being the original aim cell")
+	labels = BoardThreatView.label_entries(battle, {"hover_cell": Vector2i(3, 3)})
+	_check(labels[hero.cell].size() == 2, "focusing one enemy never hides other incoming hits from the character label")
+	_check(BoardThreatView.label_entries(battle, {"hover_cell": hero.cell}).size() == 1, "hover on the character does not duplicate the label")
+	_check(BoardThreatView.label_entries(battle, {"hover_cell": Vector2i(20, 20)}).size() == 1, "off-board hover never creates a chip")
+	purple.cancel("fixture_cancel")
+	labels = BoardThreatView.label_entries(battle, {})
+	_check(labels[hero.cell].size() == 1, "cancelled attacks immediately leave the compact labels")
+	_check(hero.health == before and battle.ap.current == 3, "compact projection does not spend AP or health")
+	battle.queue_free()
+
+
+func _test_compact_reactive_warnings() -> void:
+	var battle := BattleController.new()
+	root.add_child(battle)
+	battle.start_encounter(Vector2i(3, 4), [Vector2i(3, 3)])
+	battle.beacons.clear()
+	var intent := BattleIntent.new("reactive", "vanguard_00", "basic_melee", BattleIntent.TargetMode.TILE_LOCKED, "", Vector2i(2, 3), [], 100)
+	battle.intents.assign([intent])
+	var once := BoardThreatView.caution_tiles(battle, {})
+	_check(once.has(Vector2i(3, 4)), "conditional warning still covers the actual eligible target")
+	battle.intents.append(intent)
+	_check(BoardThreatView.caution_tiles(battle, {}) == once, "duplicate warnings do not add fill, outlines or opacity")
+	_check(is_equal_approx(float(once.get(Vector2i(3, 4), 0.0)), 0.9), "current character warning retains its emphasis")
+	intent.cancel("fixture_cancel")
+	_check(BoardThreatView.caution_tiles(battle, {}).is_empty(), "cancelled conditional attacks leave no warning tiles")
+	battle.queue_free()
 
 
 func _test_equipment_health_is_reversible() -> void:

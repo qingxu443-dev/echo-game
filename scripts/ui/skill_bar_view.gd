@@ -20,6 +20,8 @@ static func hint_for(skill) -> String:
 		return "点地格定向 · 面前 %d×%d · %d 段" % [skill.shape_width, skill.shape_depth, skill.hits]
 	if skill.shape == SkillDefinitionScript.SHAPE_CROSS:
 		return "十字 %d 格 · %d 段" % [skill.max_range, skill.hits]
+	if skill.shape == SkillDefinitionScript.SHAPE_DIAMOND:
+		return "菱形半径 %d 格 · %d 段" % [skill.shape_radius, skill.hits]
 	if skill.target_mode == SkillDefinitionScript.TARGET_SELF:
 		return "自身周围 %d 格" % skill.max_range if skill.max_range > 0 else "自身施放"
 	if skill.target_mode == SkillDefinitionScript.TARGET_SELF_AND_ALLY:

@@ -84,6 +84,7 @@
 | [`DECISIONS_AND_OPEN_QUESTIONS`](engineering/decisions/DECISIONS_AND_OPEN_QUESTIONS.md) | 已确认基础规则、已移除机制、待决问题与待测试项 |
 | [`ECHO_COMBAT_PENDING_DECISIONS_v0.3.2`](engineering/decisions/ECHO_COMBAT_PENDING_DECISIONS_v0.3.2_zh-CN.md) | 0.3.2 战斗裁决单：伤害、多段、资源、状态等逐条裁定 |
 | [`CURRENT_SCOPE_AND_DECISIONS`](engineering/decisions/CURRENT_SCOPE_AND_DECISIONS.md) | 当前交付范围、旧规划对账与 ECHO-001/002/003 决策登记 |
+| [`ENCOUNTER_LAW_OVERRIDES`](engineering/decisions/ENCOUNTER_LAW_OVERRIDES.md) | 关卡 K/AP 覆写的执行范围、独立样板与尚未支持的预告语义 |
 
 ## 计划与状态（`planning/`）
 

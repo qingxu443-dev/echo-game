@@ -31,13 +31,18 @@ func initialize(view) -> void:
 			view.start_new_run(int(Time.get_unix_time_from_system()) % 100000, req_mode == "hard")
 		else:
 			var restored := SpringRun.load_from_file(view.save_path)
-			if restored != null and (BridgeScript.has_result() or not restored.exploration.finished):
+			if restored != null and (BridgeScript.has_result() or not restored.pending_battle_settlement.is_empty() or not restored.exploration.finished):
 				view.run = restored
 				view.status_message = "已恢复本局：模板 %d · 剩余体力 %d。" % [view.run.template_id, view.run.exploration.stamina]
 			elif not BridgeScript.has_result():
 				view.start_new_run(int(Time.get_unix_time_from_system()) % 100000, false)
 			else:
 				view.status_message = "战前存档无法读取，保留待结算结果。"
+	if view.run != null and not view.run.pending_battle_settlement.is_empty():
+		var settlement_error := change_scene(view, "res://scenes/spring/spring_battle_settlement.tscn", "战斗结算")
+		if settlement_error != OK:
+			view.status_message = "待结算战果已保留，但结算界面载入失败。Error: %s" % settlement_error
+		return
 	view._apply_returned_battle()
 	if view.run == null:
 		return

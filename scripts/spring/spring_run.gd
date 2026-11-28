@@ -1,6 +1,9 @@
 class_name SpringRun
 extends RefCounted
 
+const SaveMigrationScript = preload("res://scripts/spring/spring_run_migration.gd")
+const MIGRATIONS = SaveMigrationScript.MIGRATIONS
+
 ## One 春之境 expedition: the board, the explorer on it, and the resources that
 ## survive from place to place (设计汇总 2026-11-26 §4, §5, §16.2).
 ##
@@ -14,7 +17,7 @@ extends RefCounted
 ## content, which is what "尚未确定" means in practice.
 
 const SAVE_PATH := "user://spring_run.json"
-const SAVE_VERSION: int = 4
+const SAVE_VERSION: int = 5
 
 ## The hero's battle-side baseline, mirroring `data/characters/sakura.tres`.
 ## §2 makes 樱 the narrative lead of 春之境, and this mode now fights as her
@@ -27,6 +30,14 @@ const HERO_BASE_DEFENSE: int = 180
 const HERO_BASE_MAGIC_RESISTANCE: int = 111
 ## The character sheet the spring battles deploy.
 const HERO_CHARACTER_ID: String = "sakura"
+
+## The run lead follows the first character in its snapshotted squad. These
+## values are captured from the character sheet so SpringRun stays battle-agnostic.
+var hero_character_id: String = HERO_CHARACTER_ID
+var hero_base_max_health: int = HERO_BASE_MAX_HEALTH
+var hero_base_attack: int = HERO_BASE_ATTACK
+var hero_base_defense: int = HERO_BASE_DEFENSE
+var hero_base_magic_resistance: int = HERO_BASE_MAGIC_RESISTANCE
 
 ## §5.1: 补给 is shared by the whole party, not carried per character.
 var seed_value: int = 0
@@ -41,8 +52,12 @@ var dew: Dictionary = {"spring": 0, "summer": 0, "autumn": 0, "winter": 0}
 var dew_cap: int = 0
 var memory_pages: int = 0
 var relics: Array[StringName] = []
-## Stack counts for manually activated collectibles. Passive collectibles remain unique.
+## Stack counts for manually activated collectibles; passive collectibles remain unique.
 var collectible_consumables: Dictionary = {}
+## Durable battle settlement hand-off, retained until the player confirms the result.
+var pending_battle_settlement: Dictionary = {}
+## Idempotency ledger for battle reward transactions.
+var settled_battle_ids: Array[String] = []
 
 ## §11.2: health carries from fight to fight and is never restored by winning.
 ## The bonus is what relics and epic collectibles add for the rest of the run.
@@ -91,6 +106,10 @@ var event_choices: Dictionary = {}
 var hidden_cell: Vector2i = Vector2i.ZERO
 var hidden_revealed: bool = false
 var route_plan: SpringRoutePlan = SpringRoutePlan.create(false)
+## Party roster is snapshotted when an expedition first enters battle.
+var party_character_ids: Array[String] = []
+## Per-character HP carried between encounters; equipment carry remains separate.
+var party_vitals: Dictionary = {}
 
 
 static func begin(p_seed: int, hard_mode: bool = false) -> SpringRun:
@@ -132,12 +151,12 @@ func dew_total() -> int:
 	return total
 
 
+## §5.4: when the storage is full the player must be told, never silently
+## dropped. Returning false is that signal.
 func effective_dew_cap() -> int:
 	return maxi(0, dew_cap + SpringRelicCatalog.total_bonus(relics, "dew_cap"))
 
 
-## §5.4: when the storage is full the player must be told, never silently
-## dropped. Relic capacity bonuses are included in the same shared four-season cap.
 func add_dew(kind: String, amount: int) -> bool:
 	if amount <= 0 or not dew.has(kind):
 		return false
@@ -192,7 +211,7 @@ func grant_random_relic(rng: RandomNumberGenerator) -> StringName:
 
 func effective_max_health() -> int:
 	var relic_bonus: int = SpringRelicCatalog.total_bonus(relics, "max_health")
-	return maxi(1, maxi(HERO_BASE_MAX_HEALTH + bonus_max_health + relic_bonus, carry_max_health))
+	return maxi(1, maxi(hero_base_max_health + bonus_max_health + relic_bonus, carry_max_health))
 
 
 ## Returns how much was actually restored, so the caller can say "回复 37 点"
@@ -237,7 +256,7 @@ func has_collectible(collectible_id: StringName) -> bool:
 	return collectibles.has(collectible_id)
 
 
-## Passive collectibles are unique; active consumables stack and can be collected again.
+## §6.1: no duplicates, ever. Returns false when the player already owns it.
 func grant_collectible(collectible_id: StringName) -> bool:
 	if collectible_id == &"" or not SpringCollectibleCatalog.has_collectible(collectible_id):
 		return false
@@ -273,8 +292,6 @@ func grant_random_collectible(rng: RandomNumberGenerator, source: String = "even
 func consume_collectible() -> StringName:
 	if not collectibles.is_empty():
 		return collectibles.pop_back()
-	# Active consumables may also be traded; use a stable id order when no
-	# passive collectible is available so the exchange remains reproducible.
 	var active_ids: Array = collectible_consumables.keys()
 	active_ids.sort()
 	for item_id in active_ids:
@@ -297,8 +314,8 @@ func relic_name(relic_id: StringName) -> String:
 	return SpringRelicCatalog.name_of(relic_id)
 
 
-## Passive effects resolve on acquisition. Active consumables are deliberately
-## excluded here and must pass through use_collectible() instead.
+## Applies a collectible's effect. Resource kinds land immediately; the two that
+## need the map (a reveal) and the run (a stat) set state the map/bridge reads.
 func apply_collectible_effect(collectible_id: StringName) -> Dictionary:
 	if SpringCollectibleCatalog.is_consumable(collectible_id):
 		return {"ok": false, "message": "这件藏品需要主动使用。"}
@@ -392,8 +409,6 @@ func battle_payload() -> Dictionary:
 ## Writes back what the fight left behind. Health is clamped to the run's max,
 ## because gear sold or lost mid-fight can shrink the ceiling.
 func apply_battle_payload(payload: Dictionary) -> void:
-	# Update every ceiling modifier before clamping the returned health. Otherwise
-	# a battle-side gear or relic bonus could be discarded using the old ceiling.
 	if payload.has("hero_max_health"):
 		carry_max_health = maxi(0, int(payload["hero_max_health"]))
 	if payload.has("bonus_max_health"):
@@ -486,6 +501,11 @@ func to_dict() -> Dictionary:
 			"health": hero_health,
 			"bonus_max_health": bonus_max_health,
 			"carry_max_health": carry_max_health,
+			"character_id": hero_character_id,
+			"base_max_health": hero_base_max_health,
+			"base_attack": hero_base_attack,
+			"base_defense": hero_base_defense,
+			"base_magic_resistance": hero_base_magic_resistance,
 		},
 		"collectibles": _names_to_strings(collectibles),
 		"battle_carry": battle_carry.duplicate(true),
@@ -503,6 +523,10 @@ func to_dict() -> Dictionary:
 		# travel with the save.
 		"shop": {} if shop == null else shop.to_dict(),
 		"route_plan": {} if route_plan == null else route_plan.to_dict(),
+		"party_character_ids": party_character_ids.duplicate(),
+		"party_vitals": party_vitals.duplicate(true),
+		"pending_battle_settlement": pending_battle_settlement.duplicate(true),
+		"settled_battle_ids": settled_battle_ids.duplicate(),
 	}
 
 
@@ -510,60 +534,6 @@ static func _names_to_strings(values: Array) -> Array[String]:
 	var result: Array[String] = []
 	for value in values:
 		result.append(String(value))
-	return result
-
-
-## 版本迁移表：键是「从这一版升上去」，值是把该版数据改写成下一版的函数。
-## 加版本时只加一行；缺一行会让旧档加载失败并报出确切版本，而不是静默读错
-## 字段——静默读错是最坏的一种：玩家看到的是血量翻倍或资源归零。
-const MIGRATIONS := {
-	1: "_migrate_v1_to_v2",
-	2: "_migrate_v2_to_v3",
-	3: "_migrate_v3_to_v4",
-}
-
-
-## 就地把 data 推到 SAVE_VERSION。返回空串表示成功，否则返回拒绝原因。
-## 未来版本（比本程序新）一律拒绝：读得动不代表读得对。
-static func _migrate_to_current(data: Dictionary) -> String:
-	var version: int = int(data.get("version", 1))
-	if version > SAVE_VERSION:
-		return "save is version %d, this build reads up to %d" % [version, SAVE_VERSION]
-	while version < SAVE_VERSION:
-		var step: String = str(MIGRATIONS.get(version, ""))
-		if step.is_empty():
-			return "no migration from version %d" % version
-		# 传副本进去：迁移函数返回的是它自己那份时，下面的 clear() 会把
-		# 返回值一起清空，v1 档就这样丢过全部字段。
-		var migrated: Dictionary = Callable(SpringRun, step).call(data.duplicate(true))
-		data.clear()
-		data.merge(migrated, true)
-		version += 1
-	data["version"] = SAVE_VERSION
-	return ""
-
-
-static func _migrate_v1_to_v2(data: Dictionary) -> Dictionary:
-	# v2 只是加了字段，每个默认值都等于 v1 的语义，所以这一步不改写任何东西。
-	# 留一个空迁移是有意的：表必须覆盖每一个中间版本，否则 1 → 3 会找不到路。
-	return data
-
-
-static func _migrate_v2_to_v3(data: Dictionary) -> Dictionary:
-	# v3 把探索者从 瑟弗林（3600 血）换成 樱（1800）。v2 存档带着旧上限，
-	# 留着会让樱以两倍血量开局——这是唯一一次「照读不误比丢弃更糟」。
-	var result: Dictionary = data.duplicate(true)
-	var hero: Dictionary = result.get("hero", {})
-	hero.erase("carry_max_health")
-	result["hero"] = hero
-	return result
-
-
-static func _migrate_v3_to_v4(data: Dictionary) -> Dictionary:
-	var result := data.duplicate(true)
-	var resources: Dictionary = result.get("resources", {})
-	resources["collectible_consumables"] = {}
-	result["resources"] = resources
 	return result
 
 
@@ -576,7 +546,14 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	# 先把旧档推到当前版本，再读任何字段。迁移表放在文件末尾，加版本时只加
 	# 一行；以前是一串 `if version < N` 散在读字段的逻辑中间，第三个版本
 	# 进来时已经很难看出「哪一段属于哪一次升级」。
-	var version_problem: String = _migrate_to_current(data)
+	var migration_defaults := {
+		"hero_character_id": HERO_CHARACTER_ID,
+		"base_max_health": HERO_BASE_MAX_HEALTH,
+		"base_attack": HERO_BASE_ATTACK,
+		"base_defense": HERO_BASE_DEFENSE,
+		"base_magic_resistance": HERO_BASE_MAGIC_RESISTANCE,
+	}
+	var version_problem: String = SaveMigrationScript.migrate_to_current(data, SAVE_VERSION, migration_defaults)
 	if not version_problem.is_empty():
 		push_error("SpringRun.from_dict: %s" % version_problem)
 		return null
@@ -629,9 +606,15 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	# such keys, and each default matches what version 1 meant, so old saves load.
 	# Anything version-specific has already been handled by _migrate_to_current.
 	var hero: Dictionary = data.get("hero", {})
+	run.hero_character_id = str(hero.get("character_id", HERO_CHARACTER_ID))
+	run.hero_base_max_health = maxi(1, int(hero.get("base_max_health", HERO_BASE_MAX_HEALTH)))
+	run.hero_base_attack = maxi(0, int(hero.get("base_attack", HERO_BASE_ATTACK)))
+	run.hero_base_defense = maxi(0, int(hero.get("base_defense", HERO_BASE_DEFENSE)))
+	run.hero_base_magic_resistance = maxi(0, int(hero.get("base_magic_resistance", HERO_BASE_MAGIC_RESISTANCE)))
 	run.bonus_max_health = maxi(0, int(hero.get("bonus_max_health", 0)))
 	run.carry_max_health = maxi(0, int(hero.get("carry_max_health", 0)))
 	run.hero_health = clampi(int(hero.get("health", run.effective_max_health())), 1, run.effective_max_health())
+	run.hero_max_health = run.effective_max_health()
 	for collectible_id in data.get("collectibles", []):
 		run.collectibles.append(StringName(collectible_id))
 	var carry: Dictionary = data.get("battle_carry", {})
@@ -655,6 +638,12 @@ static func from_dict(data: Dictionary) -> SpringRun:
 	if not shop_data.is_empty():
 		run.shop = SpringShop.from_dict(shop_data)
 	run.route_plan = SpringRoutePlan.from_dict(data.get("route_plan", {}))
+	for character_id in data.get("party_character_ids", []):
+		run.party_character_ids.append(str(character_id))
+	run.party_vitals = data.get("party_vitals", {}).duplicate(true)
+	run.pending_battle_settlement = data.get("pending_battle_settlement", {}).duplicate(true)
+	for battle_id in data.get("settled_battle_ids", []):
+		run.settled_battle_ids.append(str(battle_id))
 	return run
 
 

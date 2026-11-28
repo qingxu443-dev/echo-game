@@ -18,6 +18,7 @@ const GridRulesScript = preload("res://scripts/battle/grid_rules.gd")
 const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const CombatGeometryScript = preload("res://scripts/battle/combat_geometry.gd")
 const SkillExecutorScript = preload("res://scripts/battle/skill_executor.gd")
+const DestLeeSkillEffectsScript = preload("res://scripts/battle/dest_lee_skill_effects.gd")
 
 ## Sakura's mark (design plan §20) and resource (§19).
 const PETAL_MARK: StringName = &"sakura_petal_mark"
@@ -61,6 +62,8 @@ const DASH_EXECUTORS: Array[StringName] = [&"sakura_flowing_wind"]
 ## ring and the cast both call this, so the highlight can never promise a shot the
 ## controller then refuses.
 static func can_aim(battle, skill, target) -> bool:
+	if String(skill.executor_id).begins_with("dest_lee_"):
+		return DestLeeSkillEffectsScript.can_aim(battle, skill, target)
 	var caster = battle.get_active_character()
 	var depth_bonus: int = EXTREME_SHAPE_DEPTH_BONUS if is_extreme(caster) else 0
 	return CombatGeometryScript.can_aim(
@@ -239,6 +242,8 @@ static func _flowing_wind(battle, skill, target_actor_id: String) -> bool:
 ## by owner decision on 2026-11-25, replacing the undecided fan. Three segments of
 ## 30% each; the mark lands on hit, and targets already marked take a follow-up.
 static func area_cells(battle, skill, aim: Vector2i) -> Dictionary:
+	if String(skill.executor_id).begins_with("dest_lee_"):
+		return DestLeeSkillEffectsScript.area_cells(battle, skill, aim)
 	var caster = battle.get_active_character()
 	if caster == null:
 		return {}

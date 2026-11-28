@@ -38,10 +38,8 @@ const BLOCKED_LINE := Color("#655e54")
 
 const HOVER_FILL := Color(0.92, 0.84, 0.62, 0.16)
 const HOVER_LINE := Color(0.95, 0.87, 0.64, 0.72)
-const MOVE_FILL := Color(0.18, 0.78, 0.58, 0.24)
 const MOVE_LINE := Color(0.42, 0.94, 0.74, 0.88)
 const MOVE_GUIDE_FILL := Color(0.20, 0.90, 0.66, 0.34)
-const MOVE_GUIDE_LINE := Color(0.68, 1.00, 0.86, 0.98)
 const SHADOW_COLOR := Color(0.02, 0.03, 0.05, 0.48)
 const HP_BG := Color(0.08, 0.09, 0.11, 0.85)
 const HP_PLAYER := Color("#6cb878")
@@ -90,7 +88,7 @@ const TELEGRAPH_PURSUIT_FILL := Color(0.76, 0.82, 0.92, 0.14)
 const TELEGRAPH_PURSUIT_LINE := Color(0.84, 0.90, 0.98, 0.72)
 
 ## §11.1 deployment zone. Gold because it is a choice, not a reachable tile:
-## the cyan move fill means "you can walk here this turn", and during deployment
+## the green move markers mean "you can walk here this turn", and during deployment
 ## there is no turn yet.
 const DEPLOY_FILL := Color(0.86, 0.72, 0.40, 0.16)
 const DEPLOY_LINE := Color(0.92, 0.80, 0.52, 0.55)
@@ -278,6 +276,17 @@ static func draw_polyline_closed(canvas: CanvasItem, pts: PackedVector2Array, co
 	var closed := PackedVector2Array(pts)
 	closed.append(pts[0])
 	canvas.draw_polyline(closed, color, width, true)
+
+
+static func draw_corner_marks(canvas: CanvasItem, pts: PackedVector2Array, color: Color, width: float = 2.0, corner: int = -1) -> void:
+	if pts.size() != 4: return
+	for index in range(4):
+		if corner >= 0 and index != corner: continue
+		var vertex := pts[index]
+		canvas.draw_polyline(PackedVector2Array([
+			vertex.lerp(pts[(index + 3) % 4], 0.24), vertex,
+			vertex.lerp(pts[(index + 1) % 4], 0.24),
+		]), color, width, true)
 
 
 static func draw_iso_ellipse(canvas: CanvasItem, center: Vector2, rx: float, ry: float, color: Color, filled: bool, width: float = 2.0) -> void:

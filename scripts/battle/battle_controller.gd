@@ -33,6 +33,7 @@ const SummonCatalogScript = preload("res://scripts/battle/summon_catalog.gd")
 const CharacterCatalogScript = preload("res://scripts/battle/character_catalog.gd")
 const SkillRegistryScript = preload("res://scripts/battle/skill_registry.gd")
 const RunStateScript = preload("res://scripts/battle/run_state.gd")
+const BattleLootServiceScript = preload("res://scripts/battle/battle_loot_service.gd")
 
 ## Maximum straight-line steps for one player move action. The UI reads this
 ## constant so the movement-range rule has a single source of truth.
@@ -43,9 +44,8 @@ const PLAYER_MOVE_MAX_STEPS: int = 2
 enum BattlePhase { PLAYER, ENEMY, FINISHED, DEPLOY }
 
 @export var grid_size: Vector2i = Vector2i(8, 8)
-## Team-wide AP pool (design plan §4): five points shared by the whole party per
-## player turn, not five per character. One ledger, drawn down by whichever
-## character acts. Unspent points are discarded at end of turn.
+## Team-wide AP pool, defaulting to three points per player turn. All commanded
+## characters draw from this pool; unspent points are discarded at end of turn.
 @export var team_ap: int = 3
 
 var phase: BattlePhase = BattlePhase.FINISHED
@@ -70,6 +70,10 @@ var intents: Array = []
 var event_sequence: int = 0
 var turn_number: int = 0
 var battle_result: String = ""
+## Encounter-wide scaling also applies to units summoned after initial setup.
+var enemy_stat_multiplier: float = 1.0
+var law_overrides: Dictionary = {}
+var attenuation_k: int = CombatMath.ATTENUATION_K
 ## Settlement tallies for the end-of-battle panel. Reset on every encounter.
 var damage_dealt: int = 0
 var damage_taken: int = 0
@@ -115,9 +119,10 @@ func start_encounter(
 	chest_items: Array[StringName] = [],
 	ward_nodes: int = 0,
 	deploy_zone_cells: Array[Vector2i] = [],
-	defer_start: bool = false, enemy_stat_multiplier: float = 1.0
+	defer_start: bool = false, enemy_stat_multiplier: float = 1.0,
+	anomaly_overrides: Dictionary = {}
 ) -> bool:
-	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes, deploy_zone_cells, defer_start, enemy_stat_multiplier)
+	return BattleFlowScript.start_encounter(self, player_cell, enemy_cells, obstacles, enemy_archetypes, character_ids, ally_cells, chest_items, ward_nodes, deploy_zone_cells, defer_start, enemy_stat_multiplier, anomaly_overrides)
 
 
 func end_player_turn() -> bool:
@@ -187,13 +192,13 @@ func alive_beacons() -> Array[Dictionary]:
 	return list
 
 
-func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, action_id: String) -> bool:
+func damage_beacon_at(cell: Vector2i, amount: int, source_actor_id: String, action_id: String, use_amount_for_chests: bool = false) -> bool:
 	if not beacons.has(cell):
 		return false
 	var b: Dictionary = beacons[cell]
 	if int(b.get("health", 0)) <= 0:
 		return false
-	var dmg: int = maxi(1, amount) if str(b.get("kind", "")) == "ward_node" else 1
+	var dmg: int = maxi(1, amount) if use_amount_for_chests or str(b.get("kind", "")) == "ward_node" else 1
 	b["health"] = maxi(0, int(b["health"]) - dmg)
 	beacons[cell] = b
 	_emit_event("beacon_damaged", source_actor_id, str(b["id"]), "action=%s cell=%s applied=%d health=%d" % [action_id, str(cell), dmg, int(b["health"])])
@@ -276,102 +281,21 @@ func spawn_ward_nodes(count: int = 2, health: int = WARD_NODE_HEALTH, defense_bo
 
 
 func _grant_chest_buff_to_enemy(source_actor_id: String, chest: Dictionary) -> void:
-	var loot: Dictionary = chest.get("loot", {})
-	if loot.is_empty():
-		return
-	var recipient = get_actor(source_actor_id)
-	if recipient == null or recipient.team != "enemy" or not recipient.is_alive():
-		for aid in actors:
-			var a = actors[aid]
-			if a.team == "enemy" and a.is_alive():
-				recipient = a
-				break
-	if recipient == null:
-		return
-
-	var kind: String = str(loot.get("kind", ""))
-	var item_name: String = str(loot.get("name", "宝箱物品"))
-	# The catalogue's enemy_* columns are the single authority for what a
-	# chest gives an enemy (the catalogue is where numbers live, not a code
-	# path). The player-side stats are deliberately not reused: the enemy
-	# variants are tuned separately - armor becomes shield, the dusk blade
-	# loses its defense penalty, and each upgrade carries its own numbers.
-	recipient.attack = maxi(1, recipient.attack + int(loot.get("enemy_attack", 0)) * 2)
-	var add_shield: int = int(loot.get("enemy_shield", 0)) * 2
-	if add_shield > 0:
-		recipient.shield = mini(recipient.max_health, recipient.shield + add_shield)
-	var add_heal: int = int(loot.get("enemy_heal", 0)) * 2
-	if add_heal > 0:
-		recipient.health = mini(recipient.max_health, recipient.health + add_heal)
-	if bool(loot.get("enemy_charge", false)) and recipient.skill_charge_max > 0:
-		recipient.skill_charge = recipient.skill_charge_max
-	var verb: String = "吸收了"
-	if kind == "weapon" or kind == "armor":
-		# Equipped pieces drop back onto the ground when the wearer dies.
-		recipient.stolen_equipment.append(loot.duplicate(true))
-		verb = "装备了"
-	elif kind == "consumable":
-		verb = "使用了"
-	_emit_event("chest_stolen_by_enemy", recipient.actor_id, str(chest.get("id", "")), "%s「%s」" % [verb, item_name])
+	BattleLootServiceScript.grant_chest_buff_to_enemy(self, source_actor_id, chest)
 
 
 ## Only weapon/armor equipment drops onto the ground when an enemy is defeated.
 func drop_enemy_equipment(enemy) -> void:
-	if enemy == null or enemy.stolen_equipment.is_empty():
-		return
-	var cell: Vector2i = enemy.cell
-	if not dropped_loot.has(cell):
-		dropped_loot[cell] = []
-	var names: Array[String] = []
-	for item in enemy.stolen_equipment:
-		var kind: String = str(item.get("kind", ""))
-		if kind == "weapon" or kind == "armor":
-			dropped_loot[cell].append(item.duplicate(true))
-			names.append(str(item.get("name", "装备")))
-	enemy.stolen_equipment.clear()
-	if not names.is_empty():
-		_emit_event("loot_dropped", enemy.actor_id, "", "掉落「%s」" % "、".join(names))
+	BattleLootServiceScript.drop_enemy_equipment(self, enemy)
 
 
 func pickup_dropped_loot_at(cell: Vector2i) -> Array[Dictionary]:
-	if not dropped_loot.has(cell):
-		return []
-	var items: Array = dropped_loot[cell]
-	dropped_loot.erase(cell)
-	var picked: Array[Dictionary] = []
-	for item in items:
-		if run_state != null:
-			run_state.add_to_backpack(item)
-		picked.append(item)
-		_emit_event("loot_picked_up", active_character_id, "", str(item.get("name", "装备")))
-	return picked
+	return BattleLootServiceScript.pickup_dropped_loot_at(self, cell)
 
 
 ## Collect any intact chests and uncollected ground equipment on victory.
 func collect_remaining_chests() -> Array[Dictionary]:
-	var claimed: Array[Dictionary] = []
-	for cell in beacons:
-		var b: Dictionary = beacons[cell]
-		# 结界节点 are not chests: they carry no loot and must not be reported as
-		# "saved" in the settlement summary.
-		if str(b.get("kind", "")) == "ward_node":
-			continue
-		if int(b.get("health", 0)) > 0 and not bool(b.get("opened", false)):
-			b["health"] = 0
-			b["opened"] = true
-			beacons[cell] = b
-			var loot: Dictionary = b.get("loot", {})
-			if not loot.is_empty():
-				if run_state != null:
-					run_state.add_to_backpack(loot)
-				claimed.append(loot)
-	for drop_cell in dropped_loot.keys():
-		for item in dropped_loot[drop_cell]:
-			if run_state != null:
-				run_state.add_to_backpack(item)
-			claimed.append(item)
-	dropped_loot.clear()
-	return claimed
+	return BattleLootServiceScript.collect_remaining_chests(self)
 
 
 func start_enemy_phase_stepped() -> bool:

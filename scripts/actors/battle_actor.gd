@@ -14,6 +14,7 @@ var health: int
 var attack: int
 var defense: int
 var magic_resistance: int
+var attenuation_k: int = CombatMathScript.ATTENUATION_K
 ## Defeated / downed state is read through predicate methods, exactly like
 ## is_alive(): every state query on this class takes parentheses - is_alive(),
 ## is_defeated(), is_downed(), blocks_cell(). The property/method mix is how
@@ -182,7 +183,7 @@ func mitigated_damage(
 	# §47 待决 3 option C: true damage keeps only the shield step.
 	if not DamageTypes.ignores_mitigation(damage_type):
 		var resistance: int = DamageTypes.resistance_for(self, damage_type)
-		final_damage = CombatMathScript.calculate_damage(raw_damage, resistance)
+		final_damage = CombatMathScript.calculate_damage(raw_damage, resistance, attenuation_k)
 		# Contextual reductions (for example, area protection) resolve after resistance.
 		for reduction_percent in additional_reduction_percents:
 			var reduction: int = clampi(reduction_percent, 0, 100)

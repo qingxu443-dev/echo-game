@@ -12,6 +12,11 @@ extends RefCounted
 const LESSON_CHARGE = preload("res://data/levels/lesson_charge.tres")
 const LESSON_LANE = preload("res://data/levels/lesson_lane.tres")
 const LESSON_MIXED = preload("res://data/levels/lesson_mixed.tres")
+const ANOMALY_DEMO = preload("res://data/levels/anomaly_resonance.tres")
+
+## Explicit optional scene registry, also used to validate suspended demo IDs.
+static func optional_encounter(id: StringName) -> EncounterDefinition:
+	return ANOMALY_DEMO if id == ANOMALY_DEMO.level_id else null
 
 
 static func create_prototype_levels() -> Array[EncounterDefinition]:

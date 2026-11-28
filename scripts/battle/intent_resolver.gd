@@ -15,6 +15,7 @@ const CombatMathScript = preload("res://scripts/battle/combat_math.gd")
 const HazardFieldScript = preload("res://scripts/battle/hazard_field.gd")
 const IntentSupportScript = preload("res://scripts/battle/intent_support.gd")
 const TacticalPressureScript = preload("res://scripts/battle/tactical_pressure.gd")
+const DestLeeSkillEffectsScript = preload("res://scripts/battle/dest_lee_skill_effects.gd")
 
 const ABSOLUTE_GUARD_MARKED_MULTIPLIER: float = 0.7
 const ABSOLUTE_GUARD_PLAIN_MULTIPLIER: float = 0.5
@@ -92,6 +93,10 @@ static func resolve_one_active(battle) -> bool:
 static func finish_phase(battle) -> void:
 	var statuses = battle.statuses
 	if battle.phase != battle.BattlePhase.FINISHED:
+		DestLeeSkillEffectsScript.tick_ignition(battle)
+		battle._check_battle_end()
+		if battle.phase == battle.BattlePhase.FINISHED:
+			return
 		var timed_out: int = statuses.tick_enemy_phase()
 		if timed_out > 0:
 			battle._emit_event("statuses_expired", "", "", "reason=enemy_turns count=%d" % timed_out)

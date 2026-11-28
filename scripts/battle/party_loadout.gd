@@ -67,8 +67,18 @@ static func restore_health(battle, saved: Dictionary) -> void:
 		var row: Dictionary = saved[actor_id]
 		var hp := int(row.get("health", actor.health))
 		if battle.run_state != null and battle.run_state.party_retired.has(str(actor_id)): hp = 0
-		# Preserve existing expedition snapshots, including authored health caps.
-		actor.max_health = maxi(1, int(row.get("max_health", actor.max_health)))
+		var saved_max := maxi(1, int(row.get("max_health", actor.max_health)))
+		# A module installed between encounters raises the rebuilt maximum, but
+		# the saved row still holds the pre-module value. That only happens when
+		# the saved maximum equals the actor's unscaled base: keep the scaled
+		# maximum and carry the HP ratio over. Otherwise the row is the only
+		# record of an authored or equipment-granted cap, so it stays authoritative.
+		var base_max := _unscaled(actor, "health", actor.max_health)
+		var fragment_pct := float(actor.fragment_bonuses.get("health", 0.0))
+		if fragment_pct > 0.0 and saved_max == base_max and actor.max_health > saved_max:
+			hp = roundi(float(hp) * float(actor.max_health) / float(saved_max))
+		else:
+			actor.max_health = saved_max
 		actor.health = clampi(hp, 0, actor.max_health)
 		if actor.health <= 0: PartyRotation.retire(battle, actor)
 	PartyRotation.ensure_active(battle)

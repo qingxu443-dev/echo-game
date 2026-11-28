@@ -2,6 +2,7 @@ class_name SpringRun
 extends RefCounted
 
 const SaveMigrationScript = preload("res://scripts/spring/spring_run_migration.gd")
+const MIGRATIONS = SaveMigrationScript.MIGRATIONS
 
 ## One 春之境 expedition: the board, the explorer on it, and the resources that
 ## survive from place to place (设计汇总 2026-11-26 §4, §5, §16.2).

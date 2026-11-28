@@ -528,7 +528,7 @@ func _draw_enemies(font: Font, sx: float, sy: float) -> void:
 		_draw_button(font, rect, ["普通", "精英", "首领"][i], enemy_filter == ["普通", "精英", "首领"][i], sx, sy, 11)
 	var entries := filtered_enemies()
 	_draw_panel(_r(54, 188, 432, 390), Color("#211923"), Color("#875a68"))
-	_draw_panel(_r(508, 142, 716, 436), Color("#211923"), Color("#875a68"))
+	_draw_panel(_r(508, 188, 716, 390), Color("#211923"), Color("#875a68"))
 	var visible_count := mini(8, maxi(0, entries.size() - list_scroll))
 	for i in range(visible_count):
 		var index := list_scroll + i

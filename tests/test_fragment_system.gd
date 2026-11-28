@@ -39,7 +39,7 @@ func _test_fixed_module_generation() -> void:
 	var medium := Catalog.create_medium(rng)
 	_check(Catalog.validate_module(medium), "a medium module is valid")
 	_check(medium.attributes.size() == 2, "a medium module has exactly two attributes")
-	var medium_keys := medium.attributes.keys()
+	var medium_keys: Array = medium.attributes.keys()
 	_check(medium_keys[0] != medium_keys[1], "a medium module never repeats its attribute")
 	var medium_values_match := true
 	for stat in medium_keys:
